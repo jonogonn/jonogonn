@@ -1,0 +1,45 @@
+# ========================================================
+# Janogon Root Monorepo Git Ignore Configuration
+# ========================================================
+
+# Sensitive Credentials & Keys (Crucial for cPanel / Git Security)
+credantials.txt
+credentials.txt
+*.pem
+*.key
+*.cert
+.env
+.env.*
+!.env.example
+
+# Dependencies
+**/node_modules/
+/.pnp
+.pnp.*
+
+# Build Outputs & Next.js cache
+**/dist/
+**/build/
+**/.next/
+**/out/
+*.tsbuildinfo
+
+# Local Uploads & Temporary Directories
+**/public/uploads/*
+!**/public/uploads/.gitkeep
+**/temp/
+**/tmp/
+
+# Logs
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS & Editor Specific Files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
