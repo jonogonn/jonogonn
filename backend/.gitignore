@@ -3,7 +3,7 @@
 # ========================================================
 
 # Dependencies
-node_modules/
+**/node_modules/
 
 # Environment Variables (Never commit real credentials to Git!)
 .env
