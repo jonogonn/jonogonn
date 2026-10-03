@@ -32,8 +32,10 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="navbar">
-      <div className="container navbar-content">
+    <div className="navbar-wrapper">
+      <div className="container">
+        <nav className="navbar">
+          <div className="navbar-content">
         {/* Mobile Hamburger Button */}
         <button
           className="nav-item mobile-only-btn"
@@ -162,5 +164,7 @@ export default function Navbar() {
         </div>
       </div>
     </nav>
+  </div>
+</div>
   );
 }

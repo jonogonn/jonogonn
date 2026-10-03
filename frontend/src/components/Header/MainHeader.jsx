@@ -9,7 +9,7 @@ export default function MainHeader() {
   return (
     <div className="main-header">
       <div className="container main-header-content">
-        {/* Brand Logo & Slogan */}
+        {/* Brand Logo & Website Name */}
         <a
           href="/"
           onClick={(e) => {
@@ -18,16 +18,18 @@ export default function MainHeader() {
             setSearchQuery('');
           }}
           className="brand-logo-wrap"
-          title={isBn ? settings.siteNameBn : settings.siteNameEn}
+          title={isBn ? 'জনগণ.নিউজ' : 'Jonogon.News'}
         >
           <img
             src={settings.logoUrl || '/logo.svg'}
-            alt={isBn ? settings.siteNameBn : settings.siteNameEn}
+            alt={isBn ? 'জনগণ.নিউজ' : 'Jonogon.News'}
             className="brand-logo-img"
           />
-          <span className="brand-tagline">
-            {isBn ? settings.sloganBn : settings.sloganEn}
-          </span>
+          <div className="brand-name-wrap">
+            <span className="brand-site-title">
+              {isBn ? 'জনগণ.নিউজ' : 'Jonogon.News'}
+            </span>
+          </div>
         </a>
 
         {/* Header Search Box */}

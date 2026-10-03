@@ -1,83 +1,68 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNews } from '../../context/NewsContext';
-import { ChevronLeft, ChevronRight, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 
 export default function BreakingTicker() {
-  const { language, breakingNews, openArticle, articles } = useNews();
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
+  const { language, articles, breakingNews, openArticle } = useNews();
   const isBn = language === 'bn';
 
-  const items = breakingNews && breakingNews.length > 0 ? breakingNews : [
-    { textBn: 'স্বাগতম জনগণ.নিউজ - সত্যের সাথে, জনতার পাশে', textEn: 'Welcome to Jonogon News - Standing for the Truth' }
-  ];
-
-  useEffect(() => {
-    if (isPaused || items.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % items.length);
-    }, 4500);
-    return () => clearInterval(interval);
-  }, [isPaused, items.length]);
-
-  const handlePrev = () => {
-    setCurrentIndex((prev) => (prev - 1 + items.length) % items.length);
-  };
-
-  const handleNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % items.length);
-  };
-
-  const currentItem = items[currentIndex] || items[0];
-
-  const handleItemClick = () => {
-    // If matching article exists, open it
-    const matched = articles.find(
-      (a) => a.titleBn === currentItem.textBn || a.titleEn === currentItem.textEn
-    );
-    if (matched) {
-      openArticle(matched);
-    } else {
-      openArticle(articles[0]);
-    }
-  };
+  // Build the list of ticker items: prioritize all articles, fallback to breakingNews
+  const tickerItems = articles && articles.length > 0
+    ? articles
+    : breakingNews.map((b) => ({
+        id: b.id,
+        titleBn: b.textBn,
+        titleEn: b.textEn,
+        categoryBn: 'সর্বশেষ',
+        category: 'Latest'
+      }));
 
   return (
     <div className="breaking-ticker">
       <div className="container ticker-wrapper">
-        {/* Badge */}
+        {/* Fixed Red Badge on Left */}
         <div className="ticker-badge">
-          <Zap size={15} />
-          <span>{isBn ? 'সর্বশেষ' : 'Breaking'}</span>
+          <Zap size={15} className="ticker-badge-icon" />
+          <span>{isBn ? 'সর্বশেষ সংবাদ' : 'Breaking News'}</span>
         </div>
 
-        {/* Ticker Headline */}
-        <div
-          className="ticker-content"
-          onMouseEnter={() => setIsPaused(true)}
-          onMouseLeave={() => setIsPaused(false)}
-          onClick={handleItemClick}
-          title={isBn ? currentItem.textBn : currentItem.textEn}
-        >
-          {isBn ? currentItem.textBn : currentItem.textEn}
-        </div>
+        {/* Continuous Right-to-Left Scrolling Marquee Track */}
+        <div className="ticker-marquee-container" title={isBn ? 'সংবাদে ক্লিক করুন' : 'Click to read'}>
+          <div className="ticker-marquee-track">
+            {/* First Set of Items */}
+            {tickerItems.map((art, idx) => (
+              <span
+                key={`t1-${art.id || idx}`}
+                className="ticker-item"
+                onClick={() => openArticle(art)}
+              >
+                <span className="ticker-cat-tag">
+                  [{isBn ? (art.categoryBn || art.category || 'বাংলাদেশ') : (art.category || 'National')}]
+                </span>
+                <span className="ticker-title">
+                  {isBn ? art.titleBn : art.titleEn}
+                </span>
+                <span className="ticker-separator">✦</span>
+              </span>
+            ))}
 
-        {/* Prev / Next Controls */}
-        <div className="ticker-controls">
-          <button
-            className="ticker-ctrl-btn"
-            onClick={handlePrev}
-            aria-label="Previous breaking headline"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <button
-            className="ticker-ctrl-btn"
-            onClick={handleNext}
-            aria-label="Next breaking headline"
-          >
-            <ChevronRight size={16} />
-          </button>
+            {/* Duplicate Set for Seamless Infinite Loop */}
+            {tickerItems.map((art, idx) => (
+              <span
+                key={`t2-${art.id || idx}`}
+                className="ticker-item"
+                onClick={() => openArticle(art)}
+              >
+                <span className="ticker-cat-tag">
+                  [{isBn ? (art.categoryBn || art.category || 'বাংলাদেশ') : (art.category || 'National')}]
+                </span>
+                <span className="ticker-title">
+                  {isBn ? art.titleBn : art.titleEn}
+                </span>
+                <span className="ticker-separator">✦</span>
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>

@@ -111,6 +111,7 @@ export const initialNewsArticles = [
     author: 'জনগণ নিউজ ডেস্ক',
     views: 14200,
     isLeadHero: true,
+    isHighlighted: true,
     isBreaking: true
   },
 
@@ -129,7 +130,8 @@ export const initialNewsArticles = [
     dateBn: '২৮ সেপ্টেম্বর ২০২৪',
     dateEn: '28 Sep 2026',
     author: 'রাজনৈতিক প্রতিবেদক',
-    views: 8900
+    views: 8900,
+    isHighlighted: true
   },
   {
     id: 'lead-side-2',
@@ -145,7 +147,8 @@ export const initialNewsArticles = [
     dateBn: '২৮ সেপ্টেম্বর ২০২৪',
     dateEn: '28 Sep 2026',
     author: 'আন্তর্জাতিক ডেস্ক',
-    views: 11400
+    views: 11400,
+    isHighlighted: true
   },
   {
     id: 'lead-side-3',

@@ -59,6 +59,7 @@ export default function AdminDashboard() {
     imageUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800&q=80',
     author: 'জনগণ নিউজ ডেস্ক',
     isLeadHero: false,
+    isHighlighted: false,
     isBreaking: false,
     isVideo: false,
     videoDuration: ''
@@ -148,6 +149,7 @@ export default function AdminDashboard() {
       imageUrl: art.imageUrl || '',
       author: art.author || 'জনগণ নিউজ ডেস্ক',
       isLeadHero: !!art.isLeadHero,
+      isHighlighted: !!art.isHighlighted,
       isBreaking: !!art.isBreaking,
       isVideo: !!art.isVideo,
       videoDuration: art.videoDuration || ''
@@ -555,15 +557,23 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="admin-form-group">
-                      <label className="admin-label">লেআউট টাইপ</label>
-                      <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
+                      <label className="admin-label">লেআউট টাইপ ও ডিসপ্লে</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 8 }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.88rem' }}>
                           <input
                             type="checkbox"
                             checked={articleForm.isLeadHero}
                             onChange={(e) => setArticleForm({ ...articleForm, isLeadHero: e.target.checked })}
                           />
-                          প্রধান লিড নিউজ
+                          প্রধান লিড
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.88rem' }}>
+                          <input
+                            type="checkbox"
+                            checked={articleForm.isHighlighted}
+                            onChange={(e) => setArticleForm({ ...articleForm, isHighlighted: e.target.checked })}
+                          />
+                          ✨ হাইলাইটস স্লাইডার
                         </label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.88rem' }}>
                           <input
