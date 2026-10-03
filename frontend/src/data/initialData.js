@@ -239,7 +239,7 @@ export const initialNewsArticles = [
     excerptEn: 'Dynamic fuel pricing formula set to reflect lower global crude benchmark values.',
     contentBn: 'জ্বালানি ও খনিজ সম্পদ বিভাগ আন্তর্জাতিক বাজারে ক্রুড অয়েলের দাম কমার সুফল সরাসরি ভোক্তাদের কাছে পৌঁছে দেওয়ার উদ্যোগ নিয়েছে।',
     contentEn: 'Energy ministry aims to pass on global market price reductions to end consumers.',
-    imageUrl: 'https://images.unsplash.com/photo-1527018607619-a508a2be00be?w=600&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=600&q=80',
     dateBn: '২৮ সেপ্টেম্বর ২০২৪, ১০:০৫',
     dateEn: '28 Sep 2026, 10:05 AM',
     views: 9100
@@ -406,3 +406,183 @@ export const initialNewsArticles = [
     isOpinion: true
   }
 ];
+
+export const initialPodcasts = [
+  {
+    id: 'pod-1',
+    titleBn: 'নতুন বাংলাদেশ বিনির্মাণে তারুণ্যের ভাবনা ও ভবিষ্যৎ রাজনীতি',
+    titleEn: 'Youth Vision and the Future Politics in Rebuilding Bangladesh',
+    youtubeId: 'dQw4w9WgXcQ',
+    youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    hostBn: 'মোঃ বিপ্লব হোসেন',
+    hostEn: 'Md. Biplob Hossain',
+    guestBn: 'ফারহান আহমেদ (রাজনৈতিক বিশ্লেষক)',
+    guestEn: 'Farhan Ahmed (Political Analyst)',
+    duration: '২৫:৪০',
+    thumbnail: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=600&q=80',
+    dateBn: '২৮ সেপ্টেম্বর ২০২৪',
+    dateEn: '28 Sep 2026'
+  },
+  {
+    id: 'pod-2',
+    titleBn: 'অর্থনীতির সংকট থেকে উত্তরণের সম্ভাব্য পথ ও সম্ভাবনা',
+    titleEn: 'Potential Pathways to Overcoming the Economic Crisis',
+    youtubeId: '3JZ_D3ELwOQ',
+    youtubeUrl: 'https://www.youtube.com/watch?v=3JZ_D3ELwOQ',
+    hostBn: 'জনগণ পডকাস্ট টিম',
+    hostEn: 'Jonogon Podcast Team',
+    guestBn: 'ড. জামিল হাসান (অর্থনীতিবিদ)',
+    guestEn: 'Dr. Jamil Hasan (Economist)',
+    duration: '৩২:১৫',
+    thumbnail: 'https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=600&q=80',
+    dateBn: '২৭ সেপ্টেম্বর ২০২৪',
+    dateEn: '27 Sep 2026'
+  },
+  {
+    id: 'pod-3',
+    titleBn: 'মিডিয়া ও স্বাধীন সাংবাদিকতার নতুন দিগন্ত',
+    titleEn: 'New Horizons for Free Media and Journalism',
+    youtubeId: 'L_LUpnjgPso',
+    youtubeUrl: 'https://www.youtube.com/watch?v=L_LUpnjgPso',
+    hostBn: 'মোঃ বিপ্লব হোসেন',
+    hostEn: 'Md. Biplob Hossain',
+    guestBn: 'রাশেদ খান (সিনিয়র সাংবাদিক)',
+    guestEn: 'Rashed Khan (Senior Journalist)',
+    duration: '১৮:২০',
+    thumbnail: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&q=80',
+    dateBn: '২৬ সেপ্টেম্বর ২০২৪',
+    dateEn: '26 Sep 2026'
+  },
+  {
+    id: 'pod-4',
+    titleBn: 'প্রযুক্তি ও এআই: বাংলাদেশের তরুণদের কাজের সুযোগ',
+    titleEn: 'Tech & AI: Future Opportunities for Bangladeshi Youth',
+    youtubeId: 'kJQP7kiw5Fk',
+    youtubeUrl: 'https://www.youtube.com/watch?v=kJQP7kiw5Fk',
+    hostBn: 'জনগণ পডকাস্ট ডেস্ক',
+    hostEn: 'Jonogon Podcast Desk',
+    guestBn: 'তানভীর আহমেদ (এআই গবেষক)',
+    guestEn: 'Tanvir Ahmed (AI Researcher)',
+    duration: '২১:১০',
+    thumbnail: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&q=80',
+    dateBn: '২৫ সেপ্টেম্বর ২০২৪',
+    dateEn: '25 Sep 2026'
+  }
+];
+
+// All 64 Districts of Bangladesh organized by 8 Divisions
+export const bangladeshDistricts = [
+  {
+    divisionBn: 'ঢাকা বিভাগ',
+    divisionEn: 'Dhaka Division',
+    districts: [
+      { id: 'dhaka', nameBn: 'ঢাকা', nameEn: 'Dhaka' },
+      { id: 'gazipur', nameBn: 'গাজীপুর', nameEn: 'Gazipur' },
+      { id: 'narayanganj', nameBn: 'নারায়ণগঞ্জ', nameEn: 'Narayanganj' },
+      { id: 'tangail', nameBn: 'টাঙ্গাইল', nameEn: 'Tangail' },
+      { id: 'faridpur', nameBn: 'ফরিদপুর', nameEn: 'Faridpur' },
+      { id: 'narsingdi', nameBn: 'নরসিংদী', nameEn: 'Narsingdi' },
+      { id: 'manikganj', nameBn: 'মানিকগঞ্জ', nameEn: 'Manikganj' },
+      { id: 'munshiganj', nameBn: 'মুন্সীগঞ্জ', nameEn: 'Munshiganj' },
+      { id: 'kishoreganj', nameBn: 'কিশোরগঞ্জ', nameEn: 'Kishoreganj' },
+      { id: 'gopalganj', nameBn: 'গোপালগঞ্জ', nameEn: 'Gopalganj' },
+      { id: 'madaripur', nameBn: 'মাদারীপুর', nameEn: 'Madaripur' },
+      { id: 'rajbari', nameBn: 'রাজবাড়ী', nameEn: 'Rajbari' },
+      { id: 'shariatpur', nameBn: 'শরীয়তপুর', nameEn: 'Shariatpur' }
+    ]
+  },
+  {
+    divisionBn: 'চট্টগ্রাম বিভাগ',
+    divisionEn: 'Chittagong Division',
+    districts: [
+      { id: 'chittagong', nameBn: 'চট্টগ্রাম', nameEn: 'Chittagong' },
+      { id: 'coxsbazar', nameBn: 'কক্সবাজার', nameEn: "Cox's Bazar" },
+      { id: 'cumilla', nameBn: 'কুমিল্লা', nameEn: 'Cumilla' },
+      { id: 'noakhali', nameBn: 'নোয়াখালী', nameEn: 'Noakhali' },
+      { id: 'feni', nameBn: 'ফেনী', nameEn: 'Feni' },
+      { id: 'chandpur', nameBn: 'চাঁদপুর', nameEn: 'Chandpur' },
+      { id: 'brahmanbaria', nameBn: 'ব্রাহ্মণবাড়িয়া', nameEn: 'Brahmanbaria' },
+      { id: 'lakshmipur', nameBn: 'লক্ষ্মীপুর', nameEn: 'Lakshmipur' },
+      { id: 'rangamati', nameBn: 'রাঙ্গামাটি', nameEn: 'Rangamati' },
+      { id: 'khagrachhari', nameBn: 'খাগড়াছড়ি', nameEn: 'Khagrachhari' },
+      { id: 'bandarban', nameBn: 'বান্দরবান', nameEn: 'Bandarban' }
+    ]
+  },
+  {
+    divisionBn: 'রাজশাহী বিভাগ',
+    divisionEn: 'Rajshahi Division',
+    districts: [
+      { id: 'rajshahi', nameBn: 'রাজশাহী', nameEn: 'Rajshahi' },
+      { id: 'bogura', nameBn: 'বগুড়া', nameEn: 'Bogura' },
+      { id: 'pabna', nameBn: 'পাবনা', nameEn: 'Pabna' },
+      { id: 'sirajganj', nameBn: 'সিরাজগঞ্জ', nameEn: 'Sirajganj' },
+      { id: 'naogaon', nameBn: 'নওগাঁ', nameEn: 'Naogaon' },
+      { id: 'natore', nameBn: 'নাটোর', nameEn: 'Natore' },
+      { id: 'chapainawabganj', nameBn: 'চাঁপাইনবাবগঞ্জ', nameEn: 'Chapainawabganj' },
+      { id: 'joypurhat', nameBn: 'জয়পুরহাট', nameEn: 'Joypurhat' }
+    ]
+  },
+  {
+    divisionBn: 'খুলনা বিভাগ',
+    divisionEn: 'Khulna Division',
+    districts: [
+      { id: 'khulna', nameBn: 'খুলনা', nameEn: 'Khulna' },
+      { id: 'jashore', nameBn: 'যশোর', nameEn: 'Jashore' },
+      { id: 'kushtia', nameBn: 'কুষ্টিয়া', nameEn: 'Kushtia' },
+      { id: 'satkhira', nameBn: 'সাতক্ষীরা', nameEn: 'Satkhira' },
+      { id: 'bagerhat', nameBn: 'বাগেরহাট', nameEn: 'Bagerhat' },
+      { id: 'jhenaidah', nameBn: 'ঝিনাইদহ', nameEn: 'Jhenaidah' },
+      { id: 'chuadanga', nameBn: 'চুয়াডাঙ্গা', nameEn: 'Chuadanga' },
+      { id: 'magura', nameBn: 'মাগুরা', nameEn: 'Magura' },
+      { id: 'meherpur', nameBn: 'মেহেরপুর', nameEn: 'Meherpur' },
+      { id: 'narail', nameBn: 'নড়াইল', nameEn: 'Narail' }
+    ]
+  },
+  {
+    divisionBn: 'বরিশাল বিভাগ',
+    divisionEn: 'Barisal Division',
+    districts: [
+      { id: 'barisal', nameBn: 'বরিশাল', nameEn: 'Barisal' },
+      { id: 'patuakhali', nameBn: 'পটুয়াখালী', nameEn: 'Patuakhali' },
+      { id: 'bhola', nameBn: 'ভোলা', nameEn: 'Bhola' },
+      { id: 'pirojpur', nameBn: 'পিরোজপুর', nameEn: 'Pirojpur' },
+      { id: 'barguna', nameBn: 'বরগুনা', nameEn: 'Barguna' },
+      { id: 'jhalakathi', nameBn: 'ঝালকাঠি', nameEn: 'Jhalakathi' }
+    ]
+  },
+  {
+    divisionBn: 'সিলেট বিভাগ',
+    divisionEn: 'Sylhet Division',
+    districts: [
+      { id: 'sylhet', nameBn: 'সিলেট', nameEn: 'Sylhet' },
+      { id: 'moulvibazar', nameBn: 'মৌলভীবাজার', nameEn: 'Moulvibazar' },
+      { id: 'sunamganj', nameBn: 'সুনামগঞ্জ', nameEn: 'Sunamganj' },
+      { id: 'habiganj', nameBn: 'হবিগঞ্জ', nameEn: 'Habiganj' }
+    ]
+  },
+  {
+    divisionBn: 'রংপুর বিভাগ',
+    divisionEn: 'Rangpur Division',
+    districts: [
+      { id: 'rangpur', nameBn: 'রংপুর', nameEn: 'Rangpur' },
+      { id: 'dinajpur', nameBn: 'দিনাজপুর', nameEn: 'Dinajpur' },
+      { id: 'kurigram', nameBn: 'কুড়িগ্রাম', nameEn: 'Kurigram' },
+      { id: 'gaibandha', nameBn: 'গাইবান্ধা', nameEn: 'Gaibandha' },
+      { id: 'nilphamari', nameBn: 'নীলফামারী', nameEn: 'Nilphamari' },
+      { id: 'lalmonirhat', nameBn: 'লালমনিরহাট', nameEn: 'Lalmonirhat' },
+      { id: 'panchagarh', nameBn: 'পঞ্চগড়', nameEn: 'Panchagarh' },
+      { id: 'thakurgaon', nameBn: 'ঠাকুরগাঁও', nameEn: 'Thakurgaon' }
+    ]
+  },
+  {
+    divisionBn: 'ময়মনসিংহ বিভাগ',
+    divisionEn: 'Mymensingh Division',
+    districts: [
+      { id: 'mymensingh', nameBn: 'ময়মনসিংহ', nameEn: 'Mymensingh' },
+      { id: 'jamalpur', nameBn: 'জামালপুর', nameEn: 'Jamalpur' },
+      { id: 'netrokona', nameBn: 'নেত্রকোনা', nameEn: 'Netrokona' },
+      { id: 'sherpur', nameBn: 'শেরপুর', nameEn: 'Sherpur' }
+    ]
+  }
+];
+

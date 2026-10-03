@@ -6,7 +6,10 @@ import Navbar from './components/Header/Navbar';
 import BreakingTicker from './components/News/BreakingTicker';
 import HeroLeadGrid from './components/News/HeroLeadGrid';
 import LatestNewsGrid from './components/News/LatestNewsGrid';
+import PodcastSection from './components/News/PodcastSection';
+import DistrictNewsSection from './components/News/DistrictNewsSection';
 import BangladeshSection from './components/News/BangladeshSection';
+import VideoNewsSection from './components/News/VideoNewsSection';
 import CategoryGrids from './components/News/CategoryGrids';
 import ArticleDetailPage from './components/News/ArticleDetailPage';
 import AdSenseSlot from './components/Ads/AdSenseSlot';
@@ -80,16 +83,24 @@ export default function App() {
           <ArticleDetailPage />
         ) : isFiltered ? (
           /* 2. CUSTOM CATEGORY / SEARCH RESULTS VIEW */
-          <div className="container" style={{ padding: '16px 0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.6rem', fontWeight: 700 }}>
-                {searchQuery
-                  ? `${isBn ? 'অনুসন্ধানের ফলাফল:' : 'Search Results for:'} "${searchQuery}"`
-                  : (isBn ? activeCategoryObj?.nameBn || activeCategory : activeCategoryObj?.nameEn || activeCategory)}
-              </h1>
+          <div className="container category-page-container">
+            <div className="category-page-header">
+              <div>
+                <span className="category-page-badge">
+                  {searchQuery ? (isBn ? 'অনুসন্ধান' : 'Search') : (isBn ? 'বিভাগ' : 'Category')}
+                </span>
+                <h1 className="category-page-title">
+                  {searchQuery
+                    ? `${isBn ? 'অনুসন্ধানের ফলাফল:' : 'Search Results for:'} "${searchQuery}"`
+                    : (isBn ? activeCategoryObj?.nameBn || activeCategory : activeCategoryObj?.nameEn || activeCategory)}
+                </h1>
+                <p className="category-page-count">
+                  {isBn ? `মোট ${filteredArticles.length} টি সংবাদ` : `${filteredArticles.length} articles found`}
+                </p>
+              </div>
               <button
                 onClick={goToHome}
-                className="section-link"
+                className="section-link back-to-home-btn"
                 style={{ display: 'flex', alignItems: 'center', gap: 6 }}
               >
                 <ArrowLeft size={16} />
@@ -98,33 +109,50 @@ export default function App() {
             </div>
 
             {filteredArticles.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
+              <div className="no-news-box" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
                 <h3>{isBn ? 'কোনো সংবাদ পাওয়া যায়নি।' : 'No news articles found.'}</h3>
+                <button onClick={goToHome} className="btn-primary" style={{ marginTop: 14 }}>
+                  {isBn ? 'মূল পাতায় ফিরে যান' : 'Back to Homepage'}
+                </button>
               </div>
             ) : (
-              <div className="news-grid-4">
+              <div className="category-news-grid">
                 {filteredArticles.map((item) => (
                   <article
                     key={item.id}
-                    className="news-card-standard"
+                    className="category-news-card"
                     onClick={() => openArticle(item)}
                     title={isBn ? item.titleBn : item.titleEn}
                   >
-                    <div className="news-card-img-wrap">
+                    <div className="category-card-img-wrap">
                       <img
-                        src={item.imageUrl}
+                        src={item.imageUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80'}
                         alt={isBn ? item.titleBn : item.titleEn}
-                        className="news-card-img"
+                        className="category-card-img"
                         loading="lazy"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
+                        }}
                       />
+                      <span className="category-card-badge">
+                        {isBn ? item.categoryBn || item.category : item.category}
+                      </span>
                     </div>
-                    <div className="news-card-body">
-                      <h2 className="news-card-title">
+                    <div className="category-card-body">
+                      <h2 className="category-card-title">
                         {isBn ? item.titleBn : item.titleEn}
                       </h2>
-                      <div className="news-card-date">
-                        <Clock size={13} color="var(--primary-red)" />
-                        <span>{isBn ? item.dateBn : item.dateEn}</span>
+                      {item.excerptBn && (
+                        <p className="category-card-excerpt">
+                          {isBn ? item.excerptBn : item.excerptEn}
+                        </p>
+                      )}
+                      <div className="category-card-footer">
+                        <div className="category-card-date">
+                          <Clock size={12} color="var(--primary-red)" />
+                          <span>{isBn ? item.dateBn : item.dateEn}</span>
+                        </div>
                       </div>
                     </div>
                   </article>
@@ -141,11 +169,20 @@ export default function App() {
             {/* In-Feed AdSense Banner (970 × 90) */}
             <AdSenseSlot slotId="midContentBanner" customClass="ad-slot-970x90" />
 
-            {/* Section: সর্বশেষ সংবাদ (4-Card Horizontal Grid) */}
+            {/* Section: সর্বশেষ সংবাদ (Horizontal Left-to-Right Scrolling Track) */}
             <LatestNewsGrid />
 
-            {/* Section: বাংলাদেশ & ভিডিও সংবাদ */}
+            {/* Section: বাংলাদেশ (Featured Lead + Sub-leads + Weather & Follow Us Widgets) */}
             <BangladeshSection />
+
+            {/* Section: ভিডিও সংবাদ (Video News Player & Playlist) */}
+            <VideoNewsSection />
+
+            {/* Section: আমাদের পডকাস্ট (Horizontal Right-to-Left Scrolling Track) */}
+            <PodcastSection />
+
+            {/* Section: আমার {{District}} (Dynamic District News Selector) */}
+            <DistrictNewsSection />
 
             {/* Section: 8 Category Visual Grids */}
             <CategoryGrids />

@@ -3,7 +3,8 @@ import {
   initialSiteSettings,
   initialCategories,
   initialBreakingNews,
-  initialNewsArticles
+  initialNewsArticles,
+  initialPodcasts
 } from '../data/initialData';
 import { supabase, configureSupabase } from '../supabase';
 
@@ -26,10 +27,16 @@ export function NewsProvider({ children }) {
     return saved ? JSON.parse(saved) : initialSiteSettings;
   });
 
-  // 4. Articles Data
+  // 4. Articles Data (Auto-heal broken URLs if any cached)
   const [articles, setArticles] = useState(() => {
     const saved = localStorage.getItem('jonogon_articles');
-    return saved ? JSON.parse(saved) : initialNewsArticles;
+    const list = saved ? JSON.parse(saved) : initialNewsArticles;
+    return list.map((a) => {
+      if (a.imageUrl && a.imageUrl.includes('photo-1527018607619-a508a2be00be')) {
+        return { ...a, imageUrl: 'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=600&q=80' };
+      }
+      return a;
+    });
   });
 
   // 5. Categories Data
@@ -44,7 +51,13 @@ export function NewsProvider({ children }) {
     return saved ? JSON.parse(saved) : initialBreakingNews;
   });
 
-  // 7. Navigation & View States
+  // 7. Podcasts Data
+  const [podcasts, setPodcasts] = useState(() => {
+    const saved = localStorage.getItem('jonogon_podcasts');
+    return saved ? JSON.parse(saved) : initialPodcasts;
+  });
+
+  // 8. Navigation & View States
   const [activeCategory, setActiveCategory] = useState('latest');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentArticle, setCurrentArticle] = useState(null); // Full page article view
@@ -126,7 +139,7 @@ export function NewsProvider({ children }) {
     if (settings.fontEditorial) root.style.setProperty('--font-editorial', settings.fontEditorial);
   }, [settings]);
 
-  // Persist Articles, Categories & Breaking News
+  // Persist Articles, Categories, Breaking News & Podcasts
   useEffect(() => {
     localStorage.setItem('jonogon_articles', JSON.stringify(articles));
   }, [articles]);
@@ -138,6 +151,10 @@ export function NewsProvider({ children }) {
   useEffect(() => {
     localStorage.setItem('jonogon_breaking', JSON.stringify(breakingNews));
   }, [breakingNews]);
+
+  useEffect(() => {
+    localStorage.setItem('jonogon_podcasts', JSON.stringify(podcasts));
+  }, [podcasts]);
 
   // Article Actions
   const addArticle = (newArticle) => {
@@ -199,6 +216,27 @@ export function NewsProvider({ children }) {
     setBreakingNews((prev) => prev.filter((item) => item.id !== id));
   };
 
+  // Podcast Actions
+  const addPodcast = (pod) => {
+    const podWithId = {
+      ...pod,
+      id: `pod-${Date.now()}`,
+      dateBn: new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }),
+      dateEn: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    };
+    setPodcasts((prev) => [podWithId, ...prev]);
+  };
+
+  const updatePodcast = (id, updatedData) => {
+    setPodcasts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...updatedData } : p))
+    );
+  };
+
+  const deletePodcast = (id) => {
+    setPodcasts((prev) => prev.filter((p) => p.id !== id));
+  };
+
   const updateSiteSettings = (newSettings) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
   };
@@ -233,6 +271,10 @@ export function NewsProvider({ children }) {
         breakingNews,
         addBreakingItem,
         deleteBreakingItem,
+        podcasts,
+        addPodcast,
+        updatePodcast,
+        deletePodcast,
         activeCategory,
         setActiveCategory,
         searchQuery,

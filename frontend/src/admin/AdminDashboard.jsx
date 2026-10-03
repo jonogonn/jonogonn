@@ -18,7 +18,8 @@ import {
   Image as ImageIcon,
   Eye,
   RefreshCw,
-  Download
+  Download,
+  Mic
 } from 'lucide-react';
 import { configureSupabase, uploadImageToStorage } from '../supabase';
 
@@ -38,10 +39,14 @@ export default function AdminDashboard() {
     deleteCategory,
     breakingNews,
     addBreakingItem,
-    deleteBreakingItem
+    deleteBreakingItem,
+    podcasts,
+    addPodcast,
+    updatePodcast,
+    deletePodcast
   } = useNews();
 
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'articles' | 'categories' | 'breaking' | 'settings' | 'ads' | 'database'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'articles' | 'categories' | 'breaking' | 'podcasts' | 'settings' | 'ads' | 'database'
   const [saveToast, setSaveToast] = useState(false);
 
   // Article Edit / Create Modal State
@@ -73,6 +78,21 @@ export default function AdminDashboard() {
   // Breaking Form State
   const [newBreakBn, setNewBreakBn] = useState('');
   const [newBreakEn, setNewBreakEn] = useState('');
+
+  // Podcast Form State
+  const [editingPodcast, setEditingPodcast] = useState(null);
+  const [isCreatingPodcast, setIsCreatingPodcast] = useState(false);
+  const [podcastForm, setPodcastForm] = useState({
+    titleBn: '',
+    titleEn: '',
+    youtubeUrl: '',
+    hostBn: 'মোঃ বিপ্লব হোসেন',
+    hostEn: 'Md. Biplob Hossain',
+    guestBn: '',
+    guestEn: '',
+    duration: '২৫:০০',
+    thumbnail: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=600&q=80'
+  });
 
   // Settings Local Form State
   const [settingsForm, setSettingsForm] = useState({ ...settings });
@@ -185,6 +205,36 @@ export default function AdminDashboard() {
     triggerSaveToast('ব্রেকিং নিউজ টিকার যোগ হয়েছে!');
   };
 
+  // Submit Podcast Episode
+  const handleSavePodcast = (e) => {
+    e.preventDefault();
+    if (editingPodcast) {
+      updatePodcast(editingPodcast.id, podcastForm);
+      triggerSaveToast('পডকাস্ট পর্ব আপডেট হয়েছে!');
+    } else {
+      addPodcast(podcastForm);
+      triggerSaveToast('নতুন পডকাস্ট পর্ব যুক্ত হয়েছে!');
+    }
+    setEditingPodcast(null);
+    setIsCreatingPodcast(false);
+  };
+
+  const handleOpenEditPodcast = (pod) => {
+    setEditingPodcast(pod);
+    setPodcastForm({
+      titleBn: pod.titleBn || '',
+      titleEn: pod.titleEn || '',
+      youtubeUrl: pod.youtubeUrl || (pod.youtubeId ? `https://www.youtube.com/watch?v=` + pod.youtubeId : ''),
+      hostBn: pod.hostBn || 'মোঃ বিপ্লব হোসেন',
+      hostEn: pod.hostEn || 'Md. Biplob Hossain',
+      guestBn: pod.guestBn || '',
+      guestEn: pod.guestEn || '',
+      duration: pod.duration || '২৫:০০',
+      thumbnail: pod.thumbnail || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=600&q=80'
+    });
+    setIsCreatingPodcast(true);
+  };
+
   // Save Global Settings
   const handleSaveSettings = (e) => {
     e.preventDefault();
@@ -288,6 +338,14 @@ export default function AdminDashboard() {
           >
             <Zap size={18} />
             <span>ব্রেকিং নিউজ (Ticker)</span>
+          </button>
+
+          <button
+            className={`admin-nav-item ${activeTab === 'podcasts' ? 'active' : ''}`}
+            onClick={() => setActiveTab('podcasts')}
+          >
+            <Mic size={18} />
+            <span>পডকাস্ট ভিডিও (Podcasts)</span>
           </button>
 
           <button
@@ -898,6 +956,239 @@ export default function AdminDashboard() {
                     >
                       <Trash2 size={16} />
                     </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: OUR PODCASTS (YOUTUBE VIDEOS) */}
+        {activeTab === 'podcasts' && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div>
+                <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800 }}>
+                  🎙️ আমাদের পডকাস্ট ভিডিও পরিচালনা
+                </h1>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                  হোমপেজের "Our Podcast" সেকশনের ইউটিউব ভিডিও ও পর্ব নিয়ন্ত্রণ করুন
+                </p>
+              </div>
+
+              <button
+                className="admin-btn-primary"
+                onClick={() => {
+                  setEditingPodcast(null);
+                  setPodcastForm({
+                    titleBn: '',
+                    titleEn: '',
+                    youtubeUrl: '',
+                    hostBn: 'মোঃ বিপ্লব হোসেন',
+                    hostEn: 'Md. Biplob Hossain',
+                    guestBn: '',
+                    guestEn: '',
+                    duration: '২৫:০০',
+                    thumbnail: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=600&q=80'
+                  });
+                  setIsCreatingPodcast(true);
+                }}
+              >
+                <Plus size={18} />
+                <span>নতুন পর্ব যুক্ত করুন</span>
+              </button>
+            </div>
+
+            {/* Podcast Form Modal / Drawer */}
+            {isCreatingPodcast && (
+              <div className="admin-card" style={{ border: '2px solid var(--primary-red)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.3rem' }}>
+                    {editingPodcast ? 'পডকাস্ট পর্ব সম্পাদনা' : 'নতুন পডকাস্ট পর্ব প্রকাশ'}
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setIsCreatingPodcast(false);
+                      setEditingPodcast(null);
+                    }}
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    ✕ বাতিল
+                  </button>
+                </div>
+
+                <form onSubmit={handleSavePodcast}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 14 }}>
+                    <div className="admin-form-group">
+                      <label className="admin-label">পর্বের শিরোনাম (বাংলা) *</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        placeholder="পডকাস্টের শিরোনাম লিখুন..."
+                        value={podcastForm.titleBn}
+                        onChange={(e) => setPodcastForm({ ...podcastForm, titleBn: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="admin-form-group">
+                      <label className="admin-label">Episode Title (English)</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        placeholder="Podcast episode title in English..."
+                        value={podcastForm.titleEn}
+                        onChange={(e) => setPodcastForm({ ...podcastForm, titleEn: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: 16, marginBottom: 14 }}>
+                    <div className="admin-form-group">
+                      <label className="admin-label">YouTube ভিডিও লিঙ্ক বা ID *</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        placeholder="https://www.youtube.com/watch?v=... বা ভিডিও ID"
+                        value={podcastForm.youtubeUrl}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPodcastForm({ ...podcastForm, youtubeUrl: val });
+                          // Auto thumbnail from YouTube ID if matched
+                          const match = val.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+                          if (match) {
+                            setPodcastForm((prev) => ({
+                              ...prev,
+                              youtubeUrl: val,
+                              thumbnail: `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`
+                            }));
+                          }
+                        }}
+                        required
+                      />
+                    </div>
+
+                    <div className="admin-form-group">
+                      <label className="admin-label">হোস্ট / উপস্থাপক</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        value={podcastForm.hostBn}
+                        onChange={(e) => setPodcastForm({ ...podcastForm, hostBn: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="admin-form-group">
+                      <label className="admin-label">সময়কাল (Duration)</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        placeholder="যেমন: ২৫:৪০"
+                        value={podcastForm.duration}
+                        onChange={(e) => setPodcastForm({ ...podcastForm, duration: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 14 }}>
+                    <div className="admin-form-group">
+                      <label className="admin-label">অতিথি (Guest Name - বাংলা)</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        placeholder="যেমন: ড. আতিকুর রহমান (অর্থনীতিবিদ)"
+                        value={podcastForm.guestBn}
+                        onChange={(e) => setPodcastForm({ ...podcastForm, guestBn: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="admin-form-group">
+                      <label className="admin-label">কাস্টম থাম্বনেইল URL (ঐচ্ছিক)</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        placeholder="https://images.unsplash.com/..."
+                        value={podcastForm.thumbnail}
+                        onChange={(e) => setPodcastForm({ ...podcastForm, thumbnail: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      className="admin-btn-secondary"
+                      onClick={() => {
+                        setIsCreatingPodcast(false);
+                        setEditingPodcast(null);
+                      }}
+                    >
+                      বাতিল
+                    </button>
+                    <button type="submit" className="admin-btn-primary">
+                      <Save size={16} />
+                      <span>{editingPodcast ? 'আপডেট করুন' : 'প্রকাশ করুন'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Podcasts Table List */}
+            <div className="admin-card">
+              <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.2rem', marginBottom: 14 }}>
+                পডকাস্ট এপিসোড তালিকা ({podcasts.length}টি)
+              </h2>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {podcasts.map((pod) => (
+                  <div
+                    key={pod.id}
+                    style={{
+                      padding: 12,
+                      backgroundColor: 'var(--bg-subtle)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 16
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <img
+                        src={pod.thumbnail}
+                        alt=""
+                        style={{ width: 80, height: 50, objectFit: 'cover', borderRadius: 4 }}
+                      />
+                      <div>
+                        <h4 style={{ fontWeight: 700, fontSize: '0.98rem' }}>{pod.titleBn}</h4>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: 12, marginTop: 2 }}>
+                          <span>🎙️ {pod.hostBn}</span>
+                          {pod.guestBn && <span>👤 অতিথি: {pod.guestBn}</span>}
+                          <span>⏱ {pod.duration}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button
+                        onClick={() => handleOpenEditPodcast(pod)}
+                        style={{ color: '#2563EB', padding: 6 }}
+                        title="সম্পাদনা"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          deletePodcast(pod.id);
+                          triggerSaveToast('পডকাস্ট পর্ব মুছে ফেলা হয়েছে!');
+                        }}
+                        style={{ color: '#DC2626', padding: 6 }}
+                        title="মুছে ফেলুন"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

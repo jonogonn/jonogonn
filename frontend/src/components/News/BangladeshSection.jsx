@@ -1,188 +1,198 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNews } from '../../context/NewsContext';
-import { Play, Clock, ArrowRight } from 'lucide-react';
+import { Clock, BookOpen, ChevronLeft, ChevronRight, ArrowRight, Star } from 'lucide-react';
+import WeatherFollowSidebar from '../Widgets/WeatherFollowSidebar';
+
+const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
 
 export default function BangladeshSection() {
   const { language, articles, openArticle, setActiveCategory } = useNews();
   const isBn = language === 'bn';
 
+  // Bangladesh Section Articles Pool
   const bdArticles = articles.filter(
-    (a) => a.category === 'bangladesh' || a.category === 'politics' || a.id === 'bd-main'
+    (a) => a.category === 'bangladesh' || a.category === 'politics' || a.id.startsWith('bd')
   );
+  const bdPool = bdArticles.length >= 5 ? bdArticles : articles;
 
-  const bdMain = bdArticles.find((a) => a.id === 'bd-main') || bdArticles[0] || articles[0];
-  const bdSubList = articles.slice(1, 5);
+  const [bdSlideIndex, setBdSlideIndex] = useState(0);
+  const [bdPaused, setBdPaused] = useState(false);
 
-  // Video Section items
-  const videoMain = articles.find((a) => a.id === 'video-main') || {
-    id: 'video-main',
-    titleBn: 'পদ্মা সেতুতে নতুন রেললাইন: যা জানালেন কর্তৃপক্ষ',
-    titleEn: 'New rail link on Padma Bridge: Key official insights',
-    imageUrl: 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=800&q=80',
-    dateBn: '২৮ সেপ্টেম্বর ২০২৪, ১০:০৫',
-    dateEn: '28 Sep 2026',
-    videoDuration: '০:৩২'
-  };
+  // Auto-slide for Featured Lead Card (6 seconds)
+  useEffect(() => {
+    if (bdPaused || bdPool.length <= 1) return;
+    const timer = setInterval(() => {
+      setBdSlideIndex((prev) => (prev + 1) % Math.min(bdPool.length, 5));
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [bdPaused, bdPool.length]);
 
-  const videoSubList = articles.filter((a) => a.isVideo && a.id !== 'video-main').slice(0, 3);
-
-  const handleArticleClick = (art) => {
-    openArticle(art);
-  };
+  const currentBdSlide = bdPool[bdSlideIndex] || bdPool[0];
+  const bdSubArticles = bdPool.filter((_, idx) => idx !== bdSlideIndex).slice(0, 4);
 
   return (
-    <section className="split-section-grid">
-      {/* 1. Left Column: বাংলাদেশ */}
-      <div className="split-col">
-        <div className="section-header">
-          <h2 className="section-title">
-            {isBn ? 'বাংলাদেশ' : 'Bangladesh'}
-          </h2>
-          <button
-            onClick={() => setActiveCategory('bangladesh')}
-            className="section-link"
-          >
-            <span>{isBn ? 'সব দেখুন' : 'View All'}</span>
-            <ArrowRight size={15} />
-          </button>
-        </div>
+    <section className="bangladesh-foxiz-section" style={{ marginBottom: 32 }}>
+      {/* Section Header */}
+      <div className="section-header">
+        <h2 className="section-title">
+          {isBn ? 'বাংলাদেশ' : 'Bangladesh'}
+        </h2>
+        <button
+          onClick={() => setActiveCategory('bangladesh')}
+          className="section-link"
+        >
+          <span>{isBn ? 'সব দেখুন' : 'View All'}</span>
+          <ArrowRight size={15} />
+        </button>
+      </div>
 
-        <div className="bangladesh-news-layout">
-          {/* Main Featured Big Card */}
+      {/* 3-Column Editorial Grid: [Featured Lead (Left) | 4 Sub-Leads (Middle) | Weather & Follow Us (Right)] */}
+      <div className="foxiz-editorial-layout">
+        {/* ========================================================
+            Column 1: Big Featured Lead Card
+            ======================================================== */}
+        <div
+          className="foxiz-featured-col"
+          onMouseEnter={() => setBdPaused(true)}
+          onMouseLeave={() => setBdPaused(false)}
+        >
           <article
-            className="news-card-standard"
-            onClick={() => handleArticleClick(bdMain)}
-            title={isBn ? bdMain.titleBn : bdMain.titleEn}
+            key={currentBdSlide.id}
+            className="foxiz-featured-card"
+            onClick={() => openArticle(currentBdSlide)}
+            title={isBn ? currentBdSlide.titleBn : currentBdSlide.titleEn}
           >
-            <div className="news-card-img-wrap">
+            <div className="foxiz-featured-img-wrap">
               <img
-                src={bdMain.imageUrl}
-                alt={isBn ? bdMain.titleBn : bdMain.titleEn}
-                className="news-card-img"
+                src={currentBdSlide.imageUrl || FALLBACK_NEWS_IMG}
+                alt={isBn ? currentBdSlide.titleBn : currentBdSlide.titleEn}
+                className="foxiz-featured-img hero-unique-slide-anim"
                 loading="lazy"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = FALLBACK_NEWS_IMG;
+                }}
               />
-            </div>
-            <div className="news-card-body">
-              <h3 className="news-card-title" style={{ fontSize: '1.25rem' }}>
-                {isBn ? bdMain.titleBn : bdMain.titleEn}
-              </h3>
-              <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: 10 }}>
-                {isBn ? bdMain.excerptBn : bdMain.excerptEn}
-              </p>
-              <div className="news-card-date">
-                <Clock size={13} color="var(--primary-red)" />
-                <span>{isBn ? bdMain.dateBn : bdMain.dateEn}</span>
+              <div className="hero-image-scrim" />
+
+              {/* Category Badge Overlay */}
+              <div className="bd-hero-badge-overlay">
+                <span className="badge-category">
+                  {isBn ? currentBdSlide.categoryBn || 'বাংলাদেশ' : currentBdSlide.category || 'Bangladesh'}
+                </span>
+              </div>
+
+              {/* Slider Navigation Arrows */}
+              <div className="bd-hero-arrows">
+                <button
+                  className="bd-arrow-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setBdSlideIndex((prev) => (prev - 1 + Math.min(bdPool.length, 5)) % Math.min(bdPool.length, 5));
+                  }}
+                  aria-label="Previous story"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  className="bd-arrow-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setBdSlideIndex((prev) => (prev + 1) % Math.min(bdPool.length, 5));
+                  }}
+                  aria-label="Next story"
+                >
+                  <ChevronRight size={16} />
+                </button>
               </div>
             </div>
-          </article>
 
-          {/* Sub List (4 items) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {bdSubList.map((item) => (
+            <div className="foxiz-featured-body hero-content-slide-up">
+              <span className="foxiz-featured-tag">
+                {isBn ? currentBdSlide.categoryBn || 'জাতীয়' : currentBdSlide.category || 'National'}
+              </span>
+              <h3 className="foxiz-featured-title">
+                {isBn ? currentBdSlide.titleBn : currentBdSlide.titleEn}
+              </h3>
+              {currentBdSlide.excerptBn && (
+                <p className="foxiz-featured-excerpt">
+                  {isBn ? currentBdSlide.excerptBn : currentBdSlide.excerptEn}
+                </p>
+              )}
+              <div className="foxiz-featured-meta">
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Clock size={13} color="var(--primary-red)" />
+                  {isBn ? currentBdSlide.dateBn : currentBdSlide.dateEn}
+                </span>
+                <span>•</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <BookOpen size={13} color="var(--primary-red)" />
+                  {isBn ? currentBdSlide.readTimeBn || '৪ মিনিট' : currentBdSlide.readTimeEn || '4 min read'}
+                </span>
+              </div>
+            </div>
+
+            {/* Slider Dots Indicator */}
+            <div className="bd-slider-dots" onClick={(e) => e.stopPropagation()}>
+              {bdPool.slice(0, 5).map((_, idx) => (
+                <button
+                  key={idx}
+                  className={`slider-dot ${idx === bdSlideIndex ? 'active' : ''}`}
+                  onClick={() => setBdSlideIndex(idx)}
+                  aria-label={`Slide ${idx + 1}`}
+                />
+              ))}
+            </div>
+          </article>
+        </div>
+
+        {/* ========================================================
+            Column 2: 4 Sub-Articles (Middle Column)
+            ======================================================== */}
+        <div className="foxiz-subleads-col">
+          <div className="foxiz-subleads-list">
+            {bdSubArticles.map((subItem) => (
               <article
-                key={item.id}
-                className="sub-lead-card"
-                onClick={() => handleArticleClick(item)}
-                title={isBn ? item.titleBn : item.titleEn}
+                key={`sublead-${subItem.id}`}
+                className="foxiz-sublead-card"
+                onClick={() => openArticle(subItem)}
+                title={isBn ? subItem.titleBn : subItem.titleEn}
               >
-                <div className="sub-lead-img-wrap" style={{ width: 84, height: 60 }}>
-                  <img
-                    src={item.imageUrl}
-                    alt={isBn ? item.titleBn : item.titleEn}
-                    className="sub-lead-img"
-                    loading="lazy"
-                  />
-                </div>
-                <div className="sub-lead-content">
-                  <h4 className="sub-lead-title" style={{ fontSize: '0.9rem' }}>
-                    {isBn ? item.titleBn : item.titleEn}
-                  </h4>
-                  <span className="sub-lead-date">
-                    {isBn ? item.dateBn : item.dateEn}
+                <div className="foxiz-sublead-content">
+                  <span className="foxiz-sublead-cat">
+                    {isBn ? subItem.categoryBn || 'বাংলাদেশ' : subItem.category || 'National'}
                   </span>
+                  <h4 className="foxiz-sublead-title">
+                    {isBn ? subItem.titleBn : subItem.titleEn}
+                  </h4>
+                  <div className="foxiz-sublead-meta">
+                    <Clock size={12} color="var(--primary-red)" />
+                    <span>{isBn ? subItem.dateBn : subItem.dateEn}</span>
+                  </div>
+                </div>
+
+                <div className="foxiz-sublead-thumb-wrap">
+                  <img
+                    src={subItem.imageUrl || FALLBACK_NEWS_IMG}
+                    alt={isBn ? subItem.titleBn : subItem.titleEn}
+                    className="foxiz-sublead-thumb-img"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = FALLBACK_NEWS_IMG;
+                    }}
+                  />
                 </div>
               </article>
             ))}
           </div>
         </div>
-      </div>
 
-      {/* 2. Right Column: ভিডিও সংবাদ (Video News) */}
-      <div className="split-col">
-        <div className="section-header">
-          <h2 className="section-title">
-            {isBn ? 'ভিডিও সংবাদ' : 'Video News'}
-          </h2>
-          <button
-            onClick={() => setActiveCategory('video')}
-            className="section-link"
-          >
-            <span>{isBn ? 'সব দেখুন' : 'View All'}</span>
-            <ArrowRight size={15} />
-          </button>
-        </div>
-
-        {/* Big Video Card */}
-        <article
-          className="video-player-card"
-          onClick={() => handleArticleClick(videoMain)}
-          title={isBn ? videoMain.titleBn : videoMain.titleEn}
-        >
-          <div className="video-thumb-wrap">
-            <img
-              src={videoMain.imageUrl}
-              alt={isBn ? videoMain.titleBn : videoMain.titleEn}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              loading="lazy"
-            />
-            <div className="play-icon-overlay">
-              <Play size={24} fill="currentColor" />
-            </div>
-            <span className="video-duration-badge">
-              {videoMain.videoDuration || '০:৩২'}
-            </span>
-          </div>
-          <div style={{ padding: 12 }}>
-            <h3 className="news-card-title">
-              {isBn ? videoMain.titleBn : videoMain.titleEn}
-            </h3>
-            <span className="news-card-date">
-              <Clock size={13} color="var(--primary-red)" />
-              {isBn ? videoMain.dateBn : videoMain.dateEn}
-            </span>
-          </div>
-        </article>
-
-        {/* Sub Video Items */}
-        <div className="video-sub-list">
-          {videoSubList.map((vItem) => (
-            <div
-              key={vItem.id}
-              className="video-sub-item"
-              onClick={() => handleArticleClick(vItem)}
-              title={isBn ? vItem.titleBn : vItem.titleEn}
-            >
-              <div className="video-sub-thumb">
-                <img
-                  src={vItem.imageUrl}
-                  alt={isBn ? vItem.titleBn : vItem.titleEn}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  loading="lazy"
-                />
-                <div className="small-play-btn">
-                  <Play size={12} fill="currentColor" />
-                </div>
-              </div>
-              <div style={{ flex: 1 }}>
-                <h4 style={{ fontFamily: 'var(--font-headline)', fontSize: '0.88rem', fontWeight: 700, lineHeight: 1.3, color: 'var(--text-main)' }}>
-                  {isBn ? vItem.titleBn : vItem.titleEn}
-                </h4>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                  ⏱ {vItem.videoDuration}
-                </span>
-              </div>
-            </div>
-          ))}
+        {/* ========================================================
+            Column 3: Weather & Follow Us Widgets (Right Column)
+            ======================================================== */}
+        <div className="foxiz-sidebar-col">
+          <WeatherFollowSidebar />
         </div>
       </div>
     </section>
