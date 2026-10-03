@@ -38,8 +38,18 @@ const server = http.createServer((req, res) => {
 
     fs.readFile(filePath, (readErr, content) => {
       if (readErr) {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end('500 - Internal Server Error');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=UTF-8' });
+        res.end(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>Jonogon News - Setup</title></head>
+          <body style="font-family:sans-serif; text-align:center; padding:50px;">
+            <h2>জনগণ.নিউজ (Jonogon News)</h2>
+            <p>প্রোডাকশন বিল্ড ফাইল (dist) তৈরি হচ্ছে বা এখনও বিল্ড রান করা হয়নি।</p>
+            <p>দয়া করে সার্ভার টার্মিনালে <code>npm run build</code> কমান্ডটি সম্পন্ন করুন।</p>
+          </body>
+          </html>
+        `);
       } else {
         res.writeHead(200, {
           'Content-Type': contentType,
@@ -52,5 +62,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(port, () => {
-  console.log(`🚀 Jonogon News Frontend (React + Vite) running on port ${port}`);
+  console.log(`🚀 Jonogon News Frontend running on port ${port}`);
 });
