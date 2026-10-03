@@ -14,9 +14,11 @@ import CategoryGrids from './components/News/CategoryGrids';
 import ArticleDetailPage from './components/News/ArticleDetailPage';
 import AdSenseSlot from './components/Ads/AdSenseSlot';
 import NewsletterRibbon from './components/Newsletter/NewsletterRibbon';
+import ComplaintBoxSection from './components/News/ComplaintBoxSection';
 import Footer from './components/Footer/Footer';
 import PolicyModal from './components/Modals/PolicyModal';
 import ScrollToTop from './components/UI/ScrollToTop';
+import SideWatchWidget from './components/Widgets/SideWatchWidget';
 import AdminDashboard from './admin/AdminDashboard';
 import { Clock, ArrowLeft } from 'lucide-react';
 
@@ -194,6 +196,9 @@ export default function App() {
 
         {/* Newsletter Subscription Ribbon */}
         <NewsletterRibbon />
+
+        {/* Section: অভিযোগ বক্স (Complaint Box Section) */}
+        <ComplaintBoxSection />
       </main>
 
       {/* Master Footer with Founder, Office address, Terms & Socials */}
@@ -204,6 +209,9 @@ export default function App() {
 
       {/* Floating Bottom to Top Button */}
       <ScrollToTop />
+
+      {/* Floating Right Side Analog Clock & Prayer/Holiday Widget */}
+      <SideWatchWidget />
     </>
   );
 }

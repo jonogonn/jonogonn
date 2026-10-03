@@ -1,28 +1,113 @@
 import React, { useState, useEffect } from 'react';
 import { useNews } from '../../context/NewsContext';
-import { MapPin, Clock, ArrowRight, ChevronDown, Compass } from 'lucide-react';
-import { bangladeshDistricts } from '../../data/initialData';
+import { MapPin, Clock, ArrowRight, ChevronDown, Compass, LocateFixed, Loader2, CheckCircle2 } from 'lucide-react';
+import { bangladeshDistricts, findClosestDistrict } from '../../data/initialData';
 
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
 
 export default function DistrictNewsSection() {
-  const { language, articles, openArticle, setActiveCategory } = useNews();
+  const { language, articles, openArticle, setActiveCategory, userDistrict, setUserDistrict } = useNews();
   const isBn = language === 'bn';
 
-  // Retrieve user's saved district or default to 'dhaka'
-  const [selectedDistrictId, setSelectedDistrictId] = useState(() => {
-    return localStorage.getItem('jonogon_user_district') || 'dhaka';
-  });
+  // Flat list of all 64 districts
+  const allDistrictsFlat = bangladeshDistricts.flatMap((div) => div.districts);
 
-  // Persist user selection
+  const selectedDistrictId = userDistrict || 'dhaka';
+
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationStatus, setLocationStatus] = useState(null); // 'gps-success' | 'ip-success' | 'manual' | 'error'
+
+  // Function to detect real-time user location via GPS or IP
+  const detectUserLocation = (isUserClick = false) => {
+    setIsLocating(true);
+
+    if (navigator && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            const { district } = findClosestDistrict(latitude, longitude);
+            if (district && district.id) {
+              setUserDistrict(district.id);
+              setLocationStatus('gps-success');
+            }
+          } catch (err) {
+            console.error('Geo match error:', err);
+          } finally {
+            setIsLocating(false);
+          }
+        },
+        async (geoError) => {
+          console.warn('GPS Geolocation prompt dismissed or failed, attempting IP-based fallback...', geoError);
+          // Fallback Tier 2: IP-based real-time geolocation
+          try {
+            const res = await fetch('https://ipapi.co/json/');
+            const data = await res.json();
+            if (data && data.latitude && data.longitude) {
+              const { district } = findClosestDistrict(data.latitude, data.longitude);
+              if (district && district.id) {
+                setUserDistrict(district.id);
+                setLocationStatus('ip-success');
+              }
+            } else if (data && data.city) {
+              const cityLower = data.city.toLowerCase();
+              const matched = allDistrictsFlat.find(
+                (d) =>
+                  d.id === cityLower ||
+                  d.nameEn.toLowerCase().includes(cityLower) ||
+                  cityLower.includes(d.nameEn.toLowerCase())
+              );
+              if (matched) {
+                setUserDistrict(matched.id);
+                setLocationStatus('ip-success');
+              }
+            }
+          } catch (ipErr) {
+            console.warn('IP location fetch failed:', ipErr);
+            if (isUserClick) setLocationStatus('error');
+          } finally {
+            setIsLocating(false);
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 7000,
+          maximumAge: 300000 // Cache for 5 mins
+        }
+      );
+    } else {
+      // Direct IP fallback if navigator.geolocation not supported
+      fetch('https://ipapi.co/json/')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data && data.latitude && data.longitude) {
+            const { district } = findClosestDistrict(data.latitude, data.longitude);
+            if (district) {
+              setUserDistrict(district.id);
+              setLocationStatus('ip-success');
+            }
+          }
+        })
+        .catch(() => {
+          if (isUserClick) setLocationStatus('error');
+        })
+        .finally(() => setIsLocating(false));
+    }
+  };
+
+  // Automatically detect real-time location on initial mount if not already saved
+  useEffect(() => {
+    detectUserLocation(false);
+  }, []);
+
+  // Handle manual dropdown selection
   const handleDistrictChange = (e) => {
     const newDistrict = e.target.value;
-    setSelectedDistrictId(newDistrict);
-    localStorage.setItem('jonogon_user_district', newDistrict);
+    setUserDistrict(newDistrict);
+    setLocationStatus('manual');
   };
 
   // Find active district object
-  const allDistrictsFlat = bangladeshDistricts.flatMap((div) => div.districts);
   const selectedDistrictObj =
     allDistrictsFlat.find((d) => d.id === selectedDistrictId) ||
     { id: 'dhaka', nameBn: 'ঢাকা', nameEn: 'Dhaka' };
@@ -63,9 +148,26 @@ export default function DistrictNewsSection() {
           <span className="district-subtitle-badge">
             {isBn ? 'স্থানীয় সংবাদ' : 'Local News'}
           </span>
+
         </div>
 
         <div className="district-controls-wrap">
+          {/* Quick GPS Real-time Locate Me Button */}
+          <button
+            type="button"
+            onClick={() => detectUserLocation(true)}
+            className={`district-locate-btn ${isLocating ? 'locating' : ''}`}
+            title={isBn ? 'রিয়েলটাইম লোকেশন দিয়ে জেলা সনাক্ত করুন' : 'Auto-detect district via real-time location'}
+            disabled={isLocating}
+          >
+            {isLocating ? (
+              <Loader2 size={14} className="spin-animate" />
+            ) : (
+              <LocateFixed size={14} />
+            )}
+            <span>{isLocating ? (isBn ? 'শনাক্ত হচ্ছে...' : 'Locating...') : (isBn ? 'লাইভ লোকেশন' : 'Detect Location')}</span>
+          </button>
+
           {/* District Dropdown Selector */}
           <div className="district-select-wrapper">
             <Compass size={15} className="district-select-icon" />
@@ -158,3 +260,4 @@ export default function DistrictNewsSection() {
     </section>
   );
 }
+

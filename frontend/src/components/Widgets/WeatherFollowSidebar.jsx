@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNews } from '../../context/NewsContext';
 import {
   Sun,
@@ -6,19 +6,19 @@ import {
   Cloud,
   CloudSun,
   CloudRain,
+  CloudLightning,
   Wind,
   Droplets,
-  ArrowUp,
-  ArrowDown
+  MapPin,
+  RefreshCw
 } from 'lucide-react';
 import { FacebookIcon, XIcon, PinterestIcon, InstagramIcon, YoutubeIcon } from '../Icons/SocialIcons';
 
 export default function WeatherFollowSidebar() {
-  const { language, settings } = useNews();
+  const { language, settings, liveWeather, isWeatherLoading, refreshWeather, userDistrict } = useNews();
   const isBn = language === 'bn';
 
-  // Weather data
-  const weatherData = {
+  const weather = liveWeather || {
     cityBn: 'ঢাকা',
     cityEn: 'Dhaka',
     tempBn: '২৮°',
@@ -33,6 +33,7 @@ export default function WeatherFollowSidebar() {
     humidityEn: '78%',
     windBn: '৪ কিমি/ঘণ্টা',
     windEn: '4 km/h',
+    iconType: 'moon',
     forecast: [
       { dayBn: 'শুক্র', dayEn: 'Fri', icon: 'cloud', tempBn: '২৭°', tempEn: '27°' },
       { dayBn: 'শনি', dayEn: 'Sat', icon: 'cloud-sun', tempBn: '২৯°', tempEn: '29°' },
@@ -40,6 +41,23 @@ export default function WeatherFollowSidebar() {
       { dayBn: 'সোম', dayEn: 'Mon', icon: 'rain', tempBn: '২৬°', tempEn: '26°' },
       { dayBn: 'মঙ্গল', dayEn: 'Tue', icon: 'sun', tempBn: '৩০°', tempEn: '30°' }
     ]
+  };
+
+  const renderWeatherIcon = (iconKey) => {
+    switch (iconKey) {
+      case 'sun':
+        return <Sun size={42} color="#FFB800" className="weather-sun-icon" />;
+      case 'cloud-sun':
+        return <CloudSun size={42} color="#FF9900" className="weather-cloud-sun-icon" />;
+      case 'rain':
+        return <CloudRain size={42} color="#4A90E2" className="weather-rain-icon" />;
+      case 'thunder':
+        return <CloudLightning size={42} color="var(--primary-red)" className="weather-thunder-icon" />;
+      case 'cloud':
+        return <Cloud size={42} color="#9E9E9E" className="weather-cloud-icon" />;
+      default:
+        return <Moon size={42} className="weather-moon-icon" />;
+    }
   };
 
   const renderForecastIcon = (type) => {
@@ -50,6 +68,8 @@ export default function WeatherFollowSidebar() {
         return <CloudSun size={18} color="#FF9900" />;
       case 'rain':
         return <CloudRain size={18} color="#4A90E2" />;
+      case 'thunder':
+        return <CloudLightning size={18} color="var(--primary-red)" />;
       default:
         return <Cloud size={18} color="#9E9E9E" />;
     }
@@ -58,7 +78,7 @@ export default function WeatherFollowSidebar() {
   return (
     <div className="weather-follow-sidebar-wrapper">
       {/* ========================================================
-          1. Weather Widget Card (Foxiz Tech Style)
+          1. Weather Widget Card (Google Weather / Foxiz Style)
           ======================================================== */}
       <div className="foxiz-weather-card">
         {/* Weather Tag Header */}
@@ -66,54 +86,63 @@ export default function WeatherFollowSidebar() {
           <span className="weather-pill-badge">
             {isBn ? 'আবহাওয়া' : 'Weather'}
           </span>
+          <button
+            onClick={() => refreshWeather(userDistrict)}
+            className={`weather-refresh-btn ${isWeatherLoading ? 'spinning' : ''}`}
+            title={isBn ? 'আবহাওয়া আপডেট করুন' : 'Refresh Weather'}
+            aria-label="Refresh Weather"
+          >
+            <RefreshCw size={12} />
+          </button>
         </div>
 
         {/* Current Weather Display */}
         <div className="weather-current-main">
           <div className="weather-icon-temp-row">
             <div className="weather-main-icon-wrap">
-              <Moon size={42} className="weather-moon-icon" />
+              {renderWeatherIcon(weather.iconType)}
             </div>
             <div className="weather-main-temp">
-              <span className="weather-temp-num">{isBn ? weatherData.tempBn : weatherData.tempEn}</span>
+              <span className="weather-temp-num">{isBn ? weather.tempBn : weather.tempEn}</span>
               <span className="weather-temp-unit">C</span>
             </div>
           </div>
 
           <div className="weather-location-info">
             <h3 className="weather-city-name">
-              {isBn ? weatherData.cityBn : weatherData.cityEn}
+              <MapPin size={16} color="var(--primary-red)" style={{ marginRight: 4, verticalAlign: 'middle', display: 'inline' }} />
+              {isBn ? weather.cityBn : weather.cityEn}
             </h3>
             <p className="weather-condition-sub">
-              {isBn ? weatherData.conditionBn : weatherData.conditionEn}
+              {isBn ? weather.conditionBn : weather.conditionEn}
             </p>
           </div>
 
           {/* High, Low, Humidity, Wind Details */}
           <div className="weather-details-grid">
-            <div className="weather-detail-item">
+            <div className="weather-detail-item" title={isBn ? 'সর্বোচ্চ ও সর্বনিম্ন তাপমাত্রা' : 'Max & Min Temp'}>
               <span className="weather-detail-symbol">↑</span>
-              <span className="weather-detail-val">{isBn ? weatherData.highBn : weatherData.highEn}</span>
+              <span className="weather-detail-val">{isBn ? weather.highBn : weather.highEn}</span>
               <span className="weather-detail-sep">_</span>
               <span className="weather-detail-symbol">↓</span>
-              <span className="weather-detail-val">{isBn ? weatherData.lowBn : weatherData.lowEn}</span>
+              <span className="weather-detail-val">{isBn ? weather.lowBn : weather.lowEn}</span>
             </div>
 
-            <div className="weather-detail-item">
+            <div className="weather-detail-item" title={isBn ? 'আর্দ্রতা' : 'Humidity'}>
               <Droplets size={13} color="#4A90E2" />
-              <span className="weather-detail-val">{isBn ? weatherData.humidityBn : weatherData.humidityEn}</span>
+              <span className="weather-detail-val">{isBn ? weather.humidityBn : weather.humidityEn}</span>
             </div>
 
-            <div className="weather-detail-item">
+            <div className="weather-detail-item" title={isBn ? 'বাতাসের গতিবেগ' : 'Wind Speed'}>
               <Wind size={13} color="#9E9E9E" />
-              <span className="weather-detail-val">{isBn ? weatherData.windBn : weatherData.windEn}</span>
+              <span className="weather-detail-val">{isBn ? weather.windBn : weather.windEn}</span>
             </div>
           </div>
         </div>
 
         {/* 5-Day Mini Forecast Strip */}
         <div className="weather-5day-forecast-row">
-          {weatherData.forecast.map((fc, idx) => (
+          {(weather.forecast || []).map((fc, idx) => (
             <div key={idx} className="weather-forecast-col">
               <span className="forecast-day-name">
                 {isBn ? fc.dayBn : fc.dayEn}

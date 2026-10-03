@@ -470,119 +470,153 @@ export const initialPodcasts = [
   }
 ];
 
-// All 64 Districts of Bangladesh organized by 8 Divisions
+// All 64 Districts of Bangladesh organized by 8 Divisions with Geo Coordinates
 export const bangladeshDistricts = [
   {
     divisionBn: 'ঢাকা বিভাগ',
     divisionEn: 'Dhaka Division',
     districts: [
-      { id: 'dhaka', nameBn: 'ঢাকা', nameEn: 'Dhaka' },
-      { id: 'gazipur', nameBn: 'গাজীপুর', nameEn: 'Gazipur' },
-      { id: 'narayanganj', nameBn: 'নারায়ণগঞ্জ', nameEn: 'Narayanganj' },
-      { id: 'tangail', nameBn: 'টাঙ্গাইল', nameEn: 'Tangail' },
-      { id: 'faridpur', nameBn: 'ফরিদপুর', nameEn: 'Faridpur' },
-      { id: 'narsingdi', nameBn: 'নরসিংদী', nameEn: 'Narsingdi' },
-      { id: 'manikganj', nameBn: 'মানিকগঞ্জ', nameEn: 'Manikganj' },
-      { id: 'munshiganj', nameBn: 'মুন্সীগঞ্জ', nameEn: 'Munshiganj' },
-      { id: 'kishoreganj', nameBn: 'কিশোরগঞ্জ', nameEn: 'Kishoreganj' },
-      { id: 'gopalganj', nameBn: 'গোপালগঞ্জ', nameEn: 'Gopalganj' },
-      { id: 'madaripur', nameBn: 'মাদারীপুর', nameEn: 'Madaripur' },
-      { id: 'rajbari', nameBn: 'রাজবাড়ী', nameEn: 'Rajbari' },
-      { id: 'shariatpur', nameBn: 'শরীয়তপুর', nameEn: 'Shariatpur' }
+      { id: 'dhaka', nameBn: 'ঢাকা', nameEn: 'Dhaka', lat: 23.8103, lng: 90.4125 },
+      { id: 'gazipur', nameBn: 'গাজীপুর', nameEn: 'Gazipur', lat: 23.9981, lng: 90.4203 },
+      { id: 'narayanganj', nameBn: 'নারায়ণগঞ্জ', nameEn: 'Narayanganj', lat: 23.6238, lng: 90.5000 },
+      { id: 'tangail', nameBn: 'টাঙ্গাইল', nameEn: 'Tangail', lat: 24.2513, lng: 89.9167 },
+      { id: 'faridpur', nameBn: 'ফরিদপুর', nameEn: 'Faridpur', lat: 23.6071, lng: 89.8429 },
+      { id: 'narsingdi', nameBn: 'নরসিংদী', nameEn: 'Narsingdi', lat: 23.9322, lng: 90.7154 },
+      { id: 'manikganj', nameBn: 'মানিকগঞ্জ', nameEn: 'Manikganj', lat: 23.8617, lng: 90.0003 },
+      { id: 'munshiganj', nameBn: 'মুন্সীগঞ্জ', nameEn: 'Munshiganj', lat: 23.5422, lng: 90.5305 },
+      { id: 'kishoreganj', nameBn: 'কিশোরগঞ্জ', nameEn: 'Kishoreganj', lat: 24.4449, lng: 90.7766 },
+      { id: 'gopalganj', nameBn: 'গোপালগঞ্জ', nameEn: 'Gopalganj', lat: 23.0051, lng: 89.8266 },
+      { id: 'madaripur', nameBn: 'মাদারীপুর', nameEn: 'Madaripur', lat: 23.1641, lng: 90.1897 },
+      { id: 'rajbari', nameBn: 'রাজবাড়ী', nameEn: 'Rajbari', lat: 23.7574, lng: 89.6445 },
+      { id: 'shariatpur', nameBn: 'শরীয়তপুর', nameEn: 'Shariatpur', lat: 23.2423, lng: 90.4348 }
     ]
   },
   {
     divisionBn: 'চট্টগ্রাম বিভাগ',
     divisionEn: 'Chittagong Division',
     districts: [
-      { id: 'chittagong', nameBn: 'চট্টগ্রাম', nameEn: 'Chittagong' },
-      { id: 'coxsbazar', nameBn: 'কক্সবাজার', nameEn: "Cox's Bazar" },
-      { id: 'cumilla', nameBn: 'কুমিল্লা', nameEn: 'Cumilla' },
-      { id: 'noakhali', nameBn: 'নোয়াখালী', nameEn: 'Noakhali' },
-      { id: 'feni', nameBn: 'ফেনী', nameEn: 'Feni' },
-      { id: 'chandpur', nameBn: 'চাঁদপুর', nameEn: 'Chandpur' },
-      { id: 'brahmanbaria', nameBn: 'ব্রাহ্মণবাড়িয়া', nameEn: 'Brahmanbaria' },
-      { id: 'lakshmipur', nameBn: 'লক্ষ্মীপুর', nameEn: 'Lakshmipur' },
-      { id: 'rangamati', nameBn: 'রাঙ্গামাটি', nameEn: 'Rangamati' },
-      { id: 'khagrachhari', nameBn: 'খাগড়াছড়ি', nameEn: 'Khagrachhari' },
-      { id: 'bandarban', nameBn: 'বান্দরবান', nameEn: 'Bandarban' }
+      { id: 'chittagong', nameBn: 'চট্টগ্রাম', nameEn: 'Chittagong', lat: 22.3569, lng: 91.7832 },
+      { id: 'coxsbazar', nameBn: 'কক্সবাজার', nameEn: "Cox's Bazar", lat: 21.4272, lng: 92.0058 },
+      { id: 'cumilla', nameBn: 'কুমিল্লা', nameEn: 'Cumilla', lat: 23.4607, lng: 91.1809 },
+      { id: 'noakhali', nameBn: 'নোয়াখালী', nameEn: 'Noakhali', lat: 22.8696, lng: 91.0993 },
+      { id: 'feni', nameBn: 'ফেনী', nameEn: 'Feni', lat: 23.0159, lng: 91.3976 },
+      { id: 'chandpur', nameBn: 'চাঁদপুর', nameEn: 'Chandpur', lat: 23.2333, lng: 90.6667 },
+      { id: 'brahmanbaria', nameBn: 'ব্রাহ্মণবাড়িয়া', nameEn: 'Brahmanbaria', lat: 23.9571, lng: 91.1119 },
+      { id: 'lakshmipur', nameBn: 'লক্ষ্মীপুর', nameEn: 'Lakshmipur', lat: 22.9425, lng: 90.8412 },
+      { id: 'rangamati', nameBn: 'রাঙ্গামাটি', nameEn: 'Rangamati', lat: 22.6533, lng: 92.1753 },
+      { id: 'khagrachhari', nameBn: 'খাগড়াছড়ি', nameEn: 'Khagrachhari', lat: 23.1193, lng: 91.9847 },
+      { id: 'bandarban', nameBn: 'বান্দরবান', nameEn: 'Bandarban', lat: 22.1953, lng: 92.2184 }
     ]
   },
   {
     divisionBn: 'রাজশাহী বিভাগ',
     divisionEn: 'Rajshahi Division',
     districts: [
-      { id: 'rajshahi', nameBn: 'রাজশাহী', nameEn: 'Rajshahi' },
-      { id: 'bogura', nameBn: 'বগুড়া', nameEn: 'Bogura' },
-      { id: 'pabna', nameBn: 'পাবনা', nameEn: 'Pabna' },
-      { id: 'sirajganj', nameBn: 'সিরাজগঞ্জ', nameEn: 'Sirajganj' },
-      { id: 'naogaon', nameBn: 'নওগাঁ', nameEn: 'Naogaon' },
-      { id: 'natore', nameBn: 'নাটোর', nameEn: 'Natore' },
-      { id: 'chapainawabganj', nameBn: 'চাঁপাইনবাবগঞ্জ', nameEn: 'Chapainawabganj' },
-      { id: 'joypurhat', nameBn: 'জয়পুরহাট', nameEn: 'Joypurhat' }
+      { id: 'rajshahi', nameBn: 'রাজশাহী', nameEn: 'Rajshahi', lat: 24.3745, lng: 88.6042 },
+      { id: 'bogura', nameBn: 'বগুড়া', nameEn: 'Bogura', lat: 24.8465, lng: 89.3777 },
+      { id: 'pabna', nameBn: 'পাবনা', nameEn: 'Pabna', lat: 24.0064, lng: 89.2483 },
+      { id: 'sirajganj', nameBn: 'সিরাজগঞ্জ', nameEn: 'Sirajganj', lat: 24.4534, lng: 89.7008 },
+      { id: 'naogaon', nameBn: 'নওগাঁ', nameEn: 'Naogaon', lat: 24.7936, lng: 88.9318 },
+      { id: 'natore', nameBn: 'নাটোর', nameEn: 'Natore', lat: 24.4206, lng: 89.0003 },
+      { id: 'chapainawabganj', nameBn: 'চাঁপাইনবাবগঞ্জ', nameEn: 'Chapainawabganj', lat: 24.5965, lng: 88.2775 },
+      { id: 'joypurhat', nameBn: 'জয়পুরহাট', nameEn: 'Joypurhat', lat: 25.1015, lng: 89.0277 }
     ]
   },
   {
     divisionBn: 'খুলনা বিভাগ',
     divisionEn: 'Khulna Division',
     districts: [
-      { id: 'khulna', nameBn: 'খুলনা', nameEn: 'Khulna' },
-      { id: 'jashore', nameBn: 'যশোর', nameEn: 'Jashore' },
-      { id: 'kushtia', nameBn: 'কুষ্টিয়া', nameEn: 'Kushtia' },
-      { id: 'satkhira', nameBn: 'সাতক্ষীরা', nameEn: 'Satkhira' },
-      { id: 'bagerhat', nameBn: 'বাগেরহাট', nameEn: 'Bagerhat' },
-      { id: 'jhenaidah', nameBn: 'ঝিনাইদহ', nameEn: 'Jhenaidah' },
-      { id: 'chuadanga', nameBn: 'চুয়াডাঙ্গা', nameEn: 'Chuadanga' },
-      { id: 'magura', nameBn: 'মাগুরা', nameEn: 'Magura' },
-      { id: 'meherpur', nameBn: 'মেহেরপুর', nameEn: 'Meherpur' },
-      { id: 'narail', nameBn: 'নড়াইল', nameEn: 'Narail' }
+      { id: 'khulna', nameBn: 'খুলনা', nameEn: 'Khulna', lat: 22.8456, lng: 89.5403 },
+      { id: 'jashore', nameBn: 'যশোর', nameEn: 'Jashore', lat: 23.1664, lng: 89.2081 },
+      { id: 'kushtia', nameBn: 'কুষ্টিয়া', nameEn: 'Kushtia', lat: 23.9013, lng: 89.1205 },
+      { id: 'satkhira', nameBn: 'সাতক্ষীরা', nameEn: 'Satkhira', lat: 22.7185, lng: 89.0705 },
+      { id: 'bagerhat', nameBn: 'বাগেরহাট', nameEn: 'Bagerhat', lat: 22.6516, lng: 89.7859 },
+      { id: 'jhenaidah', nameBn: 'ঝিনাইদহ', nameEn: 'Jhenaidah', lat: 23.5450, lng: 89.1726 },
+      { id: 'chuadanga', nameBn: 'চুয়াডাঙ্গা', nameEn: 'Chuadanga', lat: 23.6402, lng: 88.8418 },
+      { id: 'magura', nameBn: 'মাগুরা', nameEn: 'Magura', lat: 23.4873, lng: 89.4199 },
+      { id: 'meherpur', nameBn: 'মেহেরপুর', nameEn: 'Meherpur', lat: 23.7622, lng: 88.6318 },
+      { id: 'narail', nameBn: 'নড়াইল', nameEn: 'Narail', lat: 23.1725, lng: 89.5127 }
     ]
   },
   {
     divisionBn: 'বরিশাল বিভাগ',
     divisionEn: 'Barisal Division',
     districts: [
-      { id: 'barisal', nameBn: 'বরিশাল', nameEn: 'Barisal' },
-      { id: 'patuakhali', nameBn: 'পটুয়াখালী', nameEn: 'Patuakhali' },
-      { id: 'bhola', nameBn: 'ভোলা', nameEn: 'Bhola' },
-      { id: 'pirojpur', nameBn: 'পিরোজপুর', nameEn: 'Pirojpur' },
-      { id: 'barguna', nameBn: 'বরগুনা', nameEn: 'Barguna' },
-      { id: 'jhalakathi', nameBn: 'ঝালকাঠি', nameEn: 'Jhalakathi' }
+      { id: 'barisal', nameBn: 'বরিশাল', nameEn: 'Barisal', lat: 22.7010, lng: 90.3535 },
+      { id: 'patuakhali', nameBn: 'পটুয়াখালী', nameEn: 'Patuakhali', lat: 22.3596, lng: 90.3299 },
+      { id: 'bhola', nameBn: 'ভোলা', nameEn: 'Bhola', lat: 22.6859, lng: 90.6482 },
+      { id: 'pirojpur', nameBn: 'পিরোজপুর', nameEn: 'Pirojpur', lat: 22.5841, lng: 89.9720 },
+      { id: 'barguna', nameBn: 'বরগুনা', nameEn: 'Barguna', lat: 22.0953, lng: 90.1121 },
+      { id: 'jhalakathi', nameBn: 'ঝালকাঠি', nameEn: 'Jhalakathi', lat: 22.6406, lng: 90.1987 }
     ]
   },
   {
     divisionBn: 'সিলেট বিভাগ',
     divisionEn: 'Sylhet Division',
     districts: [
-      { id: 'sylhet', nameBn: 'সিলেট', nameEn: 'Sylhet' },
-      { id: 'moulvibazar', nameBn: 'মৌলভীবাজার', nameEn: 'Moulvibazar' },
-      { id: 'sunamganj', nameBn: 'সুনামগঞ্জ', nameEn: 'Sunamganj' },
-      { id: 'habiganj', nameBn: 'হবিগঞ্জ', nameEn: 'Habiganj' }
+      { id: 'sylhet', nameBn: 'সিলেট', nameEn: 'Sylhet', lat: 24.8949, lng: 91.8687 },
+      { id: 'moulvibazar', nameBn: 'মৌলভীবাজার', nameEn: 'Moulvibazar', lat: 24.4829, lng: 91.7774 },
+      { id: 'sunamganj', nameBn: 'সুনামগঞ্জ', nameEn: 'Sunamganj', lat: 25.0658, lng: 91.3950 },
+      { id: 'habiganj', nameBn: 'হবিগঞ্জ', nameEn: 'Habiganj', lat: 24.3749, lng: 91.4155 }
     ]
   },
   {
     divisionBn: 'রংপুর বিভাগ',
     divisionEn: 'Rangpur Division',
     districts: [
-      { id: 'rangpur', nameBn: 'রংপুর', nameEn: 'Rangpur' },
-      { id: 'dinajpur', nameBn: 'দিনাজপুর', nameEn: 'Dinajpur' },
-      { id: 'kurigram', nameBn: 'কুড়িগ্রাম', nameEn: 'Kurigram' },
-      { id: 'gaibandha', nameBn: 'গাইবান্ধা', nameEn: 'Gaibandha' },
-      { id: 'nilphamari', nameBn: 'নীলফামারী', nameEn: 'Nilphamari' },
-      { id: 'lalmonirhat', nameBn: 'লালমনিরহাট', nameEn: 'Lalmonirhat' },
-      { id: 'panchagarh', nameBn: 'পঞ্চগড়', nameEn: 'Panchagarh' },
-      { id: 'thakurgaon', nameBn: 'ঠাকুরগাঁও', nameEn: 'Thakurgaon' }
+      { id: 'rangpur', nameBn: 'রংপুর', nameEn: 'Rangpur', lat: 25.7439, lng: 89.2752 },
+      { id: 'dinajpur', nameBn: 'দিনাজপুর', nameEn: 'Dinajpur', lat: 25.6217, lng: 88.6355 },
+      { id: 'kurigram', nameBn: 'কুড়িগ্রাম', nameEn: 'Kurigram', lat: 25.8054, lng: 89.6362 },
+      { id: 'gaibandha', nameBn: 'গাইবান্ধা', nameEn: 'Gaibandha', lat: 25.3288, lng: 89.5407 },
+      { id: 'nilphamari', nameBn: 'নীলফামারী', nameEn: 'Nilphamari', lat: 25.9318, lng: 88.8560 },
+      { id: 'lalmonirhat', nameBn: 'লালমনিরহাট', nameEn: 'Lalmonirhat', lat: 25.9923, lng: 89.2847 },
+      { id: 'panchagarh', nameBn: 'পঞ্চগড়', nameEn: 'Panchagarh', lat: 26.3411, lng: 88.5541 },
+      { id: 'thakurgaon', nameBn: 'ঠাকুরগাঁও', nameEn: 'Thakurgaon', lat: 26.0337, lng: 88.4617 }
     ]
   },
   {
     divisionBn: 'ময়মনসিংহ বিভাগ',
     divisionEn: 'Mymensingh Division',
     districts: [
-      { id: 'mymensingh', nameBn: 'ময়মনসিংহ', nameEn: 'Mymensingh' },
-      { id: 'jamalpur', nameBn: 'জামালপুর', nameEn: 'Jamalpur' },
-      { id: 'netrokona', nameBn: 'নেত্রকোনা', nameEn: 'Netrokona' },
-      { id: 'sherpur', nameBn: 'শেরপুর', nameEn: 'Sherpur' }
+      { id: 'mymensingh', nameBn: 'ময়মনসিংহ', nameEn: 'Mymensingh', lat: 24.7471, lng: 90.4203 },
+      { id: 'jamalpur', nameBn: 'জামালপুর', nameEn: 'Jamalpur', lat: 24.9375, lng: 89.9378 },
+      { id: 'netrokona', nameBn: 'নেত্রকোনা', nameEn: 'Netrokona', lat: 24.8709, lng: 90.7279 },
+      { id: 'sherpur', nameBn: 'শেরপুর', nameEn: 'Sherpur', lat: 25.0205, lng: 90.0153 }
     ]
   }
 ];
+
+// Helper: Calculate distance between two GPS coordinates using Haversine Formula
+export function calculateGeoDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Radius of the Earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in kilometers
+}
+
+// Helper: Find closest Bangladesh District from user coordinates
+export function findClosestDistrict(userLat, userLng) {
+  const allDistricts = bangladeshDistricts.flatMap((div) => div.districts);
+  let closest = allDistricts[0];
+  let minDistance = Infinity;
+
+  for (const dist of allDistricts) {
+    if (dist.lat && dist.lng) {
+      const distance = calculateGeoDistance(userLat, userLng, dist.lat, dist.lng);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closest = dist;
+      }
+    }
+  }
+
+  return { district: closest, distanceKm: Math.round(minDistance) };
+}
 

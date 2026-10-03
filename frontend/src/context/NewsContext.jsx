@@ -4,9 +4,11 @@ import {
   initialCategories,
   initialBreakingNews,
   initialNewsArticles,
-  initialPodcasts
+  initialPodcasts,
+  bangladeshDistricts
 } from '../data/initialData';
 import { supabase, configureSupabase } from '../supabase';
+import { fetchLiveGoogleWeather, getDefaultWeather } from '../services/weatherService';
 
 const NewsContext = createContext();
 
@@ -63,6 +65,50 @@ export function NewsProvider({ children }) {
   const [currentArticle, setCurrentArticle] = useState(null); // Full page article view
   const [activePolicyModal, setActivePolicyModal] = useState(null); // 'terms' | 'privacy' | 'editorial' | null
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+
+  // 9. Real-Time Location District & Google Weather State
+  const [userDistrict, setUserDistrictState] = useState(() => {
+    return localStorage.getItem('jonogon_user_district') || 'dhaka';
+  });
+
+  const [liveWeather, setLiveWeather] = useState(() => {
+    return getDefaultWeather('ঢাকা', 'Dhaka');
+  });
+
+  const [isWeatherLoading, setIsWeatherLoading] = useState(false);
+
+  const setUserDistrict = (districtId) => {
+    setUserDistrictState(districtId);
+    localStorage.setItem('jonogon_user_district', districtId);
+  };
+
+  const refreshWeather = async (districtId = userDistrict) => {
+    setIsWeatherLoading(true);
+    const allDistricts = bangladeshDistricts.flatMap((div) => div.districts);
+    const targetDist = allDistricts.find((d) => d.id === districtId) || {
+      id: 'dhaka',
+      nameBn: 'ঢাকা',
+      nameEn: 'Dhaka',
+      lat: 23.8103,
+      lng: 90.4125
+    };
+
+    const weather = await fetchLiveGoogleWeather(
+      targetDist.lat,
+      targetDist.lng,
+      targetDist.nameBn,
+      targetDist.nameEn
+    );
+
+    if (weather) {
+      setLiveWeather(weather);
+    }
+    setIsWeatherLoading(false);
+  };
+
+  useEffect(() => {
+    refreshWeather(userDistrict);
+  }, [userDistrict]);
 
   // Parse URL on Initial Load (Support direct link to news)
   useEffect(() => {
@@ -286,7 +332,12 @@ export function NewsProvider({ children }) {
         activePolicyModal,
         setActivePolicyModal,
         isAdminOpen,
-        setIsAdminOpen
+        setIsAdminOpen,
+        userDistrict,
+        setUserDistrict,
+        liveWeather,
+        isWeatherLoading,
+        refreshWeather
       }}
     >
       {children}

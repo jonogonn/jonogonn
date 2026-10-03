@@ -1,16 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { useNews } from '../../context/NewsContext';
-import { CloudSun } from 'lucide-react';
+import { CloudSun, Sun, Moon, Cloud, CloudRain, CloudLightning } from 'lucide-react';
 import { FacebookIcon, YoutubeIcon } from '../Icons/SocialIcons';
 
 export default function TopBar() {
   const {
     language,
     settings,
-    setActivePolicyModal
+    setActivePolicyModal,
+    liveWeather
   } = useNews();
 
   const isBn = language === 'bn';
+
+  const renderTopWeatherIcon = (icon) => {
+    switch (icon) {
+      case 'sun':
+        return <Sun size={15} color="#FFB800" />;
+      case 'moon':
+        return <Moon size={15} color="#D9D9D9" />;
+      case 'rain':
+        return <CloudRain size={15} color="#4A90E2" />;
+      case 'thunder':
+        return <CloudLightning size={15} color="var(--primary-red)" />;
+      case 'cloud':
+        return <Cloud size={15} color="#9E9E9E" />;
+      default:
+        return <CloudSun size={15} color="var(--primary-red)" />;
+    }
+  };
 
   // Live Current Date
   const [currentDate, setCurrentDate] = useState('');
@@ -39,9 +57,24 @@ export default function TopBar() {
           <div className="topbar-date">
             <span>{currentDate}</span>
           </div>
-          <div className="topbar-weather">
-            <CloudSun size={15} color="var(--primary-red)" />
-            <span>{isBn ? 'ঢাকা ২৩°C' : 'Dhaka 23°C'}</span>
+          <div
+            className="topbar-weather"
+            title={
+              liveWeather
+                ? `${isBn ? liveWeather.cityBn : liveWeather.cityEn} - ${isBn ? liveWeather.conditionBn : liveWeather.conditionEn}`
+                : 'Weather'
+            }
+          >
+            {renderTopWeatherIcon(liveWeather?.iconType)}
+            <span>
+              {liveWeather
+                ? isBn
+                  ? `${liveWeather.cityBn} ${liveWeather.tempBn}C`
+                  : `${liveWeather.cityEn} ${liveWeather.tempEn}C`
+                : isBn
+                ? 'ঢাকা ২৮°C'
+                : 'Dhaka 28°C'}
+            </span>
           </div>
         </div>
 
