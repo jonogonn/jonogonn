@@ -1,0 +1,143 @@
+import React from 'react';
+import { useNews } from '../../context/NewsContext';
+import { MapPin, Phone, Mail, User, Lock } from 'lucide-react';
+import { FacebookIcon, YoutubeIcon } from '../Icons/SocialIcons';
+
+export default function Footer() {
+  const { language, settings, setActivePolicyModal, setIsAdminOpen } = useNews();
+  const isBn = language === 'bn';
+
+  return (
+    <footer className="site-footer">
+      <div className="container">
+        <div className="footer-top">
+          {/* Col 1: Brand & Founder Info */}
+          <div className="footer-brand">
+            <img
+              src={settings.logoUrl || '/logo.svg'}
+              alt={isBn ? settings.siteNameBn : settings.siteNameEn}
+              className="footer-logo"
+            />
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              {isBn
+                ? 'জনগণের পক্ষে সত্য ও বস্তুনিষ্ঠ সংবাদের বিশ্বস্ত ঠিকানা। দেশ-বিদেশের তাজা খবর মুহূর্তেই পৌঁছে দিতে আমরা প্রতিশ্রুতিবদ্ধ।'
+                : 'Your trusted digital source for verified, objective, and timely journalism standing for the people.'}
+            </p>
+            <div style={{ marginTop: 8, fontSize: '0.85rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <User size={15} color="var(--primary-red)" />
+              <span>
+                <strong>{isBn ? settings.founderBn : settings.founderEn}</strong> (
+                {isBn ? settings.designationBn : settings.designationEn})
+              </span>
+            </div>
+          </div>
+
+          {/* Col 2: Important Links */}
+          <div>
+            <h4 className="footer-col-title">{isBn ? 'প্রয়োজনীয় লিঙ্ক' : 'Quick Links'}</h4>
+            <div className="footer-links-list">
+              <button onClick={() => setActivePolicyModal('about')}>
+                {isBn ? 'আমাদের সম্পর্কে' : 'About Us'}
+              </button>
+              <button onClick={() => setActivePolicyModal('advertisement')}>
+                {isBn ? 'বিজ্ঞাপন দরপত্র' : 'Advertisement'}
+              </button>
+              <button onClick={() => setActivePolicyModal('editorial')}>
+                {isBn ? 'সম্পাদকীয় নীতি' : 'Editorial Policy'}
+              </button>
+              <button onClick={() => setActivePolicyModal('privacy')}>
+                {isBn ? 'গোপনীয়তা নীতি' : 'Privacy Policy'}
+              </button>
+              <button onClick={() => setActivePolicyModal('terms')}>
+                {isBn ? 'ব্যবহারের শর্তাবলী' : 'Terms & Conditions'}
+              </button>
+            </div>
+          </div>
+
+          {/* Col 3: Categories */}
+          <div>
+            <h4 className="footer-col-title">{isBn ? 'বিভাগসমূহ' : 'Categories'}</h4>
+            <div className="footer-links-list">
+              <a href="#national">{isBn ? 'জাতীয় সংবাদ' : 'National'}</a>
+              <a href="#politics">{isBn ? 'রাজনীতি' : 'Politics'}</a>
+              <a href="#international">{isBn ? 'আন্তর্জাতিক' : 'World'}</a>
+              <a href="#economy">{isBn ? 'অর্থনীতি' : 'Economy'}</a>
+              <a href="#sports">{isBn ? 'খেলাধুলা' : 'Sports'}</a>
+              <a href="#tech">{isBn ? 'তথ্যপ্রযুক্তি' : 'Technology'}</a>
+            </div>
+          </div>
+
+          {/* Col 4: Contact & Office Info */}
+          <div>
+            <h4 className="footer-col-title">{isBn ? 'যোগাযোগ ও কার্যালয়' : 'Office & Contact'}</h4>
+            <div className="footer-contact-info">
+              <div className="contact-item">
+                <MapPin size={16} color="var(--primary-red)" style={{ flexShrink: 0, marginTop: 3 }} />
+                <span>{settings.address}</span>
+              </div>
+              <div className="contact-item">
+                <Phone size={16} color="var(--primary-red)" style={{ flexShrink: 0 }} />
+                <a href={`tel:${settings.phone}`}>{settings.phone}</a>
+              </div>
+              <div className="contact-item">
+                <Mail size={16} color="var(--primary-red)" style={{ flexShrink: 0 }} />
+                <a href={`mailto:${settings.email}`}>{settings.email}</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Bottom Bar */}
+        <div className="footer-bottom">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span>
+              © {new Date().getFullYear()} {isBn ? settings.siteNameBn : settings.siteNameEn}। সর্বস্বত্ব সংরক্ষিত।
+            </span>
+            <button
+              onClick={() => setIsAdminOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                color: 'var(--text-light)',
+                fontSize: '0.78rem',
+                opacity: 0.8
+              }}
+              title="Admin Panel"
+            >
+              <Lock size={12} />
+              <span>{isBn ? 'অ্যাডমিন' : 'Admin'}</span>
+            </button>
+          </div>
+
+          <div className="footer-bottom-social">
+            {settings.facebook && (
+              <a
+                href={settings.facebook}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="footer-social-btn"
+                title="Facebook"
+                aria-label="Facebook Page"
+              >
+                <FacebookIcon size={16} />
+              </a>
+            )}
+            {settings.youtube && (
+              <a
+                href={settings.youtube}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="footer-social-btn"
+                title="YouTube"
+                aria-label="YouTube Channel"
+              >
+                <YoutubeIcon size={16} />
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
