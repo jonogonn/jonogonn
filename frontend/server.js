@@ -1,6 +1,10 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const port = process.env.PORT || 3000;
 const distDir = path.resolve(__dirname, 'dist');
@@ -8,6 +12,7 @@ const distDir = path.resolve(__dirname, 'dist');
 const mimeTypes = {
   '.html': 'text/html; charset=UTF-8',
   '.js': 'text/javascript; charset=UTF-8',
+  '.mjs': 'text/javascript; charset=UTF-8',
   '.css': 'text/css; charset=UTF-8',
   '.json': 'application/json',
   '.png': 'image/png',
@@ -43,8 +48,8 @@ const server = http.createServer((req, res) => {
           <!DOCTYPE html>
           <html>
           <head><title>Jonogon News - Setup</title></head>
-          <body style="font-family:sans-serif; text-align:center; padding:50px;">
-            <h2>জনগণ.নিউজ (Jonogon News)</h2>
+          <body style="font-family:sans-serif; text-align:center; padding:50px; background:#111; color:#fff;">
+            <h2 style="color:#E60012;">জনগণ.নিউজ (Jonogon News)</h2>
             <p>প্রোডাকশন বিল্ড ফাইল (dist) তৈরি হচ্ছে বা এখনও বিল্ড রান করা হয়নি।</p>
             <p>দয়া করে সার্ভার টার্মিনালে <code>npm run build</code> কমান্ডটি সম্পন্ন করুন।</p>
           </body>
@@ -64,3 +69,4 @@ const server = http.createServer((req, res) => {
 server.listen(port, () => {
   console.log(`🚀 Jonogon News Frontend running on port ${port}`);
 });
+
