@@ -108,7 +108,6 @@ export default function BreakingTicker() {
         <div className="container ticker-wrapper">
           {/* Fixed Dark/Gold Highlights Badge on Left */}
           <div className="highlights-ticker-badge">
-            <Sparkles size={15} className="highlights-badge-icon" />
             <span>{isBn ? 'হাইলাইটস' : 'Highlights'}</span>
           </div>
 

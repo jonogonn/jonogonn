@@ -21,9 +21,11 @@ export default function SideWatchWidget() {
   const { language, userDistrict } = useNews();
   const isBn = language === 'bn';
 
-  // Clock State
+  // Clock & Expansion State
   const [time, setTime] = useState(new Date());
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isCollapsedMobile, setIsCollapsedMobile] = useState(false);
 
   // Update clock every second
   useEffect(() => {
@@ -32,6 +34,42 @@ export default function SideWatchWidget() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // 5-second auto-collapse timer on mobile
+  useEffect(() => {
+    if (isMobile) {
+      // Start expanded for 5 seconds, then collapse to only show toggle tab
+      setIsCollapsedMobile(false);
+      const timer = setTimeout(() => {
+        setIsCollapsedMobile(true);
+      }, 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setIsCollapsedMobile(false);
+    }
+  }, [isMobile]);
+
+  // Handle toggle button click
+  const handleToggleClick = (e) => {
+    e.stopPropagation();
+    if (isMobile && isCollapsedMobile) {
+      // On mobile when collapsed, clicking opens the full modal panel
+      setIsExpanded(true);
+    } else {
+      setIsExpanded(!isExpanded);
+    }
+  };
 
   // Compute Clock Hand Angles
   const seconds = time.getSeconds();
@@ -56,26 +94,42 @@ export default function SideWatchWidget() {
           1. RIGHT SIDE FLOATING ANALOG WATCH WIDGET
           ======================================================== */}
       <aside
-        className={`side-floating-watch-widget ${isExpanded ? 'active' : ''}`}
+        className={`side-floating-watch-widget ${isExpanded ? 'active' : ''} ${
+          isCollapsedMobile && !isExpanded ? 'mobile-collapsed' : ''
+        }`}
         aria-label="Clock and Prayer Widget"
       >
         {/* Toggle Arrow Tab */}
         <button
           type="button"
-          onClick={() => setIsExpanded(!isExpanded)}
+          onClick={handleToggleClick}
           className="side-watch-toggle-tab"
           title={isBn ? 'নামাজের পূর্ণাঙ্গ সময়সূচি ও ছুটি দেখতে ক্লিক করুন' : 'Click to view full prayer times & holidays'}
           aria-expanded={isExpanded}
         >
           {isExpanded ? (
             <ChevronRight size={20} color="#FFFFFF" />
+          ) : isCollapsedMobile ? (
+            <div className="mobile-toggle-tab-content">
+              <Clock size={16} color="#FFFFFF" className="pulse-clock-icon" />
+              <ChevronLeft size={16} color="#FFFFFF" className="pulse-arrow" />
+            </div>
           ) : (
             <ChevronLeft size={20} color="#FFFFFF" className="pulse-arrow" />
           )}
         </button>
 
         {/* Main Floating Card Container */}
-        <div className="side-watch-card" onClick={() => !isExpanded && setIsExpanded(true)}>
+        <div
+          className="side-watch-card"
+          onClick={() => {
+            if (isCollapsedMobile) {
+              setIsExpanded(true);
+            } else if (!isExpanded) {
+              setIsExpanded(true);
+            }
+          }}
+        >
           {/* Analog Watch Dial */}
           <div className="analog-clock-wrap" title={time.toLocaleTimeString()}>
             <svg viewBox="0 0 100 100" className="analog-clock-svg">

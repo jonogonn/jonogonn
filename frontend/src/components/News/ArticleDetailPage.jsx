@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNews } from '../../context/NewsContext';
+import { updateSEO } from '../../services/seoService';
 import {
   Clock,
   Eye,
@@ -47,7 +48,53 @@ export default function ArticleDetailPage() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [currentArticle?.id]);
+    if (currentArticle) {
+      const title = isBn ? currentArticle.titleBn : currentArticle.titleEn;
+      const desc = isBn
+        ? currentArticle.excerptBn || currentArticle.contentBn?.slice(0, 160)
+        : currentArticle.excerptEn || currentArticle.contentEn?.slice(0, 160);
+      const slug = currentArticle.slug || currentArticle.id;
+      const url = `${window.location.origin}/news/${encodeURIComponent(slug)}`;
+
+      updateSEO({
+        title,
+        description: desc,
+        url,
+        imageUrl: currentArticle.imageUrl,
+        type: 'article',
+        publishedTime: currentArticle.dateEn || new Date().toISOString(),
+        author: currentArticle.author || 'জনগণ নিউজ ডেস্ক',
+        section: isBn ? currentArticle.categoryBn || 'জাতীয়' : currentArticle.category || 'National',
+        jsonLd: {
+          '@context': 'https://schema.org',
+          '@type': 'NewsArticle',
+          headline: title,
+          image: [currentArticle.imageUrl],
+          datePublished: currentArticle.dateEn || new Date().toISOString(),
+          dateModified: new Date().toISOString(),
+          author: [
+            {
+              '@type': 'Person',
+              name: currentArticle.author || 'জনগণ নিউজ ডেস্ক'
+            }
+          ],
+          publisher: {
+            '@type': 'NewsMediaOrganization',
+            name: 'জনগণ.নিউজ',
+            logo: {
+              '@type': 'ImageObject',
+              url: `${window.location.origin}/logo.svg`
+            }
+          },
+          description: desc,
+          mainEntityOfPage: {
+            '@type': 'WebPage',
+            '@id': url
+          }
+        }
+      });
+    }
+  }, [currentArticle?.id, isBn]);
 
   if (!currentArticle) return null;
 

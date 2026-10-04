@@ -47,42 +47,605 @@ export const initialSiteSettings = {
     topHeaderBanner: { enabled: true, code: '', fallbackText: 'Advertisement (Google AdSense) — 728 × 90' },
     leadSidebarAd: { enabled: true, code: '', fallbackText: 'Advertisement\nGoogle AdSense\n300 × 250' },
     midContentBanner: { enabled: true, code: '', fallbackText: 'Advertisement (Google AdSense) — 970 × 90' },
-    videoSidebarAd: { enabled: true, code: '', fallbackText: 'Advertisement\nGoogle AdSense\n300 × 600' },
-    bottomBanner: { enabled: true, code: '', fallbackText: 'Advertisement (Google AdSense) — 970 × 90' }
+    videoSidebarAd: { enabled: true, code: '', fallbackText: 'Advertisement (Google AdSense) — 300 × 600' },
+    topSlidingAd: { enabled: true, code: '', fallbackText: '📢 বিশেষ বিজ্ঞাপন: আপনার ব্যবসার ডিজিটাল প্রচার ও বিজ্ঞাপনের জন্য যোগাযোগ করুন: ০১৯৩৬-৬১৮৫৩৪' },
+    bottomSlidingAd: { enabled: true, code: '', fallbackText: '⚡ ব্রেকিং নোটিফিকেশন ও স্পন্সরড অফার — সত্যের সাথে, জনতার পাশে জনগণ.নিউজ' }
   },
 
-  // Terms & Conditions and Policies (Editable from Admin)
-  termsAndConditions: `১. ভূমিকা: জনগণ.নিউজ (Jonogon News)-এ আপনাকে স্বাগতম। এই ওয়েবসাইট ব্যবহার করার মাধ্যমে আপনি আমাদের সকল নীতিমালা ও শর্তাবলী মেনে নিচ্ছেন।
-২. তথ্যের সত্যতা ও কপিরাইট: জনগণ.নিউজ-এ প্রকাশিত সকল সংবাদ, ছবি, অডিও ও ভিডিও কনটেন্ট কপিরাইট আইনের আওতাভুক্ত। অনুমতি ছাড়া বাণিজ্যিক উদ্দেশ্যে এগুলো পুনরুৎপাদন বা প্রচার সম্পূর্ণ নিষিদ্ধ।
-৩. ব্যবহারকারীর আচরণ: কোনো ব্যবহারকারী কমেন্ট সেকশন বা সোশ্যাল চ্যানেলে আপত্তিকর, অশালীন বা রাষ্ট্রবিরোধী কোনো মন্তব্য করতে পারবেন না।
-৪. বিজ্ঞাপনের দায়বদ্ধতা: ওয়েবসাইটে প্রদর্শিত যেকোনো বিজ্ঞাপনের সত্যতা যাচাইয়ের দায়িত্ব সংশ্লিষ্ট বিজ্ঞাপনদাতার।`,
+  // Terms & Conditions and Policies (Merged from Prothom Alo, Kalbela, BDNews24, TimesTodayBD standards - Editable from Admin)
+  termsAndConditions: `১. শর্তাবলীর গ্রহণযোগ্যতা ও আওতা: জনগণ.নিউজ (Jonogon News) অনলাইন পোর্টাল, মোবাইল সংস্করণ বা সামাজিক যোগাযোগ মাধ্যমের যেকোনো কনটেন্ট পাঠ ও ব্যবহারের ক্ষেত্রে আপনি এই শর্তাবলীর প্রতি পূর্ণ সম্মতি জ্ঞাপন করছেন। যদি আপনি এই শর্তাবলীর কোনো অংশে অসম্মত হন, তবে ওয়েবসাইট ব্রাউজ না করার অনুরোধ করা হলো।
 
-  privacyPolicy: `জনগণ.নিউজ (Jonogon News) তার পাঠকদের ব্যক্তিগত তথ্যের গোপনীয়তা রক্ষায় সর্বোচ্চ শ্রদ্ধাশীল।
-১. তথ্য সংগ্রহ: ওয়েবসাইট ভিজিটের সময় কুকিজ বা ব্রাউজিং পরিসংখ্যান অ্যানালিটিক্স ও বিজ্ঞাপনের উন্নয়নের স্বার্থে ব্যবহার হতে পারে।
-২. ডেটা নিরাপত্তা: আমরা ব্যবহারকারীদের কোনো ব্যক্তিগত তথ্য (যেমন ইমেইল বা ফোন নম্বর) তৃতীয় কোনো পক্ষের কাছে বিক্রি বা অপব্যবহার করি না।
-৩. যোগাযোগ: গোপনীয়তা বিষয়ে যেকোনো প্রশ্নে যোগাযোগ করুন: brandbiplob1234@gmail.com`,
+২. বুদ্ধিবৃত্তিক সম্পদ ও কপিরাইট আইন: জনগণ.নিউজ-এ প্রকাশিত সকল সংবাদ প্রতিবেদন, অনুসন্ধানী ফিচার, ছবি, ইনফোগ্রাফিক, অডিও ও ভিডিও কনটেন্ট কপিরাইট আইন (Copyright Act of Bangladesh) এবং আন্তর্জাতিক মেধাস্বত্ব আইনের আওতায় সম্পূর্ণ সংরক্ষিত। কর্তৃপক্ষের লিখিত অনুমতি ব্যতিরেকে বাণিজ্যিক উদ্দেশ্যে কোনো কনটেন্ট হুবহু বা আংশিক পুনর্মুদ্রণ, পুনঃপ্রচার, ডাউনলোড বা স্ক্র্যাপিং করা আইনত দণ্ডনীয় অপরাধ।
 
-  editorialPolicy: `জনগণ.নিউজ সবসময় নিরপেক্ষ, বস্তুনিষ্ঠ ও জনকল্যাণমুখী সাংবাদিকতায় বিশ্বাসী।
-১. সততা ও জবাবদিহিতা: প্রতিটি সংবাদ পরিবেশনে যথাযথ তথ্য যাচাই এবং সকল পক্ষের মতামত উপস্থাপনের চেষ্টা করা হয়।
-২. বিভ্রান্তিমুক্ত পরিবেশনা: গুজব, ভুল তথ্য এবং অপপ্রচারের বিরুদ্ধে আমাদের টিম সতর্ক অবস্থান বজায় রাখে।`
+৩. পাঠকদের মন্তব্য ও আচরণবিধি: ওয়েবসাইটের কমেন্ট সেকশন বা সোশ্যাল চ্যানেলে পাঠকদের গঠনমূলক আলোচনার সুযোগ রয়েছে। তবে কোনো প্রকার সাম্প্রদায়িক বিদ্বেষমূলক, রাষ্ট্রদ্রোহী, মানহানিকর, অশ্লীল বা ব্যক্তিগত আক্রমণাত্মক মন্তব্য সম্পূর্ণ নিষিদ্ধ। সম্পাদকীয় বিভাগ যেকোনো অসঙ্গতিপূর্ণ মন্তব্য মুছে ফেলা বা সংশ্লিষ্ট ব্যবহারকারীকে নিষিদ্ধ করার পূর্ণ অধিকার সংরক্ষণ করে।
+
+৪. বিজ্ঞাপন ও স্পন্সরড কনটেন্ট দায়মুক্তি: ওয়েবসাইটে প্রদর্শিত যেকোনো বাণিজ্যিক বা স্পন্সরড বিজ্ঞাপনের গুণমান ও দাবির দায় সংশ্লিষ্ট বিজ্ঞাপনদাতার। বিজ্ঞাপনে উল্লেখিত কোনো পণ্য বা সেবা ক্রয়ের পূর্বে পাঠকদের নিজস্ব বিবেচনা প্রয়োগের অনুরোধ করা হচ্ছে।
+
+৫. বহিরাগত লিংক ও ওয়েবসাইটের নির্ভরযোগ্যতা: আমাদের সংবাদে সংবাদের প্রেক্ষাপট হিসেবে বহিরাগত ওয়েবসাইটের লিংক থাকতে পারে। তৃতীয় পক্ষের ওয়েবসাইটের গোপনীয়তা বা কনটেন্টের জন্য জনগণ.নিউজ দায়বদ্ধ নয়।
+
+৬. আইনি এখতিয়ার: এই শর্তাবলী গণপ্রজাতন্ত্রী বাংলাদেশের প্রচলিত আইন দ্বারা পরিচালিত হবে এবং যেকোনো বিরোধের ক্ষেত্রে বাংলাদেশের উপযুক্ত আদালত একমাত্র বিচারিক এখতিয়ারভুক্ত হিসেবে গণ্য হবে।`,
+
+  privacyPolicy: `জনগণ.নিউজ (Jonogon News) তার পাঠকদের ব্যক্তিগত তথ্যের সর্বোচ্চ গোপনীয়তা ও নিরাপত্তা নিশ্চিত করতে প্রতিশ্রুতিবদ্ধ।
+
+১. সংগৃহীত তথ্যের পরিধি: আপনি যখন ওয়েবসাইট ভিজিট করেন, তখন আপনার ব্রাউজারের ধরন, আইপি অ্যাড্রেস, অপারেটিং সিস্টেম এবং পেজ ভিজিটের সময়কাল অ্যানালিটিক্স ও সিস্টেম উন্নয়নের স্বার্থে স্বয়ংক্রিয়ভাবে সংরক্ষিত হতে পারে। কোনো পাঠক মন্তব্য প্রদান, নিউজলেটার সাবস্ক্রিপশন বা যোগাযোগ ফরম পূরণ না করলে কোনো ব্যক্তিগত স্পর্শকাতর তথ্য আমরা সংগ্রহ করি না।
+
+২. কুকিজ (Cookies) ও অ্যাড নেটওয়ার্ক: ওয়েবসাইটে ব্যবহারকারীর অভিজ্ঞতা উন্নত ও মসৃণ করতে আমরা কুকিজ ব্যবহার করি। Google AdSense ও অনুমোদিত থার্ড-পার্টি বিজ্ঞাপন নেটওয়ার্ক ব্যবহারকারীর আগ্রহ অনুযায়ী প্রাসঙ্গিক বিজ্ঞাপন পরিবেশনের উদ্দেশ্যে স্ট্যান্ডার্ড কুকিজ ব্যবহার করতে পারে। পাঠক তার নিজস্ব ব্রাউজার সেটিং থেকে যেকোনো সময় কুকিজ নিষ্ক্রিয় করতে পারেন।
+
+৩. তথ্য সুরক্ষা ও বিক্রি না করার অঙ্গীকার: আমরা অত্যন্ত দৃঢ়ভাবে অঙ্গীকার করছি যে, পাঠকদের কোনো ব্যক্তিগত তথ্য (যেমন নাম, ফোন নম্বর, ইমেইল) বাণিজ্যিক উদ্দেশ্যে কোনো তৃতীয় পক্ষের কাছে বিক্রয়, লিজ বা হস্তান্তর করা হয় না। আমাদের ডাটাবেজ আধুনিক এনক্রিপশন প্রটোকল দ্বারা সুরক্ষিত।
+
+৪. ব্যবহারকারীর অধিকার ও ডেটা মুছে ফেলা: পাঠক যেকোনো সময় তার সংরক্ষিত ডেটা দেখার, সংশোধনের বা সম্পূর্ণ মুছে ফেলার অনুরোধ পাঠাতে পারেন। আপনার অনুরোধ পাওয়ামাত্র আমাদের কারিগরি টিম ব্যবস্থা গ্রহণ করবে।
+
+৫. যোগাযোগের ঠিকানা: গোপনীয়তা নীতি সংক্রান্ত যেকোনো জিজ্ঞাসা বা অনুরোধের জন্য যোগাযোগ করুন: brandbiplob1234@gmail.com বা ফোন: 01936618534।`,
+
+  editorialPolicy: `জনগণ.নিউজ (Jonogon News) একটি স্বাধীন, নিরপেক্ষ ও জনকল্যাণমুখী গণমাধ্যম। আমরা ‘সত্যের সাথে, জনতার পাশে’ মূলমন্ত্রে বিশ্বাসী।
+
+১. সত্যতা ও কঠোর ফ্যাক্ট-চেকিং (Fact-Checking): প্রকাশিত প্রতিটি সংবাদের তথ্যের সত্যতা নিশ্চিত করতে ন্যূনতম দুটি স্বাধীন ও নির্ভরযোগ্য সূত্র থেকে তথ্য যাচাই করা হয়। কোনো সামাজিক যোগাযোগ মাধ্যমের গুজব বা অপ্রমাণিত বক্তব্যের ওপর ভিত্তি করে সংবাদ পরিবেশন করা হয় না।
+
+২. নিরপেক্ষতা ও উভয় পক্ষের বক্তব্য (Fair Balance & Right of Reply): যেকোনো বিতর্কিত বা সংবেদনশীল ঘটনায় সংশ্লিষ্ট সকল পক্ষের বক্তব্য ও অবস্থান সমান গুরুত্বের সাথে তুলে ধরা আমাদের নীতিগত দায়িত্ব। কোনো রাজনৈতিক দল, করপোরেট প্রতিষ্ঠান বা প্রভাবশালী গোষ্ঠীর স্বার্থে পক্ষপাতমূলক সংবাদ প্রচার সম্পূর্ণ নিষিদ্ধ।
+
+৩. সূত্রের গোপনীয়তা ও সুরক্ষা (Source Protection): জনস্বার্থে প্রকাশিত অনুসন্ধানী প্রতিবেদনের ক্ষেত্রে তথ্যদাতা বা হুইসেলব্লোয়ারের (Whistleblower) নিরাপত্তা ও গোপনীয়তা আন্তর্জাতিক সাংবাদিকতার নীতিমালা অনুযায়ী সুরক্ষিত রাখা হয়।
+
+৪. দ্রুত সংশোধন ও স্পষ্টীকরণ নীতি (Corrections Policy): অনিচ্ছাকৃত কোনো ভুল তথ্য প্রকাশিত হলে তা দ্রুততার সাথে সংশোধন করা হয় এবং সংবাদের নিচে বা শীর্ষে স্পষ্টভাবে সংশোধনী নোট প্রকাশ করা হয়।
+
+৫. অসাম্প্রদায়িকতা ও মানবাধিকার: আমরা ধর্মনিরপেক্ষতা, মুক্তিযুদ্ধের চেতনা, সাম্প্রদায়িক সম্প্রীতি এবং সার্বজনীন মানবাধিকার সুরক্ষায় অবিচল অবস্থান বজায় রাখি।
+
+৬. স্বার্থের সংঘাত ও উপহার গ্রহণ নীতিমালা: আমাদের সাংবাদিকদের কোনো উৎস থেকে উপহার, আর্থিক সুবিধা বা অনৈতিক সুযোগ গ্রহণ কঠোরভাবে নিষিদ্ধ, যাতে সাংবাদিকতার স্বাধীনতা অক্ষুণ্ণ থাকে।`
 };
 
 export const initialCategories = [
   { id: 'latest', nameBn: 'সর্বশেষ', nameEn: 'Latest', slug: 'latest' },
+  { id: 'national', nameBn: 'জাতীয়', nameEn: 'National', slug: 'national' },
   { id: 'bangladesh', nameBn: 'বাংলাদেশ', nameEn: 'Bangladesh', slug: 'bangladesh' },
+  { id: 'capital', nameBn: 'রাজধানী', nameEn: 'Capital', slug: 'capital' },
+  { id: 'saradesh', nameBn: 'সারাদেশ', nameEn: 'Countrywide', slug: 'saradesh' },
+  { id: 'district-news', nameBn: 'জেলা সংবাদ', nameEn: 'District News', slug: 'district-news' },
   { id: 'politics', nameBn: 'রাজনীতি', nameEn: 'Politics', slug: 'politics' },
-  { id: 'world', nameBn: 'আন্তর্জাতিক', nameEn: 'World', slug: 'world' },
-  { id: 'saradesh', nameBn: 'সারাদেশ', nameEn: 'Countrywide', slug: 'countrywide' },
-  { id: 'district', nameBn: 'জেলা', nameEn: 'Districts', slug: 'districts' },
+  { id: 'election', nameBn: 'নির্বাচন', nameEn: 'Election', slug: 'election' },
+  { id: 'law-court', nameBn: 'আইন-আদালত', nameEn: 'Law & Court', slug: 'law-court' },
+  { id: 'crime', nameBn: 'অপরাধ', nameEn: 'Crime', slug: 'crime' },
+  { id: 'administration', nameBn: 'প্রশাসন', nameEn: 'Administration', slug: 'administration' },
+  { id: 'government', nameBn: 'সরকার', nameEn: 'Government', slug: 'government' },
+  { id: 'parliament', nameBn: 'সংসদ', nameEn: 'Parliament', slug: 'parliament' },
+  { id: 'diplomacy', nameBn: 'কূটনীতি', nameEn: 'Diplomacy', slug: 'diplomacy' },
+  { id: 'international', nameBn: 'আন্তর্জাতিক', nameEn: 'International', slug: 'international' },
+  { id: 'world', nameBn: 'বিশ্ব', nameEn: 'World', slug: 'world' },
+  { id: 'india', nameBn: 'ভারত', nameEn: 'India', slug: 'india' },
+  { id: 'pakistan', nameBn: 'পাকিস্তান', nameEn: 'Pakistan', slug: 'pakistan' },
+  { id: 'china', nameBn: 'চীন', nameEn: 'China', slug: 'china' },
+  { id: 'middle-east', nameBn: 'মধ্যপ্রাচ্য', nameEn: 'Middle East', slug: 'middle-east' },
+  { id: 'asia', nameBn: 'এশিয়া', nameEn: 'Asia', slug: 'asia' },
+  { id: 'europe', nameBn: 'ইউরোপ', nameEn: 'Europe', slug: 'europe' },
+  { id: 'america', nameBn: 'আমেরিকা', nameEn: 'America', slug: 'america' },
+  { id: 'africa', nameBn: 'আফ্রিকা', nameEn: 'Africa', slug: 'africa' },
+  { id: 'latin-america', nameBn: 'লাতিন আমেরিকা', nameEn: 'Latin America', slug: 'latin-america' },
+  { id: 'neighbor-countries', nameBn: 'প্রতিবেশী দেশ', nameEn: 'Neighboring Countries', slug: 'neighbor-countries' },
+  { id: 'trade', nameBn: 'বাণিজ্য', nameEn: 'Trade', slug: 'trade' },
+  { id: 'business', nameBn: 'ব্যবসা', nameEn: 'Business', slug: 'business' },
   { id: 'economy', nameBn: 'অর্থনীতি', nameEn: 'Economy', slug: 'economy' },
+  { id: 'stock-market', nameBn: 'শেয়ারবাজার', nameEn: 'Stock Market', slug: 'stock-market' },
+  { id: 'bank', nameBn: 'ব্যাংক', nameEn: 'Banking', slug: 'bank' },
+  { id: 'industry', nameBn: 'শিল্প', nameEn: 'Industry', slug: 'industry' },
+  { id: 'corporate', nameBn: 'করপোরেট', nameEn: 'Corporate', slug: 'corporate' },
+  { id: 'world-trade', nameBn: 'বিশ্ববাণিজ্য', nameEn: 'Global Trade', slug: 'world-trade' },
+  { id: 'your-money', nameBn: 'আপনার টাকা', nameEn: 'Your Money', slug: 'your-money' },
+  { id: 'entrepreneur', nameBn: 'উদ্যোক্তা', nameEn: 'Entrepreneur', slug: 'entrepreneur' },
+  { id: 'jobs', nameBn: 'চাকরি', nameEn: 'Jobs', slug: 'jobs' },
+  { id: 'recruitment', nameBn: 'নিয়োগ', nameEn: 'Recruitment', slug: 'recruitment' },
+  { id: 'career', nameBn: 'ক্যারিয়ার', nameEn: 'Career', slug: 'career' },
   { id: 'education', nameBn: 'শিক্ষা', nameEn: 'Education', slug: 'education' },
-  { id: 'sports', nameBn: 'খেলাধুলা', nameEn: 'Sports', slug: 'sports' },
+  { id: 'admission', nameBn: 'ভর্তি', nameEn: 'Admission', slug: 'admission' },
+  { id: 'exam', nameBn: 'পরীক্ষা', nameEn: 'Exam', slug: 'exam' },
+  { id: 'scholarship', nameBn: 'বৃত্তি', nameEn: 'Scholarship', slug: 'scholarship' },
+  { id: 'higher-education', nameBn: 'উচ্চশিক্ষা', nameEn: 'Higher Education', slug: 'higher-education' },
+  { id: 'campus', nameBn: 'ক্যাম্পাস', nameEn: 'Campus', slug: 'campus' },
+  { id: 'science', nameBn: 'বিজ্ঞান', nameEn: 'Science', slug: 'science' },
+  { id: 'tech', nameBn: 'প্রযুক্তি', nameEn: 'Technology', slug: 'tech' },
+  { id: 'gadgets', nameBn: 'গ্যাজেট', nameEn: 'Gadgets', slug: 'gadgets' },
+  { id: 'tips', nameBn: 'টিপস', nameEn: 'Tips', slug: 'tips' },
+  { id: 'automobile', nameBn: 'অটোমোবাইল', nameEn: 'Automobile', slug: 'automobile' },
+  { id: 'cyber-world', nameBn: 'সাইবার জগৎ', nameEn: 'Cyber World', slug: 'cyber-world' },
+  { id: 'freelancing', nameBn: 'ফ্রিল্যান্সিং', nameEn: 'Freelancing', slug: 'freelancing' },
+  { id: 'ai', nameBn: 'কৃত্রিম বুদ্ধিমত্তা', nameEn: 'AI & Machine Learning', slug: 'ai' },
+  { id: 'aviation', nameBn: 'এভিয়েশন', nameEn: 'Aviation', slug: 'aviation' },
+  { id: 'health', nameBn: 'স্বাস্থ্য', nameEn: 'Health', slug: 'health' },
+  { id: 'environment', nameBn: 'পরিবেশ', nameEn: 'Environment', slug: 'environment' },
+  { id: 'climate', nameBn: 'জলবায়ু', nameEn: 'Climate', slug: 'climate' },
+  { id: 'agriculture', nameBn: 'কৃষি', nameEn: 'Agriculture', slug: 'agriculture' },
+  { id: 'religion', nameBn: 'ধর্ম', nameEn: 'Religion', slug: 'religion' },
+  { id: 'islam', nameBn: 'ইসলাম', nameEn: 'Islam', slug: 'islam' },
+  { id: 'sanatan', nameBn: 'সনাতন', nameEn: 'Sanatan', slug: 'sanatan' },
+  { id: 'buddhist', nameBn: 'বৌদ্ধ', nameEn: 'Buddhism', slug: 'buddhist' },
+  { id: 'christian', nameBn: 'খ্রিষ্টান', nameEn: 'Christianity', slug: 'christian' },
+  { id: 'sports', nameBn: 'খেলা', nameEn: 'Sports', slug: 'sports' },
+  { id: 'cricket', nameBn: 'ক্রিকেট', nameEn: 'Cricket', slug: 'cricket' },
+  { id: 'football', nameBn: 'ফুটবল', nameEn: 'Football', slug: 'football' },
+  { id: 'tennis', nameBn: 'টেনিস', nameEn: 'Tennis', slug: 'tennis' },
+  { id: 'other-sports', nameBn: 'অন্যান্য খেলা', nameEn: 'Other Sports', slug: 'other-sports' },
   { id: 'entertainment', nameBn: 'বিনোদন', nameEn: 'Entertainment', slug: 'entertainment' },
-  { id: 'tech', nameBn: 'প্রযুক্তি', nameEn: 'Tech', slug: 'tech' },
+  { id: 'television', nameBn: 'টেলিভিশন', nameEn: 'Television', slug: 'television' },
+  { id: 'ott', nameBn: 'ওটিটি', nameEn: 'OTT', slug: 'ott' },
+  { id: 'cinema', nameBn: 'সিনেমা', nameEn: 'Cinema', slug: 'cinema' },
+  { id: 'hollywood', nameBn: 'হলিউড', nameEn: 'Hollywood', slug: 'hollywood' },
+  { id: 'bollywood', nameBn: 'বলিউড', nameEn: 'Bollywood', slug: 'bollywood' },
+  { id: 'tollywood', nameBn: 'টলিউড', nameEn: 'Tollywood', slug: 'tollywood' },
+  { id: 'music', nameBn: 'গান', nameEn: 'Music', slug: 'music' },
+  { id: 'drama', nameBn: 'নাটক', nameEn: 'Drama', slug: 'drama' },
   { id: 'lifestyle', nameBn: 'জীবনযাপন', nameEn: 'Lifestyle', slug: 'lifestyle' },
+  { id: 'travel', nameBn: 'ভ্রমণ', nameEn: 'Travel', slug: 'travel' },
+  { id: 'tourism', nameBn: 'পর্যটন', nameEn: 'Tourism', slug: 'tourism' },
+  { id: 'relationship', nameBn: 'সম্পর্ক', nameEn: 'Relationship', slug: 'relationship' },
+  { id: 'wellness', nameBn: 'সুস্থতা', nameEn: 'Wellness', slug: 'wellness' },
+  { id: 'horoscope', nameBn: 'রাশিফল', nameEn: 'Horoscope', slug: 'horoscope' },
+  { id: 'fashion', nameBn: 'ফ্যাশন', nameEn: 'Fashion', slug: 'fashion' },
+  { id: 'style', nameBn: 'স্টাইল', nameEn: 'Style', slug: 'style' },
+  { id: 'beauty', nameBn: 'রূপচর্চা', nameEn: 'Beauty Care', slug: 'beauty' },
+  { id: 'home-decor', nameBn: 'গৃহসজ্জা', nameEn: 'Home Decor', slug: 'home-decor' },
+  { id: 'shopping', nameBn: 'কেনাকাটা', nameEn: 'Shopping', slug: 'shopping' },
+  { id: 'women-child', nameBn: 'নারী ও শিশু', nameEn: 'Women & Child', slug: 'women-child' },
+  { id: 'probash', nameBn: 'প্রবাস', nameEn: 'Expatriate', slug: 'probash' },
+  { id: 'art-literature', nameBn: 'শিল্প-সাহিত্য', nameEn: 'Art & Literature', slug: 'art-literature' },
+  { id: 'literature', nameBn: 'সাহিত্য', nameEn: 'Literature', slug: 'literature' },
+  { id: 'poetry', nameBn: 'কবিতা', nameEn: 'Poetry', slug: 'poetry' },
+  { id: 'story', nameBn: 'গল্প', nameEn: 'Story', slug: 'story' },
+  { id: 'books', nameBn: 'বই', nameEn: 'Books', slug: 'books' },
+  { id: 'culture', nameBn: 'সংস্কৃতি', nameEn: 'Culture', slug: 'culture' },
   { id: 'opinion', nameBn: 'মতামত', nameEn: 'Opinion', slug: 'opinion' },
-  { id: 'special', nameBn: 'বিশেষ প্রতিবেদন', nameEn: 'Special Report', slug: 'special' },
-  { id: 'video', nameBn: 'ভিডিও', nameEn: 'Video', slug: 'video' }
+  { id: 'editorial', nameBn: 'সম্পাদকীয়', nameEn: 'Editorial', slug: 'editorial' },
+  { id: 'column', nameBn: 'কলাম', nameEn: 'Column', slug: 'column' },
+  { id: 'interview', nameBn: 'সাক্ষাৎকার', nameEn: 'Interview', slug: 'interview' },
+  { id: 'analysis', nameBn: 'বিশ্লেষণ', nameEn: 'Analysis', slug: 'analysis' },
+  { id: 'feature', nameBn: 'ফিচার', nameEn: 'Feature', slug: 'feature' },
+  { id: 'special-report', nameBn: 'বিশেষ প্রতিবেদন', nameEn: 'Special Report', slug: 'special-report' },
+  { id: 'long-read', nameBn: 'দীর্ঘপাঠ', nameEn: 'Long Read', slug: 'long-read' },
+  { id: 'human-story', nameBn: 'মানবিক গল্প', nameEn: 'Human Story', slug: 'human-story' },
+  { id: 'history', nameBn: 'ইতিহাস', nameEn: 'History', slug: 'history' },
+  { id: '1971', nameBn: '১৯৭১', nameEn: '1971', slug: '1971' },
+  { id: 'achievement', nameBn: 'অর্জন', nameEn: 'Achievement', slug: 'achievement' },
+  { id: 'society', nameBn: 'সমাজ', nameEn: 'Society', slug: 'society' },
+  { id: 'people', nameBn: 'মানুষ', nameEn: 'People', slug: 'people' },
+  { id: 'media', nameBn: 'মিডিয়া', nameEn: 'Media', slug: 'media' },
+  { id: 'social-media', nameBn: 'সোশ্যাল মিডিয়া', nameEn: 'Social Media', slug: 'social-media' },
+  { id: 'curiosities', nameBn: 'বিচিত্র', nameEn: 'Curiosities', slug: 'curiosities' },
+  { id: 'biography', nameBn: 'জীবনকাহিনি', nameEn: 'Life Stories', slug: 'biography' },
+  { id: 'photos', nameBn: 'ছবি', nameEn: 'Photos', slug: 'photos' },
+  { id: 'photo-story', nameBn: 'ফটো স্টোরি', nameEn: 'Photo Story', slug: 'photo-story' },
+  { id: 'photo-gallery', nameBn: 'ফটোগ্যালারি', nameEn: 'Photo Gallery', slug: 'photo-gallery' },
+  { id: 'video', nameBn: 'ভিডিও', nameEn: 'Video', slug: 'video' },
+  { id: 'video-story', nameBn: 'ভিডিও স্টোরি', nameEn: 'Video Story', slug: 'video-story' },
+  { id: 'video-gallery', nameBn: 'ভিডিও গ্যালারি', nameEn: 'Video Gallery', slug: 'video-gallery' },
+  { id: 'audio', nameBn: 'অডিও', nameEn: 'Audio', slug: 'audio' },
+  { id: 'podcast', nameBn: 'পডকাস্ট', nameEn: 'Podcast', slug: 'podcast' },
+  { id: 'live', nameBn: 'লাইভ', nameEn: 'Live', slug: 'live' },
+  { id: 'news-analysis', nameBn: 'সংবাদ বিশ্লেষণ', nameEn: 'News Analysis', slug: 'news-analysis' },
+  { id: 'investigative', nameBn: 'অনুসন্ধানী প্রতিবেদন', nameEn: 'Investigative Report', slug: 'investigative' },
+  { id: 'special-edition', nameBn: 'বিশেষ সংখ্যা', nameEn: 'Special Edition', slug: 'special-edition' },
+  { id: 'magazine', nameBn: 'ম্যাগাজিন', nameEn: 'Magazine', slug: 'magazine' },
+  { id: 'e-paper', nameBn: 'ই-পেপার', nameEn: 'E-Paper', slug: 'e-paper' },
+  { id: 'advertisement', nameBn: 'বিজ্ঞাপন', nameEn: 'Advertisement', slug: 'advertisement' },
+  { id: 'advertorial', nameBn: 'অ্যাডভার্টোরিয়াল', nameEn: 'Advertorial', slug: 'advertorial' }
+];
+
+export const categoryGroups = [
+  {
+    groupNameBn: 'বাংলাদেশ ও প্রশাসন',
+    groupNameEn: 'Bangladesh & Governance',
+    categoryIds: ['latest', 'national', 'bangladesh', 'capital', 'saradesh', 'district-news', 'politics', 'election', 'law-court', 'crime', 'administration', 'government', 'parliament', 'diplomacy']
+  },
+  {
+    groupNameBn: 'আন্তর্জাতিক ও বিশ্ব',
+    groupNameEn: 'World & International',
+    categoryIds: ['international', 'world', 'india', 'pakistan', 'china', 'middle-east', 'asia', 'europe', 'america', 'africa', 'latin-america', 'neighbor-countries']
+  },
+  {
+    groupNameBn: 'বাণিজ্য ও অর্থনীতি',
+    groupNameEn: 'Business & Economy',
+    categoryIds: ['trade', 'business', 'economy', 'stock-market', 'bank', 'industry', 'corporate', 'world-trade', 'your-money', 'entrepreneur']
+  },
+  {
+    groupNameBn: 'চাকরি, শিক্ষা ও ক্যারিয়ার',
+    groupNameEn: 'Jobs, Education & Career',
+    categoryIds: ['jobs', 'recruitment', 'career', 'education', 'admission', 'exam', 'scholarship', 'higher-education', 'campus']
+  },
+  {
+    groupNameBn: 'বিজ্ঞান ও প্রযুক্তি',
+    groupNameEn: 'Science & Technology',
+    categoryIds: ['science', 'tech', 'gadgets', 'tips', 'automobile', 'cyber-world', 'freelancing', 'ai', 'aviation']
+  },
+  {
+    groupNameBn: 'স্বাস্থ্য, পরিবেশ ও কৃষি',
+    groupNameEn: 'Health, Environment & Agri',
+    categoryIds: ['health', 'environment', 'climate', 'agriculture']
+  },
+  {
+    groupNameBn: 'ধর্ম ও সমাজ',
+    groupNameEn: 'Religion & Society',
+    categoryIds: ['religion', 'islam', 'sanatan', 'buddhist', 'christian', 'society', 'people', 'women-child', 'probash']
+  },
+  {
+    groupNameBn: 'খেলাধুলা',
+    groupNameEn: 'Sports',
+    categoryIds: ['sports', 'cricket', 'football', 'tennis', 'other-sports']
+  },
+  {
+    groupNameBn: 'বিনোদন',
+    groupNameEn: 'Entertainment',
+    categoryIds: ['entertainment', 'television', 'ott', 'cinema', 'hollywood', 'bollywood', 'tollywood', 'music', 'drama']
+  },
+  {
+    groupNameBn: 'জীবনযাপন ও রূপচর্চা',
+    groupNameEn: 'Lifestyle & Care',
+    categoryIds: ['lifestyle', 'travel', 'tourism', 'relationship', 'wellness', 'horoscope', 'fashion', 'style', 'beauty', 'home-decor', 'shopping']
+  },
+  {
+    groupNameBn: 'শিল্প-সাহিত্য ও সংস্কৃতি',
+    groupNameEn: 'Art, Literature & Culture',
+    categoryIds: ['art-literature', 'literature', 'poetry', 'story', 'books', 'culture', 'history', '1971', 'achievement']
+  },
+  {
+    groupNameBn: 'মতামত ও বিশ্লেষণ',
+    groupNameEn: 'Opinion & Analysis',
+    categoryIds: ['opinion', 'editorial', 'column', 'interview', 'analysis', 'feature', 'news-analysis']
+  },
+  {
+    groupNameBn: 'বিশেষ প্রতিবেদন ও ম্যাগাজিন',
+    groupNameEn: 'Special & Magazine',
+    categoryIds: ['special-report', 'long-read', 'human-story', 'investigative', 'special-edition', 'magazine', 'e-paper', 'advertisement', 'advertorial', 'curiosities', 'biography']
+  },
+  {
+    groupNameBn: 'মাল্টিমিডিয়া ও গ্যালারি',
+    groupNameEn: 'Multimedia & Gallery',
+    categoryIds: ['media', 'social-media', 'photos', 'photo-story', 'photo-gallery', 'video', 'video-story', 'video-gallery', 'audio', 'podcast', 'live']
+  }
+];
+
+/**
+ * 10 Master Editorial Mega Groups with Sub-Groups and Highlight Badges
+ * Structured in the style of Aleric Demo Mega Menu
+ */
+export const categoryMasterGroups = [
+  {
+    id: 'bangladesh-governance',
+    nameBn: 'বাংলাদেশ ও জাতীয়',
+    nameEn: 'Bangladesh & Governance',
+    subGroups: [
+      {
+        titleBn: 'জাতীয় ও নগর',
+        titleEn: 'National & Urban',
+        items: [
+          { id: 'national', nameBn: 'জাতীয়', nameEn: 'National' },
+          { id: 'bangladesh', nameBn: 'বাংলাদেশ', nameEn: 'Bangladesh' },
+          { id: 'capital', nameBn: 'রাজধানী', nameEn: 'Capital' },
+          { id: 'saradesh', nameBn: 'সারাদেশ', nameEn: 'Countrywide' },
+          { id: 'district-news', nameBn: 'জেলা সংবাদ', nameEn: 'District News' }
+        ]
+      },
+      {
+        titleBn: 'রাজনীতি ও নির্বাচন',
+        titleEn: 'Politics & Elections',
+        items: [
+          { id: 'politics', nameBn: 'রাজনীতি', nameEn: 'Politics' },
+          { id: 'election', nameBn: 'নির্বাচন', nameEn: 'Election' },
+          { id: 'parliament', nameBn: 'সংসদ', nameEn: 'Parliament' },
+          { id: 'diplomacy', nameBn: 'কূটনীতি', nameEn: 'Diplomacy' }
+        ]
+      },
+      {
+        titleBn: 'প্রশাসন ও বিচার ব্যবস্থা',
+        titleEn: 'Admin & Judiciary',
+        items: [
+          { id: 'administration', nameBn: 'প্রশাসন', nameEn: 'Administration' },
+          { id: 'government', nameBn: 'সরকার', nameEn: 'Government' },
+          { id: 'law-court', nameBn: 'আইন-আদালত', nameEn: 'Law & Court' },
+          { id: 'crime', nameBn: 'অপরাধ', nameEn: 'Crime' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'international-world',
+    nameBn: 'আন্তর্জাতিক ও বিশ্ব',
+    nameEn: 'World & International',
+    subGroups: [
+      {
+        titleBn: 'বৈশ্বিক রাজনীতি',
+        titleEn: 'Global Affairs',
+        items: [
+          { id: 'international', nameBn: 'আন্তর্জাতিক', nameEn: 'International' },
+          { id: 'world', nameBn: 'বিশ্ব', nameEn: 'World' },
+          { id: 'neighbor-countries', nameBn: 'প্রতিবেশী দেশ', nameEn: 'Neighboring Countries' }
+        ]
+      },
+      {
+        titleBn: 'এশিয়া ও মধ্যপ্রাচ্য',
+        titleEn: 'Asia & Middle East',
+        items: [
+          { id: 'middle-east', nameBn: 'মধ্যপ্রাচ্য', nameEn: 'Middle East' },
+          { id: 'india', nameBn: 'ভারত', nameEn: 'India' },
+          { id: 'pakistan', nameBn: 'পাকিস্তান', nameEn: 'Pakistan' },
+          { id: 'china', nameBn: 'চীন', nameEn: 'China' },
+          { id: 'asia', nameBn: 'এশিয়া', nameEn: 'Asia' }
+        ]
+      },
+      {
+        titleBn: 'পাশ্চাত্য ও অন্যান্য অঞ্চল',
+        titleEn: 'West & Other Continents',
+        items: [
+          { id: 'america', nameBn: 'আমেরিকা', nameEn: 'America' },
+          { id: 'europe', nameBn: 'ইউরোপ', nameEn: 'Europe' },
+          { id: 'africa', nameBn: 'আফ্রিকা', nameEn: 'Africa' },
+          { id: 'latin-america', nameBn: 'লাতিন আমেরিকা', nameEn: 'Latin America' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'business-economy',
+    nameBn: 'বাণিজ্য ও অর্থনীতি',
+    nameEn: 'Business & Economy',
+    subGroups: [
+      {
+        titleBn: 'বাণিজ্য ও করপোরেট',
+        titleEn: 'Trade & Corporate',
+        items: [
+          { id: 'trade', nameBn: 'বাণিজ্য', nameEn: 'Trade' },
+          { id: 'business', nameBn: 'ব্যবসা', nameEn: 'Business' },
+          { id: 'economy', nameBn: 'অর্থনীতি', nameEn: 'Economy' },
+          { id: 'industry', nameBn: 'শিল্প', nameEn: 'Industry' },
+          { id: 'corporate', nameBn: 'করপোরেট', nameEn: 'Corporate' }
+        ]
+      },
+      {
+        titleBn: 'বাজার, ব্যাংকিং ও বিনিয়োগ',
+        titleEn: 'Markets & Banking',
+        items: [
+          { id: 'stock-market', nameBn: 'শেয়ারবাজার', nameEn: 'Stock Market' },
+          { id: 'bank', nameBn: 'ব্যাংক', nameEn: 'Bank' },
+          { id: 'world-trade', nameBn: 'বিশ্ববাণিজ্য', nameEn: 'Global Trade' },
+          { id: 'your-money', nameBn: 'আপনার টাকা', nameEn: 'Your Money' },
+          { id: 'entrepreneur', nameBn: 'উদ্যোক্তা', nameEn: 'Entrepreneur' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'jobs-education',
+    nameBn: 'চাকরি ও শিক্ষা',
+    nameEn: 'Jobs, Education & Career',
+    subGroups: [
+      {
+        titleBn: 'চাকরি ও নিয়োগ বিজ্ঞপ্তি',
+        titleEn: 'Jobs & Recruitment',
+        items: [
+          { id: 'jobs', nameBn: 'চাকরি', nameEn: 'Jobs' },
+          { id: 'recruitment', nameBn: 'নিয়োগ', nameEn: 'Recruitment' },
+          { id: 'career', nameBn: 'ক্যারিয়ার', nameEn: 'Career' }
+        ]
+      },
+      {
+        titleBn: 'শিক্ষা ও শিক্ষাঙ্গন',
+        titleEn: 'Education & Campus',
+        items: [
+          { id: 'education', nameBn: 'শিক্ষা', nameEn: 'Education' },
+          { id: 'admission', nameBn: 'ভর্তি', nameEn: 'Admission' },
+          { id: 'exam', nameBn: 'পরীক্ষা', nameEn: 'Exam' },
+          { id: 'scholarship', nameBn: 'বৃত্তি', nameEn: 'Scholarship' },
+          { id: 'higher-education', nameBn: 'উচ্চশিক্ষা', nameEn: 'Higher Education' },
+          { id: 'campus', nameBn: 'ক্যাম্পাস', nameEn: 'Campus' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'science-tech',
+    nameBn: 'বিজ্ঞান ও প্রযুক্তি',
+    nameEn: 'Science & Technology',
+    subGroups: [
+      {
+        titleBn: 'ডিজিটাল ও আইটি প্রযুক্তি',
+        titleEn: 'Digital & IT Tech',
+        items: [
+          { id: 'tech', nameBn: 'প্রযুক্তি', nameEn: 'Technology' },
+          { id: 'ai', nameBn: 'কৃত্রিম বুদ্ধিমত্তা', nameEn: 'AI & Machine Learning' },
+          { id: 'freelancing', nameBn: 'ফ্রিল্যান্সিং', nameEn: 'Freelancing' },
+          { id: 'cyber-world', nameBn: 'সাইবার জগৎ', nameEn: 'Cyber World' },
+          { id: 'science', nameBn: 'বিজ্ঞান', nameEn: 'Science' }
+        ]
+      },
+      {
+        titleBn: 'গ্যাজেট ও অটোমোবাইল',
+        titleEn: 'Gadgets & Auto',
+        items: [
+          { id: 'gadgets', nameBn: 'গ্যাজেট', nameEn: 'Gadgets' },
+          { id: 'tips', nameBn: 'টিপস', nameEn: 'Tech Tips' },
+          { id: 'automobile', nameBn: 'অটোমোবাইল', nameEn: 'Automobile' },
+          { id: 'aviation', nameBn: 'এভিয়েশন', nameEn: 'Aviation' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'religion-society',
+    nameBn: 'ধর্ম ও সমাজ',
+    nameEn: 'Religion & Society',
+    subGroups: [
+      {
+        titleBn: 'সমাজ ও মানুষ',
+        titleEn: 'Society & People',
+        items: [
+          { id: 'society', nameBn: 'সমাজ', nameEn: 'Society' },
+          { id: 'people', nameBn: 'মানুষ', nameEn: 'People' },
+          { id: 'women-child', nameBn: 'নারী ও শিশু', nameEn: 'Women & Child' },
+          { id: 'probash', nameBn: 'প্রবাস', nameEn: 'Expatriate' }
+        ]
+      },
+      {
+        titleBn: 'ধর্ম ও বিশ্বাস',
+        titleEn: 'Religion & Faith',
+        items: [
+          { id: 'religion', nameBn: 'ধর্ম', nameEn: 'Religion' },
+          { id: 'islam', nameBn: 'ইসলাম', nameEn: 'Islam' },
+          { id: 'sanatan', nameBn: 'সনাতন', nameEn: 'Sanatan' },
+          { id: 'buddhist', nameBn: 'বৌদ্ধ', nameEn: 'Buddhism' },
+          { id: 'christian', nameBn: 'খ্রিষ্টান', nameEn: 'Christianity' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'sports-health',
+    nameBn: 'খেলাধুলা ও স্বাস্থ্য',
+    nameEn: 'Sports & Health',
+    subGroups: [
+      {
+        titleBn: 'জনপ্রিয় খেলাধুলা',
+        titleEn: 'Popular Sports',
+        items: [
+          { id: 'sports', nameBn: 'খেলা', nameEn: 'Sports' },
+          { id: 'cricket', nameBn: 'ক্রিকেট', nameEn: 'Cricket' },
+          { id: 'football', nameBn: 'ফুটবল', nameEn: 'Football' },
+          { id: 'tennis', nameBn: 'টেনিস', nameEn: 'Tennis' },
+          { id: 'other-sports', nameBn: 'অন্যান্য খেলা', nameEn: 'Other Sports' }
+        ]
+      },
+      {
+        titleBn: 'স্বাস্থ্য, পরিবেশ ও কৃষি',
+        titleEn: 'Health, Climate & Agri',
+        items: [
+          { id: 'health', nameBn: 'স্বাস্থ্য', nameEn: 'Health' },
+          { id: 'environment', nameBn: 'পরিবেশ', nameEn: 'Environment' },
+          { id: 'climate', nameBn: 'জলবায়ু', nameEn: 'Climate' },
+          { id: 'agriculture', nameBn: 'কৃষি', nameEn: 'Agriculture' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'entertainment',
+    nameBn: 'বিনোদন ও শোবিজ',
+    nameEn: 'Entertainment & Showbiz',
+    subGroups: [
+      {
+        titleBn: 'সিনেমা, ওটিটি ও টেলিভিশন',
+        titleEn: 'Cinema & OTT',
+        items: [
+          { id: 'entertainment', nameBn: 'বিনোদন', nameEn: 'Entertainment' },
+          { id: 'cinema', nameBn: 'সিনেমা', nameEn: 'Cinema' },
+          { id: 'ott', nameBn: 'ওটিটি', nameEn: 'OTT' },
+          { id: 'television', nameBn: 'টেলিভিশন', nameEn: 'Television' },
+          { id: 'drama', nameBn: 'নাটক', nameEn: 'Drama' },
+          { id: 'music', nameBn: 'গান', nameEn: 'Music' }
+        ]
+      },
+      {
+        titleBn: 'বিশ্ব শোবিজ অঙ্গন',
+        titleEn: 'Global Showbiz',
+        items: [
+          { id: 'hollywood', nameBn: 'হলিউড', nameEn: 'Hollywood' },
+          { id: 'bollywood', nameBn: 'বলিউড', nameEn: 'Bollywood' },
+          { id: 'tollywood', nameBn: 'টলিউড', nameEn: 'Tollywood' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'lifestyle-culture',
+    nameBn: 'জীবনযাপন ও সংস্কৃতি',
+    nameEn: 'Lifestyle & Culture',
+    subGroups: [
+      {
+        titleBn: 'জীবনযাপন, ফ্যাশন ও রূপচর্চা',
+        titleEn: 'Lifestyle & Fashion',
+        items: [
+          { id: 'lifestyle', nameBn: 'জীবনযাপন', nameEn: 'Lifestyle' },
+          { id: 'fashion', nameBn: 'ফ্যাশন', nameEn: 'Fashion' },
+          { id: 'style', nameBn: 'স্টাইল', nameEn: 'Style' },
+          { id: 'beauty', nameBn: 'রূপচর্চা', nameEn: 'Beauty Care' },
+          { id: 'wellness', nameBn: 'সুস্থতা', nameEn: 'Wellness' },
+          { id: 'relationship', nameBn: 'সম্পর্ক', nameEn: 'Relationship' },
+          { id: 'horoscope', nameBn: 'রাশিফল', nameEn: 'Horoscope' },
+          { id: 'home-decor', nameBn: 'গৃহসজ্জা', nameEn: 'Home Decor' },
+          { id: 'shopping', nameBn: 'কেনাকাটা', nameEn: 'Shopping' }
+        ]
+      },
+      {
+        titleBn: 'ভ্রমণ ও পর্যটন',
+        titleEn: 'Travel & Tourism',
+        items: [
+          { id: 'travel', nameBn: 'ভ্রমণ', nameEn: 'Travel' },
+          { id: 'tourism', nameBn: 'পর্যটন', nameEn: 'Tourism' }
+        ]
+      },
+      {
+        titleBn: 'শিল্প-সাহিত্য ও ইতিহাস',
+        titleEn: 'Literature & History',
+        items: [
+          { id: 'art-literature', nameBn: 'শিল্প-সাহিত্য', nameEn: 'Art & Literature' },
+          { id: 'literature', nameBn: 'সাহিত্য', nameEn: 'Literature' },
+          { id: 'poetry', nameBn: 'কবিতা', nameEn: 'Poetry' },
+          { id: 'story', nameBn: 'গল্প', nameEn: 'Story' },
+          { id: 'books', nameBn: 'বই', nameEn: 'Books' },
+          { id: 'culture', nameBn: 'সংস্কৃতি', nameEn: 'Culture' },
+          { id: 'history', nameBn: 'ইতিহাস', nameEn: 'History' },
+          { id: '1971', nameBn: '১৯৭১', nameEn: '1971' },
+          { id: 'achievement', nameBn: 'অর্জন', nameEn: 'Achievement' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'opinion-specials',
+    nameBn: 'মতামত, মিডিয়া ও বিশেষ',
+    nameEn: 'Opinion, Media & Specials',
+    subGroups: [
+      {
+        titleBn: 'মতামত ও সম্পাদকীয়',
+        titleEn: 'Opinion & Editorials',
+        items: [
+          { id: 'opinion', nameBn: 'মতামত', nameEn: 'Opinion' },
+          { id: 'editorial', nameBn: 'সম্পাদকীয়', nameEn: 'Editorial' },
+          { id: 'column', nameBn: 'কলাম', nameEn: 'Column' },
+          { id: 'interview', nameBn: 'সাক্ষাৎকার', nameEn: 'Interview' },
+          { id: 'analysis', nameBn: 'বিশ্লেষণ', nameEn: 'Analysis' },
+          { id: 'news-analysis', nameBn: 'সংবাদ বিশ্লেষণ', nameEn: 'News Analysis' },
+          { id: 'investigative', nameBn: 'অনুসন্ধানী প্রতিবেদন', nameEn: 'Investigative' }
+        ]
+      },
+      {
+        titleBn: 'মাল্টিমিডিয়া ও গ্যালারি',
+        titleEn: 'Multimedia & Gallery',
+        items: [
+          { id: 'photos', nameBn: 'ছবি', nameEn: 'Photos' },
+          { id: 'photo-story', nameBn: 'ফটো স্টোরি', nameEn: 'Photo Story' },
+          { id: 'photo-gallery', nameBn: 'ফটোগ্যালারি', nameEn: 'Photo Gallery' },
+          { id: 'video', nameBn: 'ভিডিও', nameEn: 'Video' },
+          { id: 'video-story', nameBn: 'ভিডিও স্টোরি', nameEn: 'Video Story' },
+          { id: 'video-gallery', nameBn: 'ভিডিও গ্যালারি', nameEn: 'Video Gallery' },
+          { id: 'audio', nameBn: 'অডিও', nameEn: 'Audio' },
+          { id: 'podcast', nameBn: 'পডকাস্ট', nameEn: 'Podcast' },
+          { id: 'live', nameBn: 'লাইভ', nameEn: 'Live' }
+        ]
+      },
+      {
+        titleBn: 'ফিচার, ম্যাগাজিন ও প্রকাশনা',
+        titleEn: 'Features & Publications',
+        items: [
+          { id: 'feature', nameBn: 'ফিচার', nameEn: 'Feature' },
+          { id: 'special-report', nameBn: 'বিশেষ প্রতিবেদন', nameEn: 'Special Report' },
+          { id: 'long-read', nameBn: 'দীর্ঘপাঠ', nameEn: 'Long Read' },
+          { id: 'human-story', nameBn: 'মানবিক গল্প', nameEn: 'Human Story' },
+          { id: 'media', nameBn: 'মিডিয়া', nameEn: 'Media' },
+          { id: 'social-media', nameBn: 'সোশ্যাল মিডিয়া', nameEn: 'Social Media' },
+          { id: 'curiosities', nameBn: 'বিচিত্র', nameEn: 'Curiosities' },
+          { id: 'biography', nameBn: 'জীবনকাহিনি', nameEn: 'Life Stories' },
+          { id: 'special-edition', nameBn: 'বিশেষ সংখ্যা', nameEn: 'Special Edition' },
+          { id: 'magazine', nameBn: 'ম্যাগাজিন', nameEn: 'Magazine' },
+          { id: 'e-paper', nameBn: 'ই-পেপার', nameEn: 'E-Paper' },
+          { id: 'advertisement', nameBn: 'বিজ্ঞাপন', nameEn: 'Advertisement' },
+          { id: 'advertorial', nameBn: 'অ্যাডভার্টোরিয়াল', nameEn: 'Advertorial' }
+        ]
+      }
+    ]
+  }
 ];
 
 export const initialBreakingNews = [
@@ -407,11 +970,24 @@ export const initialNewsArticles = [
   }
 ];
 
+export const podcastSubjects = [
+  { id: 'all', nameBn: 'সব পর্ব', nameEn: 'All Episodes', iconType: 'all' },
+  { id: 'politics', nameBn: 'রাজনীতি ও রাষ্ট্র', nameEn: 'Politics & Governance', iconType: 'politics' },
+  { id: 'economy', nameBn: 'অর্থনীতি ও ব্যবসা', nameEn: 'Economy & Business', iconType: 'economy' },
+  { id: 'tech', nameBn: 'প্রযুক্তি ও উদ্ভাবন', nameEn: 'Tech & Innovation', iconType: 'tech' },
+  { id: 'media', nameBn: 'মিডিয়া ও সাংবাদিকতা', nameEn: 'Media & Journalism', iconType: 'media' },
+  { id: 'youth', nameBn: 'তারুণ্য ও ক্যারিয়ার', nameEn: 'Youth & Career', iconType: 'youth' },
+  { id: 'society', nameBn: 'সমাজ ও জীবনধারা', nameEn: 'Society & Lifestyle', iconType: 'society' }
+];
+
 export const initialPodcasts = [
   {
     id: 'pod-1',
     titleBn: 'নতুন বাংলাদেশ বিনির্মাণে তারুণ্যের ভাবনা ও ভবিষ্যৎ রাজনীতি',
     titleEn: 'Youth Vision and the Future Politics in Rebuilding Bangladesh',
+    subjectId: 'politics',
+    subjectBn: 'রাজনীতি ও রাষ্ট্র',
+    subjectEn: 'Politics & Governance',
     youtubeId: 'dQw4w9WgXcQ',
     youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     hostBn: 'মোঃ বিপ্লব হোসেন',
@@ -427,6 +1003,9 @@ export const initialPodcasts = [
     id: 'pod-2',
     titleBn: 'অর্থনীতির সংকট থেকে উত্তরণের সম্ভাব্য পথ ও সম্ভাবনা',
     titleEn: 'Potential Pathways to Overcoming the Economic Crisis',
+    subjectId: 'economy',
+    subjectBn: 'অর্থনীতি ও ব্যবসা',
+    subjectEn: 'Economy & Business',
     youtubeId: '3JZ_D3ELwOQ',
     youtubeUrl: 'https://www.youtube.com/watch?v=3JZ_D3ELwOQ',
     hostBn: 'জনগণ পডকাস্ট টিম',
@@ -442,6 +1021,9 @@ export const initialPodcasts = [
     id: 'pod-3',
     titleBn: 'মিডিয়া ও স্বাধীন সাংবাদিকতার নতুন দিগন্ত',
     titleEn: 'New Horizons for Free Media and Journalism',
+    subjectId: 'media',
+    subjectBn: 'মিডিয়া ও সাংবাদিকতা',
+    subjectEn: 'Media & Journalism',
     youtubeId: 'L_LUpnjgPso',
     youtubeUrl: 'https://www.youtube.com/watch?v=L_LUpnjgPso',
     hostBn: 'মোঃ বিপ্লব হোসেন',
@@ -457,6 +1039,9 @@ export const initialPodcasts = [
     id: 'pod-4',
     titleBn: 'প্রযুক্তি ও এআই: বাংলাদেশের তরুণদের কাজের সুযোগ',
     titleEn: 'Tech & AI: Future Opportunities for Bangladeshi Youth',
+    subjectId: 'tech',
+    subjectBn: 'প্রযুক্তি ও উদ্ভাবন',
+    subjectEn: 'Tech & Innovation',
     youtubeId: 'kJQP7kiw5Fk',
     youtubeUrl: 'https://www.youtube.com/watch?v=kJQP7kiw5Fk',
     hostBn: 'জনগণ পডকাস্ট ডেস্ক',
@@ -467,6 +1052,42 @@ export const initialPodcasts = [
     thumbnail: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&q=80',
     dateBn: '২৫ সেপ্টেম্বর ২০২৪',
     dateEn: '25 Sep 2026'
+  },
+  {
+    id: 'pod-5',
+    titleBn: 'উচ্চশিক্ষা ও বিশ্বমঞ্চে ক্যারিয়ার গঠনের বাস্তব গাইডলাইন',
+    titleEn: 'Higher Education and Global Career Strategy Guide',
+    subjectId: 'youth',
+    subjectBn: 'তারুণ্য ও ক্যারিয়ার',
+    subjectEn: 'Youth & Career',
+    youtubeId: 'kJQP7kiw5Fk',
+    youtubeUrl: 'https://www.youtube.com/watch?v=kJQP7kiw5Fk',
+    hostBn: 'মোঃ বিপ্লব হোসেন',
+    hostEn: 'Md. Biplob Hossain',
+    guestBn: 'আবরার সালেহ (ক্যারিয়ার মেন্টর)',
+    guestEn: 'Abrar Saleh (Career Mentor)',
+    duration: '২৭:৩০',
+    thumbnail: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&q=80',
+    dateBn: '২৪ সেপ্টেম্বর ২০২৪',
+    dateEn: '24 Sep 2026'
+  },
+  {
+    id: 'pod-6',
+    titleBn: 'মানসিক স্বাস্থ্য ও সামাজিক চাপ মোকাবেলার সহজ উপায়',
+    titleEn: 'Mental Health and Managing Social Pressure',
+    subjectId: 'society',
+    subjectBn: 'সমাজ ও জীবনধারা',
+    subjectEn: 'Society & Lifestyle',
+    youtubeId: '3JZ_D3ELwOQ',
+    youtubeUrl: 'https://www.youtube.com/watch?v=3JZ_D3ELwOQ',
+    hostBn: 'জনগণ পডকাস্ট টিম',
+    hostEn: 'Jonogon Podcast Team',
+    guestBn: 'ডা. নাজনীন হক (মনোবিদ)',
+    guestEn: 'Dr. Nazneen Huq (Psychologist)',
+    duration: '২৯:১৫',
+    thumbnail: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&q=80',
+    dateBn: '২৩ সেপ্টেম্বর ২০২৪',
+    dateEn: '23 Sep 2026'
   }
 ];
 
@@ -617,6 +1238,107 @@ export function findClosestDistrict(userLat, userLng) {
     }
   }
 
-  return { district: closest, distanceKm: Math.round(minDistance) };
+  return closest;
 }
+
+// Master Bangladesh Emergency & Government Services
+export const initialEmergencyServices = [
+  {
+    id: 'srv-1',
+    nameBn: 'জাতীয় জরুরি সেবা (৯৯৯)',
+    nameEn: 'National Emergency Service (999)',
+    number: '999',
+    categoryBn: 'জরুরি কল / পুলিশ / ফায়ার / অ্যাম্বুলেন্স',
+    categoryEn: 'Police / Fire / Ambulance',
+    descriptionBn: 'পুলিশি সহায়তা, অগ্নিনির্বাপণ (ফায়ার সার্ভিস) ও জরুরি অ্যাম্বুলেন্স সেবার জন্য সার্বক্ষণিক টোল-ফ্রি নম্বর।',
+    descriptionEn: '24/7 toll-free emergency response for police, fire service, and ambulance support.',
+    websiteUrl: 'https://nhd.gov.bd',
+    icon: 'phone'
+  },
+  {
+    id: 'srv-2',
+    nameBn: 'জাতীয় তথ্য ও কল সেন্টার (৩৩৩)',
+    nameEn: 'National Citizen Service Call Center (333)',
+    number: '333',
+    categoryBn: 'সরকারি সেবা ও সামাজিক তথ্য',
+    categoryEn: 'Govt Services & Citizen Help',
+    descriptionBn: 'সকল সরকারি কর্মকর্তা ও দপ্তরের তথ্য, সামাজিক সমস্যা সমাধান ও নাগরিক সেবার কেন্দ্রীয় হেল্পলাইন।',
+    descriptionEn: 'Information regarding government offices, public officials, and social grievance helpline.',
+    websiteUrl: 'https://333.gov.bd',
+    icon: 'info'
+  },
+  {
+    id: 'srv-3',
+    nameBn: 'নারী ও শিশু নির্যাতন প্রতিরোধ সেল (১০৯)',
+    nameEn: 'Women & Child Helpline (109)',
+    number: '109',
+    categoryBn: 'নারী ও শিশু সুরক্ষা',
+    categoryEn: 'Women & Child Safety',
+    descriptionBn: 'যেকোনো স্থানে নারী নির্যাতন, বাল্যবিয়ে রোধ ও শিশুদের জরুরি আইনি সহায়তায় টোল-ফ্রি হেল্পলাইন।',
+    descriptionEn: 'National toll-free helpline to report domestic violence, prevent child marriage and abuse.',
+    websiteUrl: 'https://mowca.gov.bd',
+    icon: 'shield'
+  },
+  {
+    id: 'srv-4',
+    nameBn: 'দুদক অভিযোগ হটলাইন (১০৬)',
+    nameEn: 'Anti-Corruption Commission Helpline (106)',
+    number: '106',
+    categoryBn: 'দুর্নীতি দমন ও অভিযোগ',
+    categoryEn: 'Anti-Corruption',
+    descriptionBn: 'সরকারি-বেসরকারি ক্ষেত্রে দুর্নীতি, ঘুষ লেনদেন ও অনিয়মের তথ্য সরাসরি দুদকে জানাতে কল করুন।',
+    descriptionEn: 'Direct hotline to report bribery, misconduct, and corruption to ACC.',
+    websiteUrl: 'https://acc.org.bd',
+    icon: 'alert'
+  },
+  {
+    id: 'srv-5',
+    nameBn: 'জাতীয় পরিচয়পত্র (NID) সেবা (১০৫)',
+    nameEn: 'National ID (NID) Helpline (105)',
+    number: '105',
+    categoryBn: 'এনআইডি ও ভোটার তথ্য',
+    categoryEn: 'NID & Voter Services',
+    descriptionBn: 'স্মার্ট এনআইডি কার্ড সংশোধন, নতুন ভোটার নিবন্ধন ও স্থানান্তর সংক্রান্ত সার্বিক সহায়তা।',
+    descriptionEn: 'Support regarding Smart NID cards, corrections, and voter registrations.',
+    websiteUrl: 'https://services.nidw.gov.bd',
+    icon: 'id'
+  },
+  {
+    id: 'srv-6',
+    nameBn: 'স্মার্ট ভূমি সেবা হটলাইন (১৬১২২)',
+    nameEn: 'Smart Land Service (16122)',
+    number: '16122',
+    categoryBn: 'ই-নামজারি ও খতিয়ান',
+    categoryEn: 'Land Records & E-Mutation',
+    descriptionBn: 'অনলাইনে খতিয়ান যাচাই, ই-নামজারি, ভূমি উন্নয়ন কর পরিশোধ ও জমির দলিল সংক্রান্ত নাগরিক সেবা।',
+    descriptionEn: 'Helpline for land registration, mutation, e-porcha, and land tax payments.',
+    websiteUrl: 'https://land.gov.bd',
+    icon: 'globe'
+  },
+  {
+    id: 'srv-7',
+    nameBn: 'দুর্যোগের আগাম বার্তা (১০৯০)',
+    nameEn: 'Disaster Warning & Alert (1090)',
+    number: '1090',
+    categoryBn: 'আবহাওয়া ও সতর্কবার্তা',
+    categoryEn: 'Weather & Disaster Alert',
+    descriptionBn: 'বন্যা, ঘূর্ণিঝড়, জলোচ্ছ্বাস ও সমুদ্রের আবহাওয়া সতর্কবার্তা জানার ইন্টারেক্টিভ ভয়েস সার্ভিস।',
+    descriptionEn: 'Interactive voice response for cyclones, floods, and maritime weather alerts.',
+    websiteUrl: 'https://ddm.gov.bd',
+    icon: 'cloud'
+  },
+  {
+    id: 'srv-8',
+    nameBn: 'বাংলাদেশ ই-পাসপোর্ট পোর্টাল',
+    nameEn: 'Bangladesh e-Passport Portal',
+    number: '',
+    categoryBn: 'পাসপোর্ট ও ইমিগ্রেশন',
+    categoryEn: 'Passport & Immigration',
+    descriptionBn: 'অনলাইনে নতুন ই-পাসপোর্ট আবেদন, রিনিউ ও অ্যাপ্লিকেশন স্ট্যাটাস ট্র্যাকিং সংক্রান্ত অফিশিয়াল পোর্টাল।',
+    descriptionEn: 'Official government portal for online e-Passport application and status tracking.',
+    websiteUrl: 'https://epassport.gov.bd',
+    icon: 'link'
+  }
+];
+
 

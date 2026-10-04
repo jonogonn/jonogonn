@@ -136,19 +136,28 @@ export default function DistrictNewsSection() {
     <section className="my-district-section" style={{ marginBottom: 32 }}>
       {/* Section Header with Dynamic "আমার {{District}}" and Dropdown */}
       <div className="section-header district-section-header">
-        <div className="district-title-wrap">
-          <h2 className="section-title district-title">
-            <span className="district-icon-wrap">
-              <MapPin size={22} color="var(--primary-red)" />
+        <div className="district-header-main-group">
+          <div className="district-title-wrap">
+            <h2 className="section-title district-title">
+              <span className="district-icon-wrap">
+                <MapPin size={20} color="var(--primary-red)" />
+              </span>
+              <span>
+                {isBn ? `আমার ${selectedDistrictObj.nameBn}` : `My ${selectedDistrictObj.nameEn}`}
+              </span>
+            </h2>
+            <span className="district-subtitle-badge">
+              {isBn ? 'স্থানীয় সংবাদ' : 'Local News'}
             </span>
-            <span>
-              {isBn ? `আমার ${selectedDistrictObj.nameBn}` : `My ${selectedDistrictObj.nameEn}`}
-            </span>
-          </h2>
-          <span className="district-subtitle-badge">
-            {isBn ? 'স্থানীয় সংবাদ' : 'Local News'}
-          </span>
+          </div>
 
+          <button
+            onClick={() => setActiveCategory('district')}
+            className="section-link district-view-all-btn"
+          >
+            <span>{isBn ? 'সব খবর' : 'View All'}</span>
+            <ArrowRight size={14} />
+          </button>
         </div>
 
         <div className="district-controls-wrap">
@@ -165,12 +174,12 @@ export default function DistrictNewsSection() {
             ) : (
               <LocateFixed size={14} />
             )}
-            <span>{isLocating ? (isBn ? 'শনাক্ত হচ্ছে...' : 'Locating...') : (isBn ? 'লাইভ লোকেশন' : 'Detect Location')}</span>
+            <span>{isLocating ? (isBn ? 'সনাক্ত হচ্ছে...' : 'Locating...') : (isBn ? 'লাইভ লোকেশন' : 'Detect Location')}</span>
           </button>
 
           {/* District Dropdown Selector */}
           <div className="district-select-wrapper">
-            <Compass size={15} className="district-select-icon" />
+            <Compass size={14} className="district-select-icon" />
             <select
               value={selectedDistrictId}
               onChange={handleDistrictChange}
@@ -193,14 +202,6 @@ export default function DistrictNewsSection() {
             </select>
             <ChevronDown size={14} className="district-chevron-icon" />
           </div>
-
-          <button
-            onClick={() => setActiveCategory('district')}
-            className="section-link"
-          >
-            <span>{isBn ? 'সব খবর' : 'View All'}</span>
-            <ArrowRight size={15} />
-          </button>
         </div>
       </div>
 

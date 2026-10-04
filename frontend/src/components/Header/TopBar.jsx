@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNews } from '../../context/NewsContext';
-import { CloudSun, Sun, Moon, Cloud, CloudRain, CloudLightning } from 'lucide-react';
+import { CloudSun, Sun, Moon, Cloud, CloudRain, CloudLightning, ShieldAlert, Sparkles } from 'lucide-react';
 import { FacebookIcon, YoutubeIcon } from '../Icons/SocialIcons';
 
 export default function TopBar() {
@@ -8,6 +8,7 @@ export default function TopBar() {
     language,
     settings,
     setActivePolicyModal,
+    navigateTo,
     liveWeather
   } = useNews();
 
@@ -16,17 +17,17 @@ export default function TopBar() {
   const renderTopWeatherIcon = (icon) => {
     switch (icon) {
       case 'sun':
-        return <Sun size={15} color="#FFB800" />;
+        return <Sun size={14} color="#FFB800" />;
       case 'moon':
-        return <Moon size={15} color="#D9D9D9" />;
+        return <Moon size={14} color="#D9D9D9" />;
       case 'rain':
-        return <CloudRain size={15} color="#4A90E2" />;
+        return <CloudRain size={14} color="#4A90E2" />;
       case 'thunder':
-        return <CloudLightning size={15} color="var(--primary-red)" />;
+        return <CloudLightning size={14} color="var(--primary-red)" />;
       case 'cloud':
-        return <Cloud size={15} color="#9E9E9E" />;
+        return <Cloud size={14} color="#9E9E9E" />;
       default:
-        return <CloudSun size={15} color="var(--primary-red)" />;
+        return <CloudSun size={14} color="var(--primary-red)" />;
     }
   };
 
@@ -78,19 +79,50 @@ export default function TopBar() {
           </div>
         </div>
 
-        {/* Right Side: Links & Socials */}
+        {/* Right Side: Policy Links & Social Icons */}
         <div className="topbar-right">
-          <nav className="topbar-links">
-            <button onClick={() => setActivePolicyModal('about')}>
+          <nav className="topbar-links" aria-label="Quick Links">
+            <a
+              href="/about"
+              className="topbar-policy-link"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateTo('/about');
+              }}
+            >
               {isBn ? 'আমাদের সম্পর্কে' : 'About Us'}
-            </button>
-            <span>|</span>
-            <button onClick={() => setActivePolicyModal('advertisement')}>
+            </a>
+            <span className="topbar-divider">|</span>
+            <a
+              href="/advertisement"
+              className="topbar-policy-link"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateTo('/advertisement');
+              }}
+            >
               {isBn ? 'বিজ্ঞাপন' : 'Advertisement'}
-            </button>
-            <span>|</span>
-            <button onClick={() => setActivePolicyModal('contact')}>
+            </a>
+            <span className="topbar-divider">|</span>
+            <a
+              href="/contact"
+              className="topbar-policy-link"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateTo('/contact');
+              }}
+            >
               {isBn ? 'যোগাযোগ' : 'Contact'}
+            </a>
+            <span className="topbar-divider">|</span>
+            <button
+              type="button"
+              onClick={() => setActivePolicyModal('emergency')}
+              className="topbar-emergency-link"
+              title={isBn ? 'জাতীয় জরুরি সেবা ও হটলাইন নম্বরসমূহ' : 'National Emergency & Govt Services'}
+            >
+              <span className="emergency-dot"></span>
+              <span className="emergency-text">{isBn ? 'জরুরি সেবা' : 'Emergency'}</span>
             </button>
           </nav>
 
@@ -103,8 +135,9 @@ export default function TopBar() {
                 rel="noopener noreferrer"
                 title="Facebook"
                 aria-label="Facebook Page"
+                className="topbar-social-icon"
               >
-                <FacebookIcon size={15} />
+                <FacebookIcon size={14} />
               </a>
             )}
             {settings.youtube && (
@@ -114,8 +147,9 @@ export default function TopBar() {
                 rel="noopener noreferrer"
                 title="YouTube"
                 aria-label="YouTube Channel"
+                className="topbar-social-icon"
               >
-                <YoutubeIcon size={15} />
+                <YoutubeIcon size={14} />
               </a>
             )}
           </div>

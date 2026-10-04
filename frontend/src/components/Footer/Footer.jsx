@@ -4,7 +4,7 @@ import { MapPin, Phone, Mail, User, Lock } from 'lucide-react';
 import { FacebookIcon, YoutubeIcon } from '../Icons/SocialIcons';
 
 export default function Footer() {
-  const { language, settings, setActivePolicyModal, setIsAdminOpen } = useNews();
+  const { language, settings, setActiveCategory, navigateTo, setIsAdminOpen } = useNews();
   const isBn = language === 'bn';
 
   return (
@@ -25,10 +25,20 @@ export default function Footer() {
             </p>
             <div style={{ marginTop: 8, fontSize: '0.85rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 6 }}>
               <User size={15} color="var(--primary-red)" />
-              <span>
+              <a
+                href="/founder"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateTo('/founder');
+                }}
+                style={{ color: 'inherit', textDecoration: 'none', transition: 'color var(--transition-fast)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--primary-red)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'inherit')}
+                title={isBn ? 'স্বত্বাধিকারী ও সম্পাদকের পরিচিতি দেখুন' : 'View Owner & Editor Profile'}
+              >
                 <strong>{isBn ? settings.founderBn : settings.founderEn}</strong> (
                 {isBn ? settings.designationBn : settings.designationEn})
-              </span>
+              </a>
             </div>
           </div>
 
@@ -36,21 +46,60 @@ export default function Footer() {
           <div>
             <h4 className="footer-col-title">{isBn ? 'প্রয়োজনীয় লিঙ্ক' : 'Quick Links'}</h4>
             <div className="footer-links-list">
-              <button onClick={() => setActivePolicyModal('about')}>
+              <a
+                href="/about"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateTo('/about');
+                }}
+              >
                 {isBn ? 'আমাদের সম্পর্কে' : 'About Us'}
-              </button>
-              <button onClick={() => setActivePolicyModal('advertisement')}>
-                {isBn ? 'বিজ্ঞাপন দরপত্র' : 'Advertisement'}
-              </button>
-              <button onClick={() => setActivePolicyModal('editorial')}>
+              </a>
+              <a
+                href="/advertisement"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateTo('/advertisement');
+                }}
+              >
+                {isBn ? 'বিজ্ঞাপন ও দরপত্র' : 'Advertisement'}
+              </a>
+              <a
+                href="/editorial-policy"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateTo('/editorial-policy');
+                }}
+              >
                 {isBn ? 'সম্পাদকীয় নীতি' : 'Editorial Policy'}
-              </button>
-              <button onClick={() => setActivePolicyModal('privacy')}>
+              </a>
+              <a
+                href="/privacy"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateTo('/privacy');
+                }}
+              >
                 {isBn ? 'গোপনীয়তা নীতি' : 'Privacy Policy'}
-              </button>
-              <button onClick={() => setActivePolicyModal('terms')}>
+              </a>
+              <a
+                href="/terms"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateTo('/terms');
+                }}
+              >
                 {isBn ? 'ব্যবহারের শর্তাবলী' : 'Terms & Conditions'}
-              </button>
+              </a>
+              <a
+                href="/contact"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateTo('/contact');
+                }}
+              >
+                {isBn ? 'যোগাযোগ ও ব্যুরো' : 'Contact Us'}
+              </a>
             </div>
           </div>
 
@@ -58,12 +107,69 @@ export default function Footer() {
           <div>
             <h4 className="footer-col-title">{isBn ? 'বিভাগসমূহ' : 'Categories'}</h4>
             <div className="footer-links-list">
-              <a href="#national">{isBn ? 'জাতীয় সংবাদ' : 'National'}</a>
-              <a href="#politics">{isBn ? 'রাজনীতি' : 'Politics'}</a>
-              <a href="#international">{isBn ? 'আন্তর্জাতিক' : 'World'}</a>
-              <a href="#economy">{isBn ? 'অর্থনীতি' : 'Economy'}</a>
-              <a href="#sports">{isBn ? 'খেলাধুলা' : 'Sports'}</a>
-              <a href="#tech">{isBn ? 'তথ্যপ্রযুক্তি' : 'Technology'}</a>
+              <a
+                href="/category/national"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveCategory('national');
+                }}
+              >
+                {isBn ? 'জাতীয় সংবাদ' : 'National'}
+              </a>
+              <a
+                href="/category/politics"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveCategory('politics');
+                }}
+              >
+                {isBn ? 'রাজনীতি' : 'Politics'}
+              </a>
+              <a
+                href="/category/editorial"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveCategory('editorial');
+                }}
+              >
+                {isBn ? 'সম্পাদকীয় কলাম' : 'Editorial Column'}
+              </a>
+              <a
+                href="/category/international"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveCategory('international');
+                }}
+              >
+                {isBn ? 'আন্তর্জাতিক' : 'World'}
+              </a>
+              <a
+                href="/category/economy"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveCategory('economy');
+                }}
+              >
+                {isBn ? 'অর্থনীতি ও বাণিজ্য' : 'Economy'}
+              </a>
+              <a
+                href="/category/sports"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveCategory('sports');
+                }}
+              >
+                {isBn ? 'খেলাধুলা' : 'Sports'}
+              </a>
+              <a
+                href="/category/tech"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveCategory('tech');
+                }}
+              >
+                {isBn ? 'তথ্যপ্রযুক্তি' : 'Technology'}
+              </a>
             </div>
           </div>
 

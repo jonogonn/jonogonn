@@ -93,7 +93,6 @@ export default function HeroLeadGrid() {
             {/* Top Badges Overlay: Highlights Ribbon & Category */}
             <div className="hero-main-badge-overlay">
               <span className="badge-highlight">
-                <Sparkles size={13} className="badge-spark-icon" />
                 {isBn ? 'হাইলাইটস' : 'Highlights'}
               </span>
               <span className="badge-category">

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNews } from './context/NewsContext';
 import TopBar from './components/Header/TopBar';
 import MainHeader from './components/Header/MainHeader';
@@ -13,6 +13,7 @@ import VideoNewsSection from './components/News/VideoNewsSection';
 import CategoryGrids from './components/News/CategoryGrids';
 import ArticleDetailPage from './components/News/ArticleDetailPage';
 import AdSenseSlot from './components/Ads/AdSenseSlot';
+import SlidingAdBanners from './components/Ads/SlidingAdBanners';
 import NewsletterRibbon from './components/Newsletter/NewsletterRibbon';
 import ComplaintBoxSection from './components/News/ComplaintBoxSection';
 import Footer from './components/Footer/Footer';
@@ -20,59 +21,122 @@ import PolicyModal from './components/Modals/PolicyModal';
 import ScrollToTop from './components/UI/ScrollToTop';
 import SideWatchWidget from './components/Widgets/SideWatchWidget';
 import AdminDashboard from './admin/AdminDashboard';
-import { Clock, ArrowLeft } from 'lucide-react';
+import AboutPage from './pages/AboutPage';
+import AdvertisementPage from './pages/AdvertisementPage';
+import ContactPage from './pages/ContactPage';
+import EditorialPolicyPage from './pages/EditorialPolicyPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsPage from './pages/TermsPage';
+import CategoryPage from './pages/CategoryPage';
+import FounderPage from './pages/FounderPage';
+import { updateSEO } from './services/seoService';
 
 export default function App() {
   const {
     isAdminOpen,
+    activePage,
     currentArticle,
-    openArticle,
-    goToHome,
     activeCategory,
-    setActiveCategory,
-    searchQuery,
-    setSearchQuery,
-    articles,
-    categories,
-    language
+    language,
+    settings
   } = useNews();
 
   const isBn = language === 'bn';
+
+  // Default SEO on Homepage
+  useEffect(() => {
+    if (activePage === 'home') {
+      updateSEO({
+        title: isBn ? `${settings.siteNameBn || 'জনগণ.নিউজ'} — সত্যের সাথে, জনতার পাশে` : 'Jonogon News — With Truth, For The People',
+        description: isBn
+          ? 'জনগণের পক্ষে সত্য ও বস্তুনিষ্ঠ সংবাদের বিশ্বস্ত ঠিকানা। দেশ-বিদেশের ব্রেকিং নিউজ, রাজনীতি, বাণিজ্য, খেলা ও বিনোদনের তাজা খবর।'
+          : 'Your trusted digital source for verified, objective, and timely journalism standing for the people of Bangladesh.',
+        url: window.location.origin,
+        type: 'website'
+      });
+    }
+  }, [activePage, isBn, settings]);
 
   // If Admin Dashboard View is toggled
   if (isAdminOpen) {
     return <AdminDashboard />;
   }
 
-  // Filter articles if search query or non-default category is active
-  const isFiltered = (activeCategory !== 'latest' && activeCategory !== 'all') || searchQuery.trim().length > 0;
+  // Determine which view to render based on active route
+  const renderMainContent = () => {
+    if (activePage === 'about') {
+      return <AboutPage />;
+    }
+    if (activePage === 'advertisement') {
+      return <AdvertisementPage />;
+    }
+    if (activePage === 'contact') {
+      return <ContactPage />;
+    }
+    if (activePage === 'editorial') {
+      return <EditorialPolicyPage />;
+    }
+    if (activePage === 'privacy') {
+      return <PrivacyPolicyPage />;
+    }
+    if (activePage === 'terms') {
+      return <TermsPage />;
+    }
+    if (activePage === 'founder' || activePage === 'editor') {
+      return <FounderPage />;
+    }
+    if (activePage === 'article' || currentArticle) {
+      return <ArticleDetailPage />;
+    }
+    if (activePage === 'category' || (activeCategory !== 'latest' && activeCategory !== 'all')) {
+      return <CategoryPage />;
+    }
 
-  const filteredArticles = articles.filter((art) => {
-    const matchesSearch =
-      !searchQuery ||
-      (art.titleBn && art.titleBn.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (art.titleEn && art.titleEn.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (art.contentBn && art.contentBn.toLowerCase().includes(searchQuery.toLowerCase()));
+    // Default: Master Editorial Homepage
+    return (
+      <div className="container">
+        {/* Hero Lead 3-Column Grid */}
+        <HeroLeadGrid />
 
-    const matchesCategory =
-      activeCategory === 'latest' ||
-      activeCategory === 'all' ||
-      art.category === activeCategory;
+        {/* In-Feed AdSense Banner (970 × 90) */}
+        <AdSenseSlot slotId="midContentBanner" customClass="ad-slot-970x90" />
 
-    return matchesSearch && matchesCategory;
-  });
+        {/* Section: সর্বশেষ সংবাদ (Horizontal Left-to-Right Scrolling Track) */}
+        <LatestNewsGrid />
 
-  const activeCategoryObj = categories.find((c) => c.id === activeCategory);
+        {/* Section: বাংলাদেশ (Featured Lead + Sub-leads + Weather & Follow Us Widgets) */}
+        <BangladeshSection />
+
+        {/* Section: ভিডিও সংবাদ (Video News Player & Playlist) */}
+        <VideoNewsSection />
+
+        {/* Section: আমাদের পডকাস্ট (Horizontal Right-to-Left Scrolling Track) */}
+        <PodcastSection />
+
+        {/* Section: আমার {{District}} (Dynamic District News Selector) */}
+        <DistrictNewsSection />
+
+        {/* Section: 8 Category Visual Grids */}
+        <CategoryGrids />
+
+        {/* Bottom AdSense Banner (970 × 90) */}
+        <AdSenseSlot slotId="bottomBanner" customClass="ad-slot-970x90" />
+      </div>
+    );
+  };
 
   return (
     <>
+      {/* Top Sliding Ad Banner (Slides down when site opens) */}
+      <SlidingAdBanners />
+
       {/* Top Bar with Date, Weather, Links, Socials */}
       <TopBar />
 
       {/* Main Brand Header with SVG Logo and Search */}
       <MainHeader />
 
-      {/* Solid Red Navigation Bar with Categories, BN/EN toggle, and Dark/Light mode */}
+      {/* Solid Red Navigation Bar with 9 items (Home + 7 Major Groups + আরও দেখুন) */}
       <Navbar />
 
       {/* Main Content Layout */}
@@ -80,119 +144,8 @@ export default function App() {
         {/* Breaking News Ticker */}
         <BreakingTicker />
 
-        {/* 1. DEDICATED FULL ARTICLE PAGE VIEW */}
-        {currentArticle ? (
-          <ArticleDetailPage />
-        ) : isFiltered ? (
-          /* 2. CUSTOM CATEGORY / SEARCH RESULTS VIEW */
-          <div className="container category-page-container">
-            <div className="category-page-header">
-              <div>
-                <span className="category-page-badge">
-                  {searchQuery ? (isBn ? 'অনুসন্ধান' : 'Search') : (isBn ? 'বিভাগ' : 'Category')}
-                </span>
-                <h1 className="category-page-title">
-                  {searchQuery
-                    ? `${isBn ? 'অনুসন্ধানের ফলাফল:' : 'Search Results for:'} "${searchQuery}"`
-                    : (isBn ? activeCategoryObj?.nameBn || activeCategory : activeCategoryObj?.nameEn || activeCategory)}
-                </h1>
-                <p className="category-page-count">
-                  {isBn ? `মোট ${filteredArticles.length} টি সংবাদ` : `${filteredArticles.length} articles found`}
-                </p>
-              </div>
-              <button
-                onClick={goToHome}
-                className="section-link back-to-home-btn"
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <ArrowLeft size={16} />
-                <span>{isBn ? 'মূল পাতায় ফিরে যান' : 'Back to Home'}</span>
-              </button>
-            </div>
-
-            {filteredArticles.length === 0 ? (
-              <div className="no-news-box" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
-                <h3>{isBn ? 'কোনো সংবাদ পাওয়া যায়নি।' : 'No news articles found.'}</h3>
-                <button onClick={goToHome} className="btn-primary" style={{ marginTop: 14 }}>
-                  {isBn ? 'মূল পাতায় ফিরে যান' : 'Back to Homepage'}
-                </button>
-              </div>
-            ) : (
-              <div className="category-news-grid">
-                {filteredArticles.map((item) => (
-                  <article
-                    key={item.id}
-                    className="category-news-card"
-                    onClick={() => openArticle(item)}
-                    title={isBn ? item.titleBn : item.titleEn}
-                  >
-                    <div className="category-card-img-wrap">
-                      <img
-                        src={item.imageUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80'}
-                        alt={isBn ? item.titleBn : item.titleEn}
-                        className="category-card-img"
-                        loading="lazy"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
-                        }}
-                      />
-                      <span className="category-card-badge">
-                        {isBn ? item.categoryBn || item.category : item.category}
-                      </span>
-                    </div>
-                    <div className="category-card-body">
-                      <h2 className="category-card-title">
-                        {isBn ? item.titleBn : item.titleEn}
-                      </h2>
-                      {item.excerptBn && (
-                        <p className="category-card-excerpt">
-                          {isBn ? item.excerptBn : item.excerptEn}
-                        </p>
-                      )}
-                      <div className="category-card-footer">
-                        <div className="category-card-date">
-                          <Clock size={12} color="var(--primary-red)" />
-                          <span>{isBn ? item.dateBn : item.dateEn}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          /* 3. MASTER HOMEPAGE EDITORIAL LAYOUT */
-          <div className="container">
-            {/* Hero Lead 3-Column Grid */}
-            <HeroLeadGrid />
-
-            {/* In-Feed AdSense Banner (970 × 90) */}
-            <AdSenseSlot slotId="midContentBanner" customClass="ad-slot-970x90" />
-
-            {/* Section: সর্বশেষ সংবাদ (Horizontal Left-to-Right Scrolling Track) */}
-            <LatestNewsGrid />
-
-            {/* Section: বাংলাদেশ (Featured Lead + Sub-leads + Weather & Follow Us Widgets) */}
-            <BangladeshSection />
-
-            {/* Section: ভিডিও সংবাদ (Video News Player & Playlist) */}
-            <VideoNewsSection />
-
-            {/* Section: আমাদের পডকাস্ট (Horizontal Right-to-Left Scrolling Track) */}
-            <PodcastSection />
-
-            {/* Section: আমার {{District}} (Dynamic District News Selector) */}
-            <DistrictNewsSection />
-
-            {/* Section: 8 Category Visual Grids */}
-            <CategoryGrids />
-
-            {/* Bottom AdSense Banner (970 × 90) */}
-            <AdSenseSlot slotId="bottomBanner" customClass="ad-slot-970x90" />
-          </div>
-        )}
+        {/* Dynamic Page Router */}
+        {renderMainContent()}
 
         {/* Newsletter Subscription Ribbon */}
         <NewsletterRibbon />
@@ -204,7 +157,7 @@ export default function App() {
       {/* Master Footer with Founder, Office address, Terms & Socials */}
       <Footer />
 
-      {/* Policy & Terms Modal */}
+      {/* Policy & Terms Modal (fallback/quick modal) */}
       <PolicyModal />
 
       {/* Floating Bottom to Top Button */}
