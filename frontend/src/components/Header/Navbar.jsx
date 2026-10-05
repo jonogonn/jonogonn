@@ -78,7 +78,7 @@ const renderGroupIcon = (groupId, size = 14) => {
     case 'entertainment':
       return <Film size={size} />;
     case 'lifestyle-culture':
-      return <Sparkles size={size} />;
+      return <i className="fa-solid fa-people-group" style={{ fontSize: `${size}px`, display: 'inline-flex', alignItems: 'center' }}></i>;
     case 'opinion-specials':
     default:
       return <Radio size={size} />;

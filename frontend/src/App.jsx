@@ -11,6 +11,7 @@ import DistrictNewsSection from './components/News/DistrictNewsSection';
 import BangladeshSection from './components/News/BangladeshSection';
 import VideoNewsSection from './components/News/VideoNewsSection';
 import CategoryGrids from './components/News/CategoryGrids';
+import SubGroupSections from './components/News/SubGroupSections';
 import ArticleDetailPage from './components/News/ArticleDetailPage';
 import AdSenseSlot from './components/Ads/AdSenseSlot';
 import SlidingAdBanners from './components/Ads/SlidingAdBanners';
@@ -116,8 +117,8 @@ export default function App() {
         {/* Section: আমার {{District}} (Dynamic District News Selector) */}
         <DistrictNewsSection />
 
-        {/* Section: 8 Category Visual Grids */}
-        <CategoryGrids />
+        {/* Section: 24 Dedicated Category Sub-Group News Sections */}
+        <SubGroupSections />
 
         {/* Bottom AdSense Banner (970 × 90) */}
         <AdSenseSlot slotId="bottomBanner" customClass="ad-slot-970x90" />
