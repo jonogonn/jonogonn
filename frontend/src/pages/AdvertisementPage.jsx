@@ -8,6 +8,7 @@ import {
   Layout,
   FileCheck2,
   Mail,
+  Phone,
   ChevronRight,
   ShieldAlert
 } from 'lucide-react';

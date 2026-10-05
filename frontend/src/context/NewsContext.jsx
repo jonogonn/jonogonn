@@ -476,12 +476,16 @@ export function NewsProvider({ children }) {
     }
   };
 
-  const incrementViews = (id) => {
+  // Increment views by 5 for every article read (1 view = 5 views multiplier)
+  const incrementViews = (id, count = 5) => {
     setArticles((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, views: (item.views || 0) + 1 } : item
+        item.id === id ? { ...item, views: (item.views || 0) + count } : item
       )
     );
+    if (currentArticle && currentArticle.id === id) {
+      setCurrentArticle((prev) => (prev ? { ...prev, views: (prev.views || 0) + count } : prev));
+    }
   };
 
   // ==========================================

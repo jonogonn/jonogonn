@@ -1,5 +1,5 @@
 /**
- * Prayer Time & Holiday Utility for Jonogon News (জনগণ.নিউজ)
+ * Prayer Time & Holiday Utility for Jonogon News
  * Calculates accurate 5 Waqt prayer times, Sahri, Iftar, and Bangladesh Govt Holidays
  */
 

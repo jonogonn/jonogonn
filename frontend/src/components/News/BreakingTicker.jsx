@@ -79,14 +79,14 @@ export default function BreakingTicker() {
       <div className="container broadcast-container">
 
         {/* ========================================================
-            DECK 1 (TOP): STAR NEWS PRIMARY HEADLINE BAR (শীর্ষ সংবাদ / হাইলাইটস)
+            DECK 1 (TOP): STAR NEWS PRIMARY HEADLINE BAR (TOP NEWS / HIGHLIGHTS)
             ======================================================== */}
         <div 
           className="star-headline-plate"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-          {/* 1. Left Label: HIGHLIGHTS / শীর্ষ সংবাদ Tag */}
+          {/* 1. Left Label: HIGHLIGHTS / Top News Tag */}
           <div className="star-headline-brand">
             <span className="star-brand-label">{isBn ? 'হাইলাইটস' : 'HIGHLIGHTS'}</span>
           </div>

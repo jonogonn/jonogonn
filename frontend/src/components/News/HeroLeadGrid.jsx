@@ -56,7 +56,7 @@ export default function HeroLeadGrid() {
   // 2. Newly Posted Sub-lead News (Uncapped, sorted recent)
   const newlyPostedNews = articles;
 
-  // 3. Most Read (সর্বাধিক পঠিত) - Sorted by views descending
+  // 3. Most Read Stories - Sorted by views descending
   const mostReadList = [...articles].sort((a, b) => (b.views || 0) - (a.views || 0));
 
   return (
@@ -268,7 +268,7 @@ export default function HeroLeadGrid() {
         {/* Top 300x250 AdSlot */}
         <AdSenseSlot slotId="leadSidebarAd" customClass="ad-slot-300x250" />
 
-        {/* Most Read (সর্বাধিক পঠিত) with Thumbnails & Vertical Scroll */}
+        {/* Most Read stories with Thumbnails & Vertical Scroll */}
         <div className="most-read-box">
           <div className="most-read-header">
             <Flame size={18} className="most-read-icon" />

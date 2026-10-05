@@ -1,5 +1,5 @@
 /**
- * Master Initial Data for Jonogon News (জনগণ.নিউজ)
+ * Master Initial Data for Jonogon News
  * Loaded into local state & Supabase database
  */
 
@@ -748,7 +748,7 @@ export const initialNewsArticles = [
     views: 9600
   },
 
-  // 3. Section: সর্বশেষ সংবাদ (4 Horizontal Cards)
+  // 3. Section: Latest News (4 Horizontal Cards)
   {
     id: 'latest-1',
     titleBn: 'উত্তরাঞ্চলে নদ-নদীর পানি বেড়েছে, কয়েক জেলায় বন্যার শঙ্কা',
@@ -810,7 +810,7 @@ export const initialNewsArticles = [
     views: 9100
   },
 
-  // 3.5. Section: প্রবাসী ও রেমিট্যান্স যোদ্ধা (Probashi & Remittance Fighters)
+  // 3.5. Section: Expatriates & Remittance Fighters (Probashi & Remittance Fighters)
   {
     id: 'probashi-1',
     titleBn: 'রেকর্ড রেমিট্যান্স পাঠালেন প্রবাসীরা: বৈধ পথে এক মাসে এলো ২.৪ বিলিয়ন ডলার',
@@ -901,7 +901,7 @@ export const initialNewsArticles = [
     region: 'europe'
   },
 
-  // 4. Section: বাংলাদেশ (Split Left)
+  // 4. Section: Bangladesh News (Split Left)
   {
     id: 'bd-main',
     titleBn: 'দেশের উন্নয়নে সব রাজনৈতিক দলের সহযোগিতা চান প্রধান উপদেষ্টা',
@@ -918,7 +918,7 @@ export const initialNewsArticles = [
     views: 13500
   },
 
-  // 5. Section: ভিডিও সংবাদ (Split Right)
+  // 5. Section: Video News (Split Right)
   {
     id: 'video-main',
     titleBn: 'পদ্মা সেতুতে নতুন রেললাইন: যা জানালেন কর্তৃপক্ষ',

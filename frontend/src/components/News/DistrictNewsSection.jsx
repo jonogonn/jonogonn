@@ -134,7 +134,7 @@ export default function DistrictNewsSection() {
 
   return (
     <section className="my-district-section" style={{ marginBottom: 32 }}>
-      {/* Section Header with Dynamic "আমার {{District}}" and Dropdown */}
+      {/* Section Header with Dynamic "My District" and Dropdown */}
       <div className="section-header district-section-header">
         <div className="district-header-main-group">
           <div className="district-title-wrap">

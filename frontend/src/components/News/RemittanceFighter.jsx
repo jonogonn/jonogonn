@@ -221,7 +221,7 @@ export default function RemittanceFighter() {
         <div className="foxiz-sidebar-col">
           <div className="weather-follow-card remittance-sidebar-card">
 
-            {/* Header: আজকের রেমিট্যান্স রেট */}
+            {/* Header: Today's Remittance Exchange Rates */}
             <div className="remittance-side-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <TrendingUp size={16} color="#E60012" />

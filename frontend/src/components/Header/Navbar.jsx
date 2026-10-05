@@ -408,7 +408,7 @@ export default function Navbar() {
                 );
               })}
 
-              {/* Item 9: Master 'আরও দেখুন' Explorer Button (130+ Categories) */}
+              {/* Item 9: Master 'Explore More' Button (130+ Categories) */}
               <div className="nav-dropdown-wrap nav-all-topics-wrap">
                 <button
                   type="button"

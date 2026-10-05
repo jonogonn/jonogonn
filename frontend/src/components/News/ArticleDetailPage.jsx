@@ -150,27 +150,14 @@ export default function ArticleDetailPage() {
     .slice(0, 3);
 
   return (
-    <div className="article-page-container" style={{ padding: '16px 0 40px 0' }}>
+    <div className="article-page-container">
       <div className="container">
         {/* 1. Breadcrumb & Back Navigation */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            fontSize: '0.85rem',
-            color: 'var(--text-muted)',
-            marginBottom: 16,
-            paddingBottom: 10,
-            borderBottom: '1px solid var(--border-color)',
-            flexWrap: 'wrap',
-            gap: 10
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <div className="article-breadcrumb-bar">
+          <div className="article-breadcrumb-left">
             <button
               onClick={goToHome}
-              style={{ color: 'var(--primary-red)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
+              className="article-breadcrumb-home-btn"
             >
               <ArrowLeft size={14} />
               <span>{isBn ? 'প্রচ্ছদ' : 'Home'}</span>
@@ -181,27 +168,26 @@ export default function ArticleDetailPage() {
                 setActiveCategory(currentArticle.category || 'latest');
                 goToHome();
               }}
-              style={{ color: 'var(--text-main)', fontWeight: 600 }}
+              className="article-breadcrumb-cat-btn"
             >
               {isBn ? currentArticle.categoryBn || catObj?.nameBn || 'বাংলাদেশ' : currentArticle.category || catObj?.nameEn || 'National'}
             </button>
             <ChevronRight size={14} />
-            <span style={{ color: 'var(--text-light)', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span className="article-breadcrumb-title-trunc">
               {isBn ? currentArticle.titleBn : currentArticle.titleEn}
             </span>
           </div>
 
           <button
             onClick={goToHome}
-            className="admin-btn-secondary"
-            style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+            className="admin-btn-secondary article-back-news-btn"
           >
             ← {isBn ? 'সব সংবাদ দেখুন' : 'Back to News'}
           </button>
         </div>
 
         {/* 2. Main Two-Column Layout (Article Content 8 cols + Sidebar 4 cols) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '8fr 4fr', gap: 32 }} className="article-page-grid">
+        <div className="article-page-grid">
           {/* Main Article Body */}
           <article className="article-main-column">
             {/* Category Badge */}
@@ -209,96 +195,73 @@ export default function ArticleDetailPage() {
               {isBn ? currentArticle.categoryBn || catObj?.nameBn || 'জাতীয়' : currentArticle.category || catObj?.nameEn || 'National'}
             </span>
 
-            {/* Main Headline (Anek Bangla 700) */}
-            <h1
-              style={{
-                fontFamily: 'var(--font-headline)',
-                fontSize: '2.1rem',
-                fontWeight: 800,
-                lineHeight: 1.3,
-                color: 'var(--text-main)',
-                margin: '12px 0 16px 0'
-              }}
-            >
+            {/* Main Headline */}
+            <h1 className="article-main-headline">
               {isBn ? currentArticle.titleBn : currentArticle.titleEn}
             </h1>
 
             {/* Metadata Line */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 0',
-                borderTop: '1px solid var(--border-color)',
-                borderBottom: '1px solid var(--border-color)',
-                marginBottom: 20,
-                fontSize: '0.88rem',
-                color: 'var(--text-muted)',
-                flexWrap: 'wrap',
-                gap: 12
-              }}
-            >
+            <div className="article-meta-bar">
               {/* Author & Date */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, color: 'var(--text-main)' }}>
+              <div className="article-meta-left">
+                <div className="article-meta-author">
                   <User size={16} color="var(--primary-red)" />
                   <span>{currentArticle.author || 'জনগণ নিউজ ডেস্ক'}</span>
                 </div>
                 <span>•</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div className="article-meta-item">
                   <Clock size={15} color="var(--primary-red)" />
                   <span>{isBn ? currentArticle.dateBn : currentArticle.dateEn}</span>
                 </div>
                 <span>•</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div className="article-meta-item">
                   <BookOpen size={15} color="var(--primary-red)" />
                   <span>{isBn ? currentArticle.readTimeBn || '৪ মিনিট পড়তে' : currentArticle.readTimeEn || '4 min read'}</span>
                 </div>
                 <span>•</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div className="article-meta-item">
                   <Eye size={15} color="var(--primary-red)" />
                   <span>{currentArticle.views || 1} {isBn ? 'ভিউ' : 'views'}</span>
                 </div>
               </div>
 
               {/* Font Size Adjuster */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--bg-subtle)', padding: '3px 8px', borderRadius: 4 }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginRight: 4 }}>{isBn ? 'হরফ:' : 'Font:'}</span>
-                <button onClick={() => setFontSize((f) => Math.max(0.95, f - 0.1))} style={{ padding: '2px 6px', fontWeight: 700 }} title="ছোট করুন">A-</button>
-                <button onClick={() => setFontSize(1.15)} style={{ padding: '2px 6px', fontSize: '0.85rem' }} title="সাধারণ সাইজ">A</button>
-                <button onClick={() => setFontSize((f) => Math.min(1.6, f + 0.1))} style={{ padding: '2px 6px', fontWeight: 700 }} title="বড় করুন">A+</button>
+              <div className="article-font-adjuster">
+                <span className="article-font-label">{isBn ? 'হরফ:' : 'Font:'}</span>
+                <button onClick={() => setFontSize((f) => Math.max(0.95, f - 0.1))} title="ছোট করুন">A-</button>
+                <button onClick={() => setFontSize(1.15)} title="সাধারণ সাইজ">A</button>
+                <button onClick={() => setFontSize((f) => Math.min(1.6, f + 0.1))} title="বড় করুন">A+</button>
               </div>
             </div>
 
             {/* Social Share Toolbar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', marginRight: 4 }}>
+            <div className="article-social-share-bar">
+              <span className="article-share-label">
                 {isBn ? 'শেয়ার করুন:' : 'Share:'}
               </span>
               <button
                 onClick={handleFacebookShare}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#1877F2', color: '#fff', padding: '6px 12px', borderRadius: 3, fontSize: '0.82rem', fontWeight: 600 }}
+                className="article-share-btn share-fb"
               >
                 <FacebookIcon size={15} color="#fff" />
                 <span>Facebook</span>
               </button>
               <button
                 onClick={handleWhatsAppShare}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#25D366', color: '#fff', padding: '6px 12px', borderRadius: 3, fontSize: '0.82rem', fontWeight: 600 }}
+                className="article-share-btn share-wa"
               >
                 <span>WhatsApp</span>
               </button>
               <button
                 onClick={handleCopyLink}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-subtle)', border: '1px solid var(--border-color)', padding: '6px 12px', borderRadius: 3, fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 600 }}
+                className="article-share-btn share-copy"
               >
                 {copied ? <Check size={15} color="#16A34A" /> : <Copy size={15} />}
                 <span>{copied ? (isBn ? 'কপি হয়েছে!' : 'Link Copied!') : (isBn ? 'লিঙ্ক কপি' : 'Copy Link')}</span>
               </button>
               <button
                 onClick={handlePrint}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-subtle)', border: '1px solid var(--border-color)', padding: '6px 12px', borderRadius: 3, fontSize: '0.82rem', color: 'var(--text-main)' }}
+                className="article-share-btn share-print"
                 title="Print Article"
               >
                 <Printer size={15} />
@@ -308,13 +271,13 @@ export default function ArticleDetailPage() {
 
             {/* Large Featured High-Res Image */}
             {currentArticle.imageUrl && (
-              <div style={{ marginBottom: 24 }}>
+              <div className="article-featured-image-wrap">
                 <img
                   src={currentArticle.imageUrl}
                   alt={isBn ? currentArticle.titleBn : currentArticle.titleEn}
-                  style={{ width: '100%', maxHeight: 500, objectFit: 'cover', borderRadius: 4 }}
+                  className="article-featured-image"
                 />
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: 6, fontStyle: 'italic' }}>
+                <div className="article-image-caption">
                   {isBn ? currentArticle.titleBn : currentArticle.titleEn} | ছবি: জনগণ নিউজ
                 </div>
               </div>
@@ -323,18 +286,8 @@ export default function ArticleDetailPage() {
             {/* Lead Highlight Excerpt Box */}
             {(currentArticle.excerptBn || currentArticle.excerptEn) && (
               <div
-                style={{
-                  fontFamily: 'var(--font-subheadline)',
-                  fontSize: `${fontSize * 1.05}rem`,
-                  fontWeight: 600,
-                  color: 'var(--text-main)',
-                  backgroundColor: 'var(--bg-subtle)',
-                  borderLeft: '4px solid var(--primary-red)',
-                  padding: '16px 20px',
-                  borderRadius: '0 4px 4px 0',
-                  marginBottom: 24,
-                  lineHeight: 1.6
-                }}
+                className="article-excerpt-callout"
+                style={{ fontSize: `${fontSize * 1.05}rem` }}
               >
                 {isBn ? currentArticle.excerptBn : currentArticle.excerptEn}
               </div>
@@ -342,14 +295,8 @@ export default function ArticleDetailPage() {
 
             {/* Main Article Paragraphs */}
             <div
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: `${fontSize}rem`,
-                lineHeight: 1.85,
-                color: 'var(--text-main)',
-                whiteSpace: 'pre-line',
-                marginBottom: 32
-              }}
+              className="article-body-text"
+              style={{ fontSize: `${fontSize}rem` }}
             >
               {isBn ? currentArticle.contentBn || currentArticle.excerptBn : currentArticle.contentEn || currentArticle.excerptEn}
             </div>
@@ -358,22 +305,22 @@ export default function ArticleDetailPage() {
             <AdSenseSlot slotId="midContentBanner" customClass="ad-slot-970x90" />
 
             {/* Interactive Reader Comments Section */}
-            <div style={{ marginTop: 36, paddingTop: 24, borderTop: '2px solid var(--border-color)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <div className="article-comments-section">
+              <div className="article-comments-header">
                 <MessageSquare size={22} color="var(--primary-red)" />
-                <h3 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.3rem', fontWeight: 700 }}>
+                <h3>
                   {isBn ? 'পাঠকের মন্তব্য' : 'Reader Comments'} ({commentsList.length})
                 </h3>
               </div>
 
               {commentSuccess && (
-                <div style={{ padding: '10px 14px', backgroundColor: '#DCFCE7', color: '#166534', borderRadius: 4, marginBottom: 16, fontSize: '0.9rem', fontWeight: 600 }}>
+                <div className="article-comment-alert-success">
                   {isBn ? 'আপনার মন্তব্য সফলভাবে জমা হয়েছে!' : 'Your comment has been submitted successfully!'}
                 </div>
               )}
 
               {/* Comment Submission Form */}
-              <form onSubmit={handleAddComment} style={{ backgroundColor: 'var(--bg-subtle)', padding: 18, borderRadius: 6, border: '1px solid var(--border-color)', marginBottom: 24 }}>
+              <form onSubmit={handleAddComment} className="article-comment-form">
                 <div style={{ marginBottom: 12 }}>
                   <input
                     type="text"
@@ -403,26 +350,26 @@ export default function ArticleDetailPage() {
               {/* Comments List */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {commentsList.map((c) => (
-                  <div key={c.id} style={{ padding: '12px 16px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 4 }}>
+                  <div key={c.id} className="article-comment-item">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                       <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>{c.name}</span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{c.date}</span>
                     </div>
-                    <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>{c.text}</p>
+                    <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>{c.text}</p>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Related Stories Grid */}
-            <div style={{ marginTop: 40, paddingTop: 24, borderTop: '2px solid var(--border-color)' }}>
+            <div className="article-related-section">
               <div className="section-header">
                 <h3 className="section-title">
                   {isBn ? 'সম্পর্কিত আরও সংবাদ' : 'Related Stories'}
                 </h3>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+              <div className="article-related-grid">
                 {relatedArticles.map((rel) => (
                   <article
                     key={rel.id}

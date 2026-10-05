@@ -105,7 +105,7 @@ export default function App() {
         {/* Section 1: Hero Lead 3-Column Grid */}
         <HeroLeadGrid />
 
-        {/* Section 2: সর্বশেষ সংবাদ (Horizontal Left-to-Right Scrolling Track) */}
+        {/* Section 2: Latest News (Horizontal Left-to-Right Scrolling Track) */}
         <LatestNewsGrid />
 
         {/* Ad Banner after 2 sections (HeroLeadGrid + LatestNewsGrid) (970 × 90) */}
@@ -113,10 +113,10 @@ export default function App() {
           <AdSenseSlot slotId="afterLatestBanner" customClass="ad-slot-970x90" />
         </div>
 
-        {/* Section 3: বাংলাদেশ (Featured Lead + Sub-leads + Weather & Follow Us Widgets) */}
+        {/* Section 3: Bangladesh Section (Featured Lead + Sub-leads + Weather & Follow Us Widgets) */}
         <BangladeshSection />
 
-        {/* Section: প্রবাসী ও রেমিট্যান্স যোদ্ধা (Remittance Fighters & Expatriates) */}
+        {/* Section: Expatriates & Remittance Fighters */}
         <RemittanceFighter />
 
         {/* Ad Banner after 2 sections (BangladeshSection + RemittanceFighter) (970 × 90) */}
@@ -125,13 +125,13 @@ export default function App() {
         </div>
 
 
-        {/* Section 4: আমার {{District}} (Dynamic District News Selector) */}
+        {/* Section 4: My District News (Dynamic District News Selector) */}
         <DistrictNewsSection />
 
-        {/* Section 5: ভিডিও সংবাদ (Video News Player & Playlist) */}
+        {/* Section 5: Video News (Video News Player & Playlist) */}
         <VideoNewsSection />
 
-        {/* Section 6: আমাদের পডকাস্ট (Horizontal Right-to-Left Scrolling Track) */}
+        {/* Section 6: Our Podcasts (Horizontal Right-to-Left Scrolling Track) */}
         <PodcastSection />
 
         {/* Ad Banner after 2 sections (PodcastSection + DistrictNewsSection) (970 × 90) */}
@@ -161,7 +161,7 @@ export default function App() {
       {/* Main Brand Header with SVG Logo and Search */}
       <MainHeader />
 
-      {/* Solid Red Navigation Bar with 9 items (Home + 7 Major Groups + আরও দেখুন) */}
+      {/* Solid Red Navigation Bar with 9 items (Home + 7 Major Groups + More Categories) */}
       <Navbar />
 
       {/* Main Content Layout */}
@@ -175,7 +175,7 @@ export default function App() {
         {/* Newsletter Subscription Ribbon */}
         <NewsletterRibbon />
 
-        {/* Section: অভিযোগ বক্স (Complaint Box Section) */}
+        {/* Section: Public Complaint Box */}
         <ComplaintBoxSection />
       </main>
 

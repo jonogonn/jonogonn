@@ -1,5 +1,5 @@
 /**
- * Live Google Weather Service for Jonogon News (জনগণ.নিউজ)
+ * Live Google Weather Service for Jonogon News
  * Fetches real-time, highly accurate Google-compatible weather metrics using WMO standard API (Open-Meteo).
  */
 

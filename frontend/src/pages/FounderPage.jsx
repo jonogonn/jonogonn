@@ -121,22 +121,7 @@ export default function FounderPage() {
         </nav>
 
         {/* Hero Profile Showcase Card with 3D Interactive Stage */}
-        <div
-          style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderTop: '5px solid var(--primary-red)',
-            borderRadius: 12,
-            padding: '40px 36px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.06)',
-            display: 'grid',
-            gridTemplateColumns: '360px 1fr',
-            gap: 40,
-            marginBottom: 36,
-            alignItems: 'center'
-          }}
-          className="founder-hero-grid"
-        >
+        <div className="founder-hero-grid">
           {/* 3D Founder Interactive Tilt Showcase */}
           <div className="founder-3d-scene" style={{ perspective: 1200 }}>
             <div
@@ -318,7 +303,7 @@ export default function FounderPage() {
               : 'Through Brand By Biplob, he delivers cutting-edge digital branding, UI/UX architecture, Google Merchant Center integrations, and high-impact visual media campaigns.'}
           </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }} className="values-grid">
+          <div className="founder-skills-grid">
             {founderSkills.map((sk, idx) => (
               <div key={idx} className="value-card">
                 <div className="value-icon-wrap">{sk.icon}</div>
@@ -330,7 +315,7 @@ export default function FounderPage() {
         </section>
 
         {/* Contact & Office Details */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+        <div className="founder-contact-grid">
           <div className="page-info-card">
             <h3>{isBn ? 'সরাসরি যোগাযোগ' : 'Direct Contact'}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: '0.92rem' }}>
