@@ -10,7 +10,6 @@ import {
   MapPin,
   Briefcase,
   Layers,
-  Sparkles,
   ExternalLink,
   ChevronRight,
   ShieldCheck,
@@ -26,6 +25,29 @@ import { FacebookIcon, YoutubeIcon } from '../components/Icons/SocialIcons';
 export default function FounderPage() {
   const { language, settings, goToHome, navigateTo } = useNews();
   const isBn = language === 'bn';
+
+  // 3D Card Tilt State
+  const [tilt, setTilt] = React.useState({ x: 0, y: 0, shineX: 50, shineY: 50 });
+  const [isHovered, setIsHovered] = React.useState(false);
+
+  const handleMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const rotateX = ((y - centerY) / centerY) * -12; // 3D tilt angle
+    const rotateY = ((x - centerX) / centerX) * 14;
+    const shineX = (x / rect.width) * 100;
+    const shineY = (y / rect.height) * 100;
+    setTilt({ x: rotateX, y: rotateY, shineX, shineY });
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    setTilt({ x: 0, y: 0, shineX: 50, shineY: 50 });
+  };
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -98,44 +120,72 @@ export default function FounderPage() {
           </span>
         </nav>
 
-        {/* Hero Profile Showcase Card */}
+        {/* Hero Profile Showcase Card with 3D Interactive Stage */}
         <div
           style={{
             background: 'var(--bg-card)',
             border: '1px solid var(--border-color)',
             borderTop: '5px solid var(--primary-red)',
-            borderRadius: 8,
-            padding: '36px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+            borderRadius: 12,
+            padding: '40px 36px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.06)',
             display: 'grid',
-            gridTemplateColumns: '320px 1fr',
-            gap: 36,
+            gridTemplateColumns: '360px 1fr',
+            gap: 40,
             marginBottom: 36,
             alignItems: 'center'
           }}
           className="founder-hero-grid"
         >
-          {/* Founder Photo */}
-          <div style={{ textAlign: 'center' }}>
+          {/* 3D Founder Interactive Tilt Showcase */}
+          <div className="founder-3d-scene" style={{ perspective: 1200 }}>
             <div
+              className={`founder-3d-card ${!isHovered ? 'founder-idle-float' : ''}`}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
               style={{
-                width: 260,
-                height: 290,
-                margin: '0 auto',
-                borderRadius: 8,
-                overflow: 'hidden',
-                border: '3px solid var(--border-color)',
-                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
-                backgroundColor: 'var(--bg-subtle)'
+                transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale3d(${isHovered ? 1.03 : 1}, ${isHovered ? 1.03 : 1}, 1)`,
+                transition: isHovered ? 'transform 0.1s cubic-bezier(0.1, 0.9, 0.2, 1)' : 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)'
               }}
             >
-              <img
-                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80"
-                alt={isBn ? 'মোঃ বিপ্লব হোসেন — স্বত্বাধিকারী ও সম্পাদক' : 'Md. Biplob Hossain — Owner & Editor'}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              {/* Radial Neon Backing Aura */}
+              <div className="founder-3d-glow" />
+
+              {/* Dynamic Specular Light Glare */}
+              <div
+                className="founder-3d-glare"
+                style={{
+                  background: `radial-gradient(circle at ${tilt.shineX}% ${tilt.shineY}%, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 65%)`
+                }}
               />
+
+              {/* Holographic Top Floating Badge */}
+              <div className="founder-3d-badge-top">
+                <span>{isBn ? 'স্বত্বাধিকারী ও সম্পাদক' : 'Owner & Editor'}</span>
+              </div>
+
+              {/* 3D Cutout High-Res Portrait from D:\xampp\htdocs\janogon\founder.png */}
+              <div className="founder-3d-img-wrap">
+                <img
+                  src="/founder.png"
+                  alt={isBn ? 'মোঃ বিপ্লব হোসেন — স্বত্বাধিকারী ও সম্পাদক' : 'Md. Biplob Hossain — Owner & Editor'}
+                  className="founder-3d-portrait"
+                />
+              </div>
+
+              {/* Bottom 3D Floating Nameplate */}
+              <div className="founder-3d-nameplate">
+                <span className="founder-nameplate-title">
+                  {isBn ? 'মোঃ বিপ্লব হোসেন' : 'Md. Biplob Hossain'}
+                </span>
+                <span className="founder-nameplate-sub">
+                  {isBn ? 'জনগণ.নিউজ • Brand By Biplob' : 'Jonogon News • Brand By Biplob'}
+                </span>
+              </div>
             </div>
-            <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center', gap: 10 }}>
+
+            {/* 3D Floating Social & Agency Links */}
+            <div style={{ marginTop: 18, display: 'flex', justifyContent: 'center', gap: 10 }}>
               {settings.facebook && (
                 <a
                   href={settings.facebook}
@@ -143,6 +193,7 @@ export default function FounderPage() {
                   rel="noopener noreferrer"
                   className="footer-social-btn"
                   title="Facebook"
+                  style={{ transform: 'translateZ(15px)', transition: 'all 0.2s ease' }}
                 >
                   <FacebookIcon size={16} />
                 </a>
@@ -154,6 +205,7 @@ export default function FounderPage() {
                   rel="noopener noreferrer"
                   className="footer-social-btn"
                   title="YouTube"
+                  style={{ transform: 'translateZ(15px)', transition: 'all 0.2s ease' }}
                 >
                   <YoutubeIcon size={16} />
                 </a>
@@ -163,8 +215,8 @@ export default function FounderPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="footer-social-btn"
-                title="Brand By Biplob Website"
-                style={{ backgroundColor: 'var(--primary-red)', color: '#fff' }}
+                title="Brand By Biplob Agency"
+                style={{ backgroundColor: 'var(--primary-red)', color: '#fff', transform: 'translateZ(15px)', fontWeight: 700 }}
               >
                 <Globe size={16} />
               </a>
@@ -174,7 +226,6 @@ export default function FounderPage() {
           {/* Founder Intro Text */}
           <div>
             <div className="page-hero-badge" style={{ marginBottom: 8 }}>
-              <Sparkles size={14} />
               <span>{isBn ? 'স্বত্বাধিকারী ও সম্পাদক' : 'Owner & Editor'}</span>
             </div>
             <h1
@@ -203,19 +254,19 @@ export default function FounderPage() {
 
             {/* Quick Contact Pills */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 20 }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-subtle)', padding: '6px 14px', borderRadius: 4, fontSize: '0.86rem', color: 'var(--text-main)' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-subtle)', padding: '6px 14px', borderRadius: 4, fontSize: '0.86rem', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}>
                 <Mail size={15} color="var(--primary-red)" />
                 <a href={`mailto:${settings.email || 'brandbiplob1234@gmail.com'}`} style={{ color: 'inherit', fontWeight: 600 }}>
                   {settings.email || 'brandbiplob1234@gmail.com'}
                 </a>
               </div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-subtle)', padding: '6px 14px', borderRadius: 4, fontSize: '0.86rem', color: 'var(--text-main)' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-subtle)', padding: '6px 14px', borderRadius: 4, fontSize: '0.86rem', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}>
                 <Phone size={15} color="var(--primary-red)" />
                 <a href={`tel:${settings.phone || '01936618534'}`} style={{ color: 'inherit', fontWeight: 600 }}>
                   {settings.phone || '01936618534'}
                 </a>
               </div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-subtle)', padding: '6px 14px', borderRadius: 4, fontSize: '0.86rem', color: 'var(--text-main)' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-subtle)', padding: '6px 14px', borderRadius: 4, fontSize: '0.86rem', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}>
                 <Globe size={15} color="var(--primary-red)" />
                 <a href="https://www.brandbybiplob.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-red)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <span>brandbybiplob.com</span>

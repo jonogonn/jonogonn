@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNews } from '../../context/NewsContext';
-import { X, Sparkles, Megaphone, PhoneCall, ExternalLink, RefreshCw, Volume2 } from 'lucide-react';
+import { X, Megaphone, PhoneCall, ExternalLink, RefreshCw, Volume2 } from 'lucide-react';
 
 export default function SlidingAdBanners() {
   const { language, settings, navigateTo } = useNews();

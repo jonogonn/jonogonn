@@ -7,7 +7,6 @@ import {
   Copyright,
   ShieldCheck,
   ChevronRight,
-  Sparkles,
   Scale,
   Ban,
   AlertOctagon,
@@ -74,7 +73,7 @@ export default function TermsPage() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, color: 'var(--primary-red)', fontWeight: 700 }}>
-                  <Sparkles size={18} />
+                  <ShieldCheck size={18} />
                   <span>{isBn ? 'আইনি পর্ষদের বিশেষ ঘোষণা (Admin Live Terms & Conditions)' : 'Official Terms & Conditions Notice'}</span>
                 </div>
                 <p style={{ whiteSpace: 'pre-line', fontSize: '0.96rem', lineHeight: 1.7, color: 'var(--text-main)' }}>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNews } from '../../context/NewsContext';
-import { Clock, BookOpen, ChevronLeft, ChevronRight, Flame, Sparkles } from 'lucide-react';
+import { Clock, BookOpen, ChevronLeft, ChevronRight, Flame } from 'lucide-react';
 import AdSenseSlot from '../Ads/AdSenseSlot';
 
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';

@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Clock,
   Calendar,
-  Sparkles,
   MapPin,
   Moon,
   Sun,

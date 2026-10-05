@@ -52,6 +52,25 @@ export function NewsProvider({ children }) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          const bdGroup = parsed.find((g) => g.id === 'bangladesh-governance') || parsed[0];
+          if (bdGroup && Array.isArray(bdGroup.subGroups) && bdGroup.subGroups.length > 0) {
+            const hasProbashi = bdGroup.subGroups.some((sg) =>
+              (sg.items || []).some((it) => it.id === 'probashi' || it.nameBn === 'প্রবাসী')
+            );
+            if (!hasProbashi) {
+              const targetSub = bdGroup.subGroups[0];
+              if (targetSub && Array.isArray(targetSub.items)) {
+                const bIdx = targetSub.items.findIndex((it) => it.id === 'bangladesh');
+                const probashiItem = { id: 'probashi', nameBn: 'প্রবাসী', nameEn: 'Expatriates' };
+                if (bIdx >= 0) {
+                  targetSub.items.splice(bIdx + 1, 0, probashiItem);
+                } else {
+                  targetSub.items.push(probashiItem);
+                }
+                localStorage.setItem('jonogon_master_groups', JSON.stringify(parsed));
+              }
+            }
+          }
           return parsed;
         }
       } catch (e) {
@@ -68,12 +87,59 @@ export function NewsProvider({ children }) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          if (!parsed.some((c) => c.id === 'probashi')) {
+            parsed.push({ id: 'probashi', nameBn: 'প্রবাসী', nameEn: 'Expatriates', slug: 'probashi' });
+            localStorage.setItem('jonogon_categories', JSON.stringify(parsed));
+          }
           return parsed;
         }
       } catch (e) {}
     }
     return initialCategories;
   });
+
+  // Ensure Probashi & Expatriates sync in state on startup
+  useEffect(() => {
+    setCategoryMasterGroups((prevGroups) => {
+      let needsUpdate = false;
+      const updated = prevGroups.map((grp) => {
+        if (grp.id === 'bangladesh-governance') {
+          const hasProbashi = grp.subGroups?.some((sg) =>
+            sg.items?.some((it) => it.id === 'probashi' || it.nameBn === 'প্রবাসী')
+          );
+          if (!hasProbashi && grp.subGroups && grp.subGroups.length > 0) {
+            needsUpdate = true;
+            const updatedSubs = [...grp.subGroups];
+            const firstSub = { ...updatedSubs[0], items: [...updatedSubs[0].items] };
+            const bIdx = firstSub.items.findIndex((it) => it.id === 'bangladesh');
+            const probashiItem = { id: 'probashi', nameBn: 'প্রবাসী', nameEn: 'Expatriates' };
+            if (bIdx >= 0) {
+              firstSub.items.splice(bIdx + 1, 0, probashiItem);
+            } else {
+              firstSub.items.push(probashiItem);
+            }
+            updatedSubs[0] = firstSub;
+            return { ...grp, subGroups: updatedSubs };
+          }
+        }
+        return grp;
+      });
+      if (needsUpdate) {
+        localStorage.setItem('jonogon_master_groups', JSON.stringify(updated));
+        return updated;
+      }
+      return prevGroups;
+    });
+
+    setCategories((prev) => {
+      if (!prev.some((c) => c.id === 'probashi')) {
+        const updated = [...prev, { id: 'probashi', nameBn: 'প্রবাসী', nameEn: 'Expatriates', slug: 'probashi' }];
+        localStorage.setItem('jonogon_categories', JSON.stringify(updated));
+        return updated;
+      }
+      return prev;
+    });
+  }, []);
 
   // 6. Breaking News Ticker
   const [breakingNews, setBreakingNews] = useState(() => {
@@ -225,7 +291,7 @@ export function NewsProvider({ children }) {
       setCurrentArticle(null);
       return;
     }
-    if (path === '/founder' || path === '/editor' || path === '/biplob-hossain') {
+    if (path === '/founder' || path === '/found' || path === '/editor' || path === '/biplob-hossain') {
       setActivePage('founder');
       setCurrentArticle(null);
       return;
@@ -296,7 +362,7 @@ export function NewsProvider({ children }) {
     } else if (cleanPath === '/terms' || cleanPath === '/terms-and-conditions') {
       setActivePage('terms');
       setCurrentArticle(null);
-    } else if (cleanPath === '/founder' || cleanPath === '/editor' || cleanPath === '/biplob-hossain') {
+    } else if (cleanPath === '/founder' || cleanPath === '/found' || cleanPath === '/editor' || cleanPath === '/biplob-hossain') {
       setActivePage('founder');
       setCurrentArticle(null);
     } else if (cleanPath.startsWith('/category/')) {

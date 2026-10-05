@@ -9,7 +9,6 @@ import {
   Search,
   AlertTriangle,
   ChevronRight,
-  Sparkles,
   Users,
   Eye,
   HeartHandshake,
@@ -76,7 +75,7 @@ export default function EditorialPolicyPage() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, color: 'var(--primary-red)', fontWeight: 700 }}>
-                  <Sparkles size={18} />
+                  <CheckCircle2 size={18} />
                   <span>{isBn ? 'সম্পাদকীয় পর্ষদের বিশেষ ঘোষণা (Admin Live Policy)' : 'Editorial Board Policy Notice'}</span>
                 </div>
                 <p style={{ whiteSpace: 'pre-line', fontSize: '0.96rem', lineHeight: 1.7, color: 'var(--text-main)' }}>

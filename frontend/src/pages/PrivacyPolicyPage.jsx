@@ -8,7 +8,6 @@ import {
   Cookie,
   FileCheck,
   ChevronRight,
-  Sparkles,
   Server,
   UserCheck,
   Globe2,
@@ -75,7 +74,7 @@ export default function PrivacyPolicyPage() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, color: 'var(--primary-red)', fontWeight: 700 }}>
-                  <Sparkles size={18} />
+                  <Shield size={18} />
                   <span>{isBn ? 'প্রাইভেসি ডেস্কের লাইভ নোটিশ (Admin Live Privacy Policy)' : 'Official Privacy Policy Statement'}</span>
                 </div>
                 <p style={{ whiteSpace: 'pre-line', fontSize: '0.96rem', lineHeight: 1.7, color: 'var(--text-main)' }}>

@@ -128,8 +128,8 @@ export default function SubGroupSections() {
               ? 'anim-zoom-fade'
               : 'anim-slide-accent';
 
-          // Insert leaderboard ad slot every 6 sections
-          const shouldShowAd = idx > 0 && idx % 6 === 0;
+          // Insert leaderboard ad slot every 2 sections
+          const shouldShowAd = idx > 0 && idx % 2 === 0;
 
           // Component for rendering a Column of 4 Small News Cards
           const renderSmallColumn = (itemsList, colKey) => (

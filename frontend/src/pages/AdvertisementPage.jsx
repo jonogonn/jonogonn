@@ -8,10 +8,8 @@ import {
   Layout,
   FileCheck2,
   Mail,
-  Phone,
   ChevronRight,
-  ShieldAlert,
-  Sparkles
+  ShieldAlert
 } from 'lucide-react';
 
 export default function AdvertisementPage() {

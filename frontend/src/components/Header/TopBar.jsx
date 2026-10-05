@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNews } from '../../context/NewsContext';
-import { CloudSun, Sun, Moon, Cloud, CloudRain, CloudLightning, ShieldAlert, Sparkles } from 'lucide-react';
+import { CloudSun, Sun, Moon, Cloud, CloudRain, CloudLightning, ShieldAlert } from 'lucide-react';
 import { FacebookIcon, YoutubeIcon } from '../Icons/SocialIcons';
 
 export default function TopBar() {

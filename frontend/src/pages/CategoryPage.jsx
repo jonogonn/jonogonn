@@ -9,7 +9,6 @@ import {
   Tag,
   Eye,
   Layers,
-  Sparkles,
   Search,
   Filter
 } from 'lucide-react';

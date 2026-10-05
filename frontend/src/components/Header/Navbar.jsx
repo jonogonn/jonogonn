@@ -22,7 +22,6 @@ import {
   HeartHandshake,
   Grid,
   Layers,
-  Sparkles,
   Check,
   Globe,
   Briefcase,

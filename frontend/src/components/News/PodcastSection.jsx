@@ -9,7 +9,6 @@ import {
   ChevronRight,
   X,
   ExternalLink,
-  Sparkles,
   Headphones,
   Landmark,
   TrendingUp,
@@ -182,7 +181,7 @@ export default function PodcastSection() {
       {/* 3. NO PODCASTS EMPTY STATE */}
       {filteredPodcasts.length === 0 ? (
         <div className="podcast-empty-state">
-          <Sparkles size={36} color="var(--primary-red)" style={{ opacity: 0.6, marginBottom: 8 }} />
+          <Headphones size={36} color="var(--primary-red)" style={{ opacity: 0.6, marginBottom: 8 }} />
           <h4 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-main)', marginBottom: 4 }}>
             {isBn ? 'এই বিষয়ের কোনো পডকাস্ট পাওয়া যায়নি' : 'No podcasts found for this subject'}
           </h4>

@@ -9,6 +9,7 @@ import LatestNewsGrid from './components/News/LatestNewsGrid';
 import PodcastSection from './components/News/PodcastSection';
 import DistrictNewsSection from './components/News/DistrictNewsSection';
 import BangladeshSection from './components/News/BangladeshSection';
+import RemittanceFighter from './components/News/RemittanceFighter';
 import VideoNewsSection from './components/News/VideoNewsSection';
 import CategoryGrids from './components/News/CategoryGrids';
 import SubGroupSections from './components/News/SubGroupSections';
@@ -96,32 +97,55 @@ export default function App() {
     // Default: Master Editorial Homepage
     return (
       <div className="container">
-        {/* Hero Lead 3-Column Grid */}
+        {/* Ad Banner directly below Breaking Tickers (970 × 90) */}
+        <div className="ticker-bottom-ad-wrap" style={{ marginBottom: 20 }}>
+          <AdSenseSlot slotId="tickerBottomBanner" customClass="ad-slot-970x90" />
+        </div>
+
+        {/* Section 1: Hero Lead 3-Column Grid */}
         <HeroLeadGrid />
 
-        {/* In-Feed AdSense Banner (970 × 90) */}
-        <AdSenseSlot slotId="midContentBanner" customClass="ad-slot-970x90" />
-
-        {/* Section: সর্বশেষ সংবাদ (Horizontal Left-to-Right Scrolling Track) */}
+        {/* Section 2: সর্বশেষ সংবাদ (Horizontal Left-to-Right Scrolling Track) */}
         <LatestNewsGrid />
 
-        {/* Section: বাংলাদেশ (Featured Lead + Sub-leads + Weather & Follow Us Widgets) */}
+        {/* Ad Banner after 2 sections (HeroLeadGrid + LatestNewsGrid) (970 × 90) */}
+        <div className="section-interval-ad-wrap" style={{ margin: '22px 0' }}>
+          <AdSenseSlot slotId="afterLatestBanner" customClass="ad-slot-970x90" />
+        </div>
+
+        {/* Section 3: বাংলাদেশ (Featured Lead + Sub-leads + Weather & Follow Us Widgets) */}
         <BangladeshSection />
 
-        {/* Section: ভিডিও সংবাদ (Video News Player & Playlist) */}
-        <VideoNewsSection />
+        {/* Section: প্রবাসী ও রেমিট্যান্স যোদ্ধা (Remittance Fighters & Expatriates) */}
+        <RemittanceFighter />
 
-        {/* Section: আমাদের পডকাস্ট (Horizontal Right-to-Left Scrolling Track) */}
-        <PodcastSection />
+        {/* Ad Banner after 2 sections (BangladeshSection + RemittanceFighter) (970 × 90) */}
+        <div className="section-interval-ad-wrap" style={{ margin: '22px 0' }}>
+          <AdSenseSlot slotId="afterVideoBanner" customClass="ad-slot-970x90" />
+        </div>
 
-        {/* Section: আমার {{District}} (Dynamic District News Selector) */}
+
+        {/* Section 4: আমার {{District}} (Dynamic District News Selector) */}
         <DistrictNewsSection />
 
-        {/* Section: 24 Dedicated Category Sub-Group News Sections */}
+        {/* Section 5: ভিডিও সংবাদ (Video News Player & Playlist) */}
+        <VideoNewsSection />
+
+        {/* Section 6: আমাদের পডকাস্ট (Horizontal Right-to-Left Scrolling Track) */}
+        <PodcastSection />
+
+        {/* Ad Banner after 2 sections (PodcastSection + DistrictNewsSection) (970 × 90) */}
+        <div className="section-interval-ad-wrap" style={{ margin: '22px 0' }}>
+          <AdSenseSlot slotId="afterDistrictBanner" customClass="ad-slot-970x90" />
+        </div>
+
+        {/* Section 7: 24 Dedicated Category Sub-Group News Sections (Each 2 subgroups have inline ads) */}
         <SubGroupSections />
 
         {/* Bottom AdSense Banner (970 × 90) */}
-        <AdSenseSlot slotId="bottomBanner" customClass="ad-slot-970x90" />
+        <div className="section-interval-ad-wrap" style={{ marginTop: 24, marginBottom: 12 }}>
+          <AdSenseSlot slotId="bottomBanner" customClass="ad-slot-970x90" />
+        </div>
       </div>
     );
   };

@@ -13,8 +13,7 @@ import {
   ArrowLeft,
   User,
   MessageSquare,
-  Send,
-  Sparkles
+  Send
 } from 'lucide-react';
 import { FacebookIcon } from '../Icons/SocialIcons';
 import AdSenseSlot from '../Ads/AdSenseSlot';
