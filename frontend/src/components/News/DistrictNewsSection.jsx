@@ -6,8 +6,12 @@ import { bangladeshDistricts, findClosestDistrict } from '../../data/initialData
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
 
 export default function DistrictNewsSection() {
-  const { language, articles, openArticle, setActiveCategory, userDistrict, setUserDistrict } = useNews();
+  const { language, articles, openArticle, setActiveCategory, userDistrict, setUserDistrict, homepageSections } = useNews();
   const isBn = language === 'bn';
+
+  // Section visibility check from homepageSections
+  const secConfig = (homepageSections || []).find((s) => s.id === 'districtNewsSection');
+  if (secConfig && secConfig.isVisible === false) return null;
 
   // Flat list of all 64 districts
   const allDistrictsFlat = bangladeshDistricts.flatMap((div) => div.districts);

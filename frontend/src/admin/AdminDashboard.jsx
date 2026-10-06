@@ -34,14 +34,28 @@ import {
   RotateCcw,
   Check,
   FolderPlus,
-  Tag
+  Tag,
+  Sun,
+  Moon,
+  Menu
 } from 'lucide-react';
 import { configureSupabase, uploadImageToStorage } from '../supabase';
+import MainMenuManager from './MainMenuManager';
+import HomepageSectionManager from './HomepageSectionManager';
+import GlobalSettingsManager from './GlobalSettingsManager';
+import ConfirmModal from '../components/Modals/ConfirmModal';
 
 export default function AdminDashboard() {
   const {
+    adminLanguage,
+    toggleAdminLanguage,
+    adminTheme,
+    toggleAdminTheme,
     language,
+    theme,
     setIsAdminOpen,
+    closeAdmin,
+    goToHome,
     settings,
     updateSiteSettings,
     articles,
@@ -74,8 +88,38 @@ export default function AdminDashboard() {
     emergencyServices,
     addEmergencyService,
     updateEmergencyService,
-    deleteEmergencyService
+    deleteEmergencyService,
+    showError,
+    showAlert
   } = useNews();
+
+  const isBn = (adminLanguage || language) === 'bn';
+
+  // Custom Confirmation Dialog State (Modern UI Alert/Confirm Replacement)
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    subMessage: undefined,
+    confirmText: '',
+    type: 'danger',
+    onConfirm: () => {}
+  });
+
+  const openConfirm = ({ title, message, subMessage, confirmText, type = 'danger', onConfirm }) => {
+    setConfirmDialog({
+      isOpen: true,
+      title,
+      message,
+      subMessage,
+      confirmText,
+      type,
+      onConfirm: () => {
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+        if (typeof onConfirm === 'function') onConfirm();
+      }
+    });
+  };
 
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'articles' | 'categories' | 'breaking' | 'podcasts' | 'emergency' | 'settings' | 'ads' | 'database'
   const [saveToast, setSaveToast] = useState(false);
@@ -280,7 +324,10 @@ export default function AdminDashboard() {
   const handleSaveCategoryItem = (e) => {
     e.preventDefault();
     if (!categoryItemForm.nameBn.trim()) {
-      alert('ক্যাটাগরির বাংলা নাম লিখুন');
+      showError(
+        isBn ? 'অনুগ্রহ করে ক্যাটাগরির বাংলা নাম লিখুন।' : 'Please enter category Bangla name.',
+        isBn ? 'তথ্য অসম্পূর্ণ' : 'Required Field'
+      );
       return;
     }
 
@@ -488,7 +535,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="admin-dashboard-wrap">
+    <div className="admin-dashboard-wrap" data-theme={adminTheme || theme}>
       {/* Toast Notification */}
       {saveToast && (
         <div
@@ -516,10 +563,38 @@ export default function AdminDashboard() {
       {/* Left Sidebar Navigation */}
       <aside className="admin-sidebar">
         <div className="admin-sidebar-header">
-          <img src={settings.logoUrl || '/logo.svg'} alt="Logo" style={{ height: 38 }} />
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>জনগণ ড্যাশবোর্ড</div>
-            <div style={{ fontSize: '0.75rem', color: '#999' }}>Admin Control Center</div>
+          <div className="admin-sidebar-brand">
+            <img src={settings.logoUrl || '/logo.svg'} alt="Logo" style={{ height: 36, objectFit: 'contain' }} />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#FFFFFF' }}>
+                {isBn ? 'জনগণ ড্যাশবোর্ড' : 'Jonogon Admin'}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#888888' }}>Control Center</div>
+            </div>
+          </div>
+
+          <div className="admin-header-actions">
+            {/* Language BN / EN Button */}
+            <button
+              type="button"
+              onClick={toggleAdminLanguage}
+              className="admin-header-btn admin-header-lang-btn"
+              title={isBn ? 'Switch to English' : 'বাংলায় পরিবর্তন করুন'}
+              aria-label="Toggle Language"
+            >
+              {isBn ? 'BN' : 'EN'}
+            </button>
+
+            {/* Dark (moon) / Light (sun) Theme Button */}
+            <button
+              type="button"
+              onClick={toggleAdminTheme}
+              className="admin-header-btn admin-header-theme-btn"
+              title={(adminTheme || theme) === 'light' ? 'Dark Mode' : 'Light Mode'}
+              aria-label="Toggle Theme"
+            >
+              {(adminTheme || theme) === 'light' ? <Moon size={14} /> : <Sun size={14} color="#FFB800" />}
+            </button>
           </div>
         </div>
 
@@ -529,7 +604,7 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('overview')}
           >
             <LayoutDashboard size={18} />
-            <span>ওভারভিউ (Overview)</span>
+            <span>{isBn ? 'ওভারভিউ' : 'Overview'}</span>
           </button>
 
           <button
@@ -537,15 +612,23 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('articles')}
           >
             <FileText size={18} />
-            <span>সংবাদ পরিচালনা (Articles)</span>
+            <span>{isBn ? 'সংবাদ পরিচালনা' : 'Articles'}</span>
           </button>
 
           <button
-            className={`admin-nav-item ${activeTab === 'categories' ? 'active' : ''}`}
-            onClick={() => setActiveTab('categories')}
+            className={`admin-nav-item ${activeTab === 'main-menu' || activeTab === 'categories' ? 'active' : ''}`}
+            onClick={() => setActiveTab('main-menu')}
           >
-            <FolderTree size={18} />
-            <span>ক্যাটাগরি (Categories)</span>
+            <Menu size={18} />
+            <span>{isBn ? 'মেইন মেনু' : 'Main Menu'}</span>
+          </button>
+
+          <button
+            className={`admin-nav-item ${activeTab === 'homepage-sections' ? 'active' : ''}`}
+            onClick={() => setActiveTab('homepage-sections')}
+          >
+            <Layers size={18} />
+            <span>{isBn ? 'হোমপেজ সেকশন' : 'Homepage Sections'}</span>
           </button>
 
           <button
@@ -553,7 +636,7 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('breaking')}
           >
             <Zap size={18} />
-            <span>ব্রেকিং নিউজ (Ticker)</span>
+            <span>{isBn ? 'ব্রেকিং নিউজ' : 'Breaking News'}</span>
           </button>
 
           <button
@@ -561,7 +644,7 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('podcasts')}
           >
             <Mic size={18} />
-            <span>পডকাস্ট ভিডিও (Podcasts)</span>
+            <span>{isBn ? 'পডকাস্ট' : 'Podcasts'}</span>
           </button>
 
           <button
@@ -569,7 +652,7 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('emergency')}
           >
             <LifeBuoy size={18} />
-            <span>জরুরি সেবা (Emergency)</span>
+            <span>{isBn ? 'জরুরি সেবা' : 'Emergency Services'}</span>
           </button>
 
           <button
@@ -577,7 +660,7 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('settings')}
           >
             <Sliders size={18} />
-            <span>গ্লোবাল সেটিংস (Branding)</span>
+            <span>{isBn ? 'সেটিংস' : 'Settings'}</span>
           </button>
 
           <button
@@ -585,7 +668,7 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('ads')}
           >
             <DollarSign size={18} />
-            <span>Google AdSense / বিজ্ঞাপন</span>
+            <span>{isBn ? 'বিজ্ঞাপন' : 'Google AdSense'}</span>
           </button>
 
           <button
@@ -593,14 +676,14 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('database')}
           >
             <Database size={18} />
-            <span>Supabase ও ব্যাকআপ</span>
+            <span>{isBn ? 'ডাটাবেজ ও ব্যাকআপ' : 'Database & Backup'}</span>
           </button>
         </nav>
 
         {/* Back to Live Website Button */}
         <div style={{ marginTop: 'auto', padding: 16, borderTop: '1px solid #282828' }}>
           <button
-            onClick={() => setIsAdminOpen(false)}
+            onClick={() => closeAdmin()}
             style={{
               width: '100%',
               display: 'flex',
@@ -616,23 +699,79 @@ export default function AdminDashboard() {
             }}
           >
             <ArrowLeft size={18} />
-            <span>ওয়েবসাইটে ফিরুন</span>
+            <span>{isBn ? 'ওয়েবসাইটে ফিরুন' : 'Back to Website'}</span>
           </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <main className="admin-content-area">
+        {/* Admin Top Utility Header Bar with BN/EN & Dark/Light Switches */}
+        <div className="admin-top-util-bar">
+          <div className="admin-top-left-status">
+            <span className="admin-live-pulse-badge"></span>
+            <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>
+              {isBn ? 'জনগণ নিউজ কন্ট্রোল প্যানেল' : 'Jonogon News Admin Control'}
+            </span>
+          </div>
+
+          <div className="admin-top-right-actions">
+            {/* BN / EN Language Button */}
+            <button
+              type="button"
+              onClick={toggleAdminLanguage}
+              className="admin-util-lang-btn"
+              title={isBn ? 'Switch to English' : 'বাংলায় পরিবর্তন করুন'}
+              aria-label="Toggle Language"
+            >
+              <span className="admin-lang-badge">{isBn ? 'BN' : 'EN'}</span>
+              <span className="admin-lang-label">{isBn ? 'বাংলা' : 'English'}</span>
+            </button>
+
+            {/* Dark (moon) / Light (sun) Theme Switcher */}
+            <button
+              type="button"
+              onClick={toggleAdminTheme}
+              className="admin-util-theme-btn"
+              title={(adminTheme || theme) === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+              aria-label="Toggle Theme"
+            >
+              {(adminTheme || theme) === 'light' ? (
+                <>
+                  <Moon size={15} />
+                  <span>{isBn ? 'ডার্ক মোড' : 'Dark Mode'}</span>
+                </>
+              ) : (
+                <>
+                  <Sun size={15} color="#FFB800" />
+                  <span>{isBn ? 'লাইট মোড' : 'Light Mode'}</span>
+                </>
+              )}
+            </button>
+
+            {/* Live Website Button */}
+            <button
+              type="button"
+              onClick={() => closeAdmin()}
+              className="admin-util-exit-btn"
+              title={isBn ? 'লাইভ ওয়েবসাইট দেখুন' : 'View Live Website'}
+            >
+              <ExternalLink size={14} />
+              <span>{isBn ? 'লাইভ ওয়েবসাইট' : 'Live Website'}</span>
+            </button>
+          </div>
+        </div>
+
         {/* TAB 1: OVERVIEW */}
         {activeTab === 'overview' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
               <div>
                 <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800 }}>
-                  ড্যাশবোর্ড ওভারভিউ
+                  {isBn ? 'ড্যাশবোর্ড ওভারভিউ' : 'Dashboard Overview'}
                 </h1>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                  {settings.siteNameBn} ({settings.domain}) - পোর্টাল রিয়েল-টাইম মেট্রিক্স
+                  {isBn ? settings.siteNameBn : (settings.siteNameEn || settings.siteNameBn)} ({settings.domain}) - {isBn ? 'পোর্টাল রিয়েল-টাইম মেট্রিক্স' : 'Portal Real-Time Metrics'}
                 </p>
               </div>
 
@@ -661,7 +800,7 @@ export default function AdminDashboard() {
                 }}
               >
                 <Plus size={18} />
-                <span>নতুন সংবাদ লিখুন</span>
+                <span>{isBn ? 'নতুন সংবাদ লিখুন' : 'Write New Article'}</span>
               </button>
             </div>
 
@@ -669,7 +808,9 @@ export default function AdminDashboard() {
             <div className="admin-stats-grid">
               <div className="stat-card">
                 <div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>মোট প্রকাশিত সংবাদ</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {isBn ? 'মোট প্রকাশিত সংবাদ' : 'Total Published Articles'}
+                  </div>
                   <div className="stat-value">{articles.length}</div>
                 </div>
                 <FileText size={36} color="var(--primary-red)" opacity={0.3} />
@@ -677,7 +818,9 @@ export default function AdminDashboard() {
 
               <div className="stat-card">
                 <div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>মোট পাঠক ভিউ</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {isBn ? 'মোট পাঠক ভিউ' : 'Total Reader Views'}
+                  </div>
                   <div className="stat-value">
                     {articles.reduce((acc, curr) => acc + (curr.views || 0), 0).toLocaleString()}
                   </div>
@@ -687,7 +830,9 @@ export default function AdminDashboard() {
 
               <div className="stat-card">
                 <div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>নিউজ ক্যাটাগরি</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {isBn ? 'নিউজ ক্যাটাগরি' : 'News Categories'}
+                  </div>
                   <div className="stat-value">{categories.length}</div>
                 </div>
                 <FolderTree size={36} color="var(--primary-red)" opacity={0.3} />
@@ -695,7 +840,9 @@ export default function AdminDashboard() {
 
               <div className="stat-card">
                 <div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>ব্রেকিং নিউজ টিকার</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {isBn ? 'ব্রেকিং নিউজ টিকার' : 'Breaking News Ticker'}
+                  </div>
                   <div className="stat-value">{breakingNews.length}</div>
                 </div>
                 <Zap size={36} color="var(--primary-red)" opacity={0.3} />
@@ -703,7 +850,9 @@ export default function AdminDashboard() {
 
               <div className="stat-card">
                 <div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>পডকাস্ট পর্ব</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {isBn ? 'পডকাস্ট পর্ব' : 'Podcast Episodes'}
+                  </div>
                   <div className="stat-value">{podcasts.length}</div>
                 </div>
                 <Mic size={36} color="var(--primary-red)" opacity={0.3} />
@@ -711,7 +860,9 @@ export default function AdminDashboard() {
 
               <div className="stat-card">
                 <div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>জাতীয় জরুরি সেবা</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {isBn ? 'জাতীয় জরুরি সেবা' : 'National Emergency Services'}
+                  </div>
                   <div className="stat-value">{emergencyServices.length}</div>
                 </div>
                 <LifeBuoy size={36} color="var(--primary-red)" opacity={0.3} />
@@ -721,16 +872,16 @@ export default function AdminDashboard() {
             {/* Recent Articles Table */}
             <div className="admin-card">
               <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.25rem', marginBottom: 14 }}>
-                সাম্প্রতিক সংবাদসমূহ
+                {isBn ? 'সাম্প্রতিক সংবাদসমূহ' : 'Recent Articles'}
               </h2>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                    <th style={{ padding: '10px 8px' }}>ছবি</th>
-                    <th style={{ padding: '10px 8px' }}>শিরোনাম</th>
-                    <th style={{ padding: '10px 8px' }}>বিভাগ</th>
-                    <th style={{ padding: '10px 8px' }}>তারিখ</th>
-                    <th style={{ padding: '10px 8px' }}>ভিউ</th>
+                    <th style={{ padding: '10px 8px' }}>{isBn ? 'ছবি' : 'Image'}</th>
+                    <th style={{ padding: '10px 8px' }}>{isBn ? 'শিরোনাম' : 'Headline'}</th>
+                    <th style={{ padding: '10px 8px' }}>{isBn ? 'বিভাগ' : 'Category'}</th>
+                    <th style={{ padding: '10px 8px' }}>{isBn ? 'তারিখ' : 'Date'}</th>
+                    <th style={{ padding: '10px 8px' }}>{isBn ? 'ভিউ' : 'Views'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -739,9 +890,13 @@ export default function AdminDashboard() {
                       <td style={{ padding: '8px' }}>
                         <img src={art.imageUrl} alt="" style={{ width: 48, height: 32, objectFit: 'cover', borderRadius: 3 }} />
                       </td>
-                      <td style={{ padding: '8px', fontWeight: 600 }}>{art.titleBn}</td>
-                      <td style={{ padding: '8px' }}><span className="badge-outline">{art.categoryBn || art.category}</span></td>
-                      <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{art.dateBn}</td>
+                      <td style={{ padding: '8px', fontWeight: 600 }}>{isBn ? art.titleBn : (art.titleEn || art.titleBn)}</td>
+                      <td style={{ padding: '8px' }}>
+                        <span className="badge-outline">
+                          {isBn ? (art.categoryBn || art.category) : (art.categoryEn || art.categoryBn || art.category)}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{isBn ? art.dateBn : (art.dateEn || art.dateBn)}</td>
                       <td style={{ padding: '8px', color: 'var(--primary-red)', fontWeight: 700 }}>{art.views || 0}</td>
                     </tr>
                   ))}
@@ -756,7 +911,7 @@ export default function AdminDashboard() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800 }}>
-                সংবাদ প্রকাশ ও সম্পাদনা
+                {isBn ? 'সংবাদ প্রকাশ ও সম্পাদনা' : 'Articles Management & Publishing'}
               </h1>
               {!isCreatingArticle && (
                 <button
@@ -792,17 +947,17 @@ export default function AdminDashboard() {
             {isCreatingArticle ? (
               <div className="admin-card">
                 <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.3rem', marginBottom: 18 }}>
-                  {editingArticle ? 'সংবাদ সম্পাদনা করুন' : 'নতুন সংবাদ লিখুন ও প্রকাশ করুন'}
+                  {editingArticle ? (isBn ? 'সংবাদ সম্পাদনা করুন' : 'Edit Article') : (isBn ? 'নতুন সংবাদ লিখুন ও প্রকাশ করুন' : 'Write & Publish New Article')}
                 </h2>
 
                 <form onSubmit={handleSaveArticle}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                     <div className="admin-form-group">
-                      <label className="admin-label">শিরোনাম (বাংলা) *</label>
+                      <label className="admin-label">{isBn ? 'শিরোনাম (বাংলা) *' : 'Headline (Bangla) *'}</label>
                       <input
                         type="text"
                         className="admin-input"
-                        placeholder="বাংলায় সংবাদ শিরোনাম লিখুন..."
+                        placeholder={isBn ? "বাংলায় সংবাদ শিরোনাম লিখুন..." : "News headline in Bangla..."}
                         value={articleForm.titleBn}
                         onChange={(e) => setArticleForm({ ...articleForm, titleBn: e.target.value })}
                         required
@@ -810,7 +965,7 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="admin-form-group">
-                      <label className="admin-label">Headline (English)</label>
+                      <label className="admin-label">{isBn ? 'Headline (English)' : 'Headline (English)'}</label>
                       <input
                         type="text"
                         className="admin-input"
@@ -823,7 +978,7 @@ export default function AdminDashboard() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
                     <div className="admin-form-group">
-                      <label className="admin-label">ক্যাটাগরি / বিভাগ *</label>
+                      <label className="admin-label">{isBn ? 'ক্যাটাগরি / বিভাগ *' : 'Category / Section *'}</label>
                       <select
                         className="admin-select"
                         value={articleForm.category}
@@ -838,14 +993,14 @@ export default function AdminDashboard() {
                       >
                         {categories.map((c) => (
                           <option key={c.id} value={c.id}>
-                            {c.nameBn} ({c.nameEn})
+                            {isBn ? `${c.nameBn} (${c.nameEn})` : `${c.nameEn || c.nameBn} (${c.nameBn})`}
                           </option>
                         ))}
                       </select>
                     </div>
 
                     <div className="admin-form-group">
-                      <label className="admin-label">প্রতিবেদক / লেখক</label>
+                      <label className="admin-label">{isBn ? 'প্রতিবেদক / লেখক' : 'Author / Reporter'}</label>
                       <input
                         type="text"
                         className="admin-input"
@@ -855,7 +1010,7 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="admin-form-group">
-                      <label className="admin-label">লেআউট টাইপ ও ডিসপ্লে</label>
+                      <label className="admin-label">{isBn ? 'লেআউট টাইপ ও ডিসপ্লে' : 'Layout Type & Display'}</label>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 8 }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.88rem' }}>
                           <input
@@ -863,7 +1018,7 @@ export default function AdminDashboard() {
                             checked={articleForm.isLeadHero}
                             onChange={(e) => setArticleForm({ ...articleForm, isLeadHero: e.target.checked })}
                           />
-                          প্রধান লিড
+                          {isBn ? 'প্রধান লিড' : 'Hero Lead'}
                         </label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.88rem' }}>
                           <input
@@ -871,7 +1026,7 @@ export default function AdminDashboard() {
                             checked={articleForm.isHighlighted}
                             onChange={(e) => setArticleForm({ ...articleForm, isHighlighted: e.target.checked })}
                           />
-                          ✨ হাইলাইটস স্লাইডার
+                          {isBn ? '✨ হাইলাইটস স্লাইডার' : '✨ Highlights'}
                         </label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.88rem' }}>
                           <input
@@ -879,7 +1034,7 @@ export default function AdminDashboard() {
                             checked={articleForm.isBreaking}
                             onChange={(e) => setArticleForm({ ...articleForm, isBreaking: e.target.checked })}
                           />
-                          ব্রেকিং টিকার
+                          {isBn ? 'ব্রেকিং টিকার' : 'Breaking'}
                         </label>
                       </div>
                     </div>
@@ -887,7 +1042,7 @@ export default function AdminDashboard() {
 
                   {/* Image Upload & WebP Optimization */}
                   <div className="admin-form-group">
-                    <label className="admin-label">ফিচার্ড ইমেজ (WebP অপটিমাইজড / Backblaze B2 / Supabase)</label>
+                    <label className="admin-label">{isBn ? 'ফিচার্ড ইমেজ (WebP অপটিমাইজড / Backblaze B2 / Supabase)' : 'Featured Image (WebP Optimized / Cloud Storage)'}</label>
                     <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                       <input
                         type="text"
@@ -911,7 +1066,7 @@ export default function AdminDashboard() {
                         }}
                       >
                         <Upload size={16} />
-                        <span>আপলোড (.webp)</span>
+                        <span>{isBn ? 'আপলোড (.webp)' : 'Upload Image'}</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -933,11 +1088,11 @@ export default function AdminDashboard() {
 
                   {/* Excerpt */}
                   <div className="admin-form-group">
-                    <label className="admin-label">সংক্ষিপ্ত সারসংক্ষেপ (Excerpt/Lead)</label>
+                    <label className="admin-label">{isBn ? 'সংক্ষিপ্ত সারসংক্ষেপ (Excerpt/Lead)' : 'Brief Excerpt / Lead'}</label>
                     <textarea
                       className="admin-textarea"
                       rows={2}
-                      placeholder="সংবাদের মূল আকর্ষণ বা প্রথম ২ লাইন..."
+                      placeholder={isBn ? "সংবাদের মূল আকর্ষণ বা প্রথম ২ লাইন..." : "Lead summary or first 2 sentences..."}
                       value={articleForm.excerptBn}
                       onChange={(e) => setArticleForm({ ...articleForm, excerptBn: e.target.value })}
                     />
@@ -945,11 +1100,11 @@ export default function AdminDashboard() {
 
                   {/* Full Content */}
                   <div className="admin-form-group">
-                    <label className="admin-label">সম্পূর্ণ সংবাদ বিবরণ (Full Content)</label>
+                    <label className="admin-label">{isBn ? 'সম্পূর্ণ সংবাদ বিবরণ (Full Content)' : 'Full Article Content'}</label>
                     <textarea
                       className="admin-textarea"
                       rows={6}
-                      placeholder="বিস্তারিত সংবাদ লিখুন..."
+                      placeholder={isBn ? "বিস্তারিত সংবাদ লিখুন..." : "Write detailed news content..."}
                       value={articleForm.contentBn}
                       onChange={(e) => setArticleForm({ ...articleForm, contentBn: e.target.value })}
                       required
@@ -959,14 +1114,14 @@ export default function AdminDashboard() {
                   <div style={{ display: 'flex', gap: 12 }}>
                     <button type="submit" className="admin-btn-primary">
                       <Save size={18} />
-                      <span>{editingArticle ? 'আপডেট করুন' : 'প্রকাশ করুন'}</span>
+                      <span>{editingArticle ? (isBn ? 'আপডেট করুন' : 'Update Article') : (isBn ? 'প্রকাশ করুন' : 'Publish Article')}</span>
                     </button>
                     <button
                       type="button"
                       className="admin-btn-secondary"
                       onClick={() => setIsCreatingArticle(false)}
                     >
-                      বাতিল
+                      {isBn ? 'বাতিল' : 'Cancel'}
                     </button>
                   </div>
                 </form>
@@ -976,18 +1131,18 @@ export default function AdminDashboard() {
             {/* Articles List Table */}
             <div className="admin-card">
               <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.25rem', marginBottom: 14 }}>
-                সকল সংবাদের তালিকা ({articles.length}টি)
+                {isBn ? `সকল সংবাদের তালিকা (${articles.length}টি)` : `All Articles List (${articles.length})`}
               </h2>
 
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                    <th style={{ padding: '10px 8px' }}>ছবি</th>
-                    <th style={{ padding: '10px 8px' }}>শিরোনাম</th>
-                    <th style={{ padding: '10px 8px' }}>ক্যাটাগরি</th>
-                    <th style={{ padding: '10px 8px' }}>তারিখ</th>
-                    <th style={{ padding: '10px 8px' }}>ভিউ</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'right' }}>অ্যাকশন</th>
+                    <th style={{ padding: '10px 8px' }}>{isBn ? 'ছবি' : 'Image'}</th>
+                    <th style={{ padding: '10px 8px' }}>{isBn ? 'শিরোনাম' : 'Headline'}</th>
+                    <th style={{ padding: '10px 8px' }}>{isBn ? 'ক্যাটাগরি' : 'Category'}</th>
+                    <th style={{ padding: '10px 8px' }}>{isBn ? 'তারিখ' : 'Date'}</th>
+                    <th style={{ padding: '10px 8px' }}>{isBn ? 'ভিউ' : 'Views'}</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'right' }}>{isBn ? 'অ্যাকশন' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -996,29 +1151,38 @@ export default function AdminDashboard() {
                       <td style={{ padding: '8px' }}>
                         <img src={art.imageUrl} alt="" style={{ width: 44, height: 30, objectFit: 'cover', borderRadius: 3 }} />
                       </td>
-                      <td style={{ padding: '8px', fontWeight: 600 }}>{art.titleBn}</td>
+                      <td style={{ padding: '8px', fontWeight: 600 }}>{isBn ? art.titleBn : (art.titleEn || art.titleBn)}</td>
                       <td style={{ padding: '8px' }}>
-                        <span className="badge-outline">{art.categoryBn || art.category}</span>
+                        <span className="badge-outline">
+                          {isBn ? (art.categoryBn || art.category) : (art.categoryEn || art.categoryBn || art.category)}
+                        </span>
                       </td>
-                      <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{art.dateBn}</td>
+                      <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{isBn ? art.dateBn : (art.dateEn || art.dateBn)}</td>
                       <td style={{ padding: '8px', color: 'var(--primary-red)', fontWeight: 700 }}>{art.views || 0}</td>
                       <td style={{ padding: '8px', textAlign: 'right' }}>
                         <button
                           onClick={() => handleOpenEditArticle(art)}
                           style={{ color: '#2563EB', marginRight: 10, padding: 4 }}
-                          title="সম্পাদনা"
+                          title={isBn ? "সম্পাদনা" : "Edit"}
                         >
                           <Edit size={16} />
                         </button>
                         <button
                           onClick={() => {
-                            if (window.confirm('আপনি কি এই সংবাদটি মুছে ফেলতে চান?')) {
-                              deleteArticle(art.id);
-                              triggerSaveToast('সংবাদ ডিলিট করা হয়েছে!');
-                            }
+                            openConfirm({
+                              title: isBn ? 'সংবাদ মুছে ফেলার নিশ্চিতকরণ' : 'Delete Article Confirmation',
+                              message: isBn
+                                ? `আপনি কি "${art.titleBn || art.titleEn}" সংবাদটি স্থায়ীভাবে মুছে ফেলতে চান?`
+                                : `Are you sure you want to permanently delete article "${art.titleEn || art.titleBn}"?`,
+                              confirmText: isBn ? 'হ্যাঁ, মুছে ফেলুন' : 'Yes, Delete',
+                              onConfirm: () => {
+                                deleteArticle(art.id);
+                                triggerSaveToast(isBn ? 'সংবাদ সফলভাবে মুছে ফেলা হয়েছে!' : 'Article deleted successfully!');
+                              }
+                            });
                           }}
-                          style={{ color: '#DC2626', padding: 4 }}
-                          title="মুছে ফেলুন"
+                          style={{ color: '#DC2626', padding: 4, background: 'none', border: 'none', cursor: 'pointer' }}
+                          title={isBn ? "মুছে ফেলুন" : "Delete"}
                         >
                           <Trash2 size={16} />
                         </button>
@@ -1031,778 +1195,41 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 3: CATEGORIES & MEGA MENU MANAGEMENT */}
-        {activeTab === 'categories' && (
-          <div>
-            {/* Top Title & Header Actions */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 14 }}>
-              <div>
-                <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800 }}>
-                  ক্যাটাগরি ও মেগা মেনু পরিচালনা (Mega Menu Control)
-                </h1>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                  সাইটের মূল মেনু বার, মেগা মেনুর ১০টি মাস্টার গ্রুপ, সাব-গ্রুপ এবং সকল বিষয়ের নাম, গ্রুপ ও সাব-গ্রুপ নিয়ন্ত্রণ করুন
-                </p>
-              </div>
+        {/* TAB 3: MAIN MENU & CATEGORIES */}
+        {(activeTab === 'main-menu' || activeTab === 'categories') && (
+          <MainMenuManager triggerSaveToast={triggerSaveToast} />
+        )}
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="admin-btn-primary"
-                  onClick={() => handleOpenAddCategory()}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                >
-                  <Plus size={17} />
-                  <span>+ নতুন ক্যাটাগরি / মেনু আইটেম</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="admin-btn-secondary"
-                  onClick={handleOpenAddMasterGroup}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                >
-                  <FolderPlus size={17} />
-                  <span>+ নতুন মাস্টার গ্রুপ</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm('আপনি কি নিশ্চিত যে সকল ক্যাটাগরি ও মেনু বারকে সিস্টেম ডিফল্ট অবস্থায় রিস্টোর করতে চান?')) {
-                      resetMasterGroupsToDefault();
-                      triggerSaveToast('সিস্টেম ডিফল্ট মেনু রিস্টোর হয়েছে!');
-                    }
-                  }}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '8px 14px',
-                    borderRadius: 4,
-                    border: '1px solid #DC2626',
-                    color: '#DC2626',
-                    backgroundColor: 'transparent',
-                    fontSize: '0.85rem',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                  title="ডিফল্ট মেনু রিস্টোর করুন"
-                >
-                  <RotateCcw size={15} />
-                  <span>ডিফল্ট রিস্টোর</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Metrics Bar */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 20 }}>
-              <div className="stat-card" style={{ padding: 14 }}>
-                <div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>মোট মাস্টার গ্রুপ</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-red)' }}>
-                    {categoryMasterGroups.length} টি
-                  </div>
-                </div>
-                <Layers size={28} color="var(--primary-red)" opacity={0.3} />
-              </div>
-
-              <div className="stat-card" style={{ padding: 14 }}>
-                <div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>মোট সাব-গ্রুপ</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                    {categoryMasterGroups.reduce((acc, curr) => acc + (curr.subGroups?.length || 0), 0)} টি
-                  </div>
-                </div>
-                <FolderTree size={28} color="var(--primary-red)" opacity={0.3} />
-              </div>
-
-              <div className="stat-card" style={{ padding: 14 }}>
-                <div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>মোট ক্যাটাগরি / বিষয়</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                    {categories.length} টি
-                  </div>
-                </div>
-                <Tag size={28} color="var(--primary-red)" opacity={0.3} />
-              </div>
-            </div>
-
-            {/* Search & Filter Controls */}
-            <div className="admin-card" style={{ marginBottom: 20, padding: 16 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr auto', gap: 14, alignItems: 'center' }}>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <Search size={16} style={{ position: 'absolute', left: 12, color: 'var(--text-muted)' }} />
-                  <input
-                    type="text"
-                    className="admin-input"
-                    placeholder="ক্যাটাগরি বা বিষয়ের নাম দিয়ে খুঁজুন (বাংলা, English, slug)..."
-                    value={categorySearchQuery}
-                    onChange={(e) => setCategorySearchQuery(e.target.value)}
-                    style={{ paddingLeft: 36 }}
-                  />
-                  {categorySearchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setCategorySearchQuery('')}
-                      style={{ position: 'absolute', right: 10, color: 'var(--text-muted)', cursor: 'pointer' }}
-                    >
-                      <X size={15} />
-                    </button>
-                  )}
-                </div>
-
-                <div>
-                  <select
-                    className="admin-select"
-                    value={selectedGroupFilter}
-                    onChange={(e) => setSelectedGroupFilter(e.target.value)}
-                  >
-                    <option value="all">সকল মাস্টার গ্রুপ ({categoryMasterGroups.length}টি)</option>
-                    {categoryMasterGroups.map((g, gIdx) => (
-                      <option key={g.id} value={g.id}>
-                        {gIdx + 1}. {g.nameBn} ({g.nameEn})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={{ fontSize: '0.86rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  {categorySearchQuery ? 'ফিল্টার করা ফলাফল' : 'লাইভ মেনু প্রিভিউ'}
-                </div>
-              </div>
-            </div>
-
-            {/* Master Groups & Sub-Groups Visual Cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              {categoryMasterGroups
-                .filter((grp) => selectedGroupFilter === 'all' || grp.id === selectedGroupFilter)
-                .map((grp, gIdx) => {
-                  const grpTotalTopics = grp.subGroups.reduce((acc, curr) => acc + curr.items.length, 0);
-
-                  return (
-                    <div
-                      key={grp.id}
-                      className="admin-card"
-                      style={{
-                        borderTop: '3px solid var(--primary-red)',
-                        backgroundColor: 'var(--bg-card)',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
-                      }}
-                    >
-                      {/* Master Group Header */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          borderBottom: '1px solid var(--border-color)',
-                          paddingBottom: 12,
-                          marginBottom: 16,
-                          flexWrap: 'wrap',
-                          gap: 10
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span
-                            style={{
-                              backgroundColor: 'rgba(230, 0, 18, 0.1)',
-                              color: 'var(--primary-red)',
-                              fontWeight: 800,
-                              fontSize: '0.85rem',
-                              padding: '4px 10px',
-                              borderRadius: 4
-                            }}
-                          >
-                            গ্রুপ {gIdx + 1}
-                          </span>
-                          <div>
-                            <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
-                              {grp.nameBn}
-                            </h2>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                              {grp.nameEn} • {grpTotalTopics} টি ক্যাটাগরি বিষয়
-                            </span>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenAddCategory(grp.id)}
-                            className="admin-btn-primary"
-                            style={{ padding: '5px 10px', fontSize: '0.82rem', gap: 4 }}
-                          >
-                            <Plus size={14} />
-                            <span>+ ক্যাটাগরি যোগ</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleOpenAddSubGroup(grp.id)}
-                            className="admin-btn-secondary"
-                            style={{ padding: '5px 10px', fontSize: '0.82rem', gap: 4 }}
-                          >
-                            <FolderPlus size={14} />
-                            <span>+ সাব-গ্রুপ</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditMasterGroup(grp)}
-                            style={{
-                              color: '#2563EB',
-                              padding: 6,
-                              borderRadius: 4,
-                              border: '1px solid var(--border-color)',
-                              display: 'flex',
-                              alignItems: 'center'
-                            }}
-                            title="গ্রুপ নাম সম্পাদনা"
-                          >
-                            <Edit size={16} />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (window.confirm(`আপনি কি "${grp.nameBn}" মাস্টার গ্রুপটি মুছে ফেলতে চান?`)) {
-                                deleteMasterGroup(grp.id);
-                                triggerSaveToast('মাস্টার গ্রুপ মুছে ফেলা হয়েছে!');
-                              }
-                            }}
-                            style={{
-                              color: '#DC2626',
-                              padding: 6,
-                              borderRadius: 4,
-                              border: '1px solid var(--border-color)',
-                              display: 'flex',
-                              alignItems: 'center'
-                            }}
-                            title="গ্রুপ মুছে ফেলুন"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Sub-Groups List */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {grp.subGroups.map((sub, sIdx) => {
-                          // Filter items by search query if present
-                          const q = categorySearchQuery.toLowerCase().trim();
-                          const filteredItems = sub.items.filter((it) => {
-                            if (!q) return true;
-                            return (
-                              it.nameBn?.toLowerCase().includes(q) ||
-                              it.nameEn?.toLowerCase().includes(q) ||
-                              it.id?.toLowerCase().includes(q)
-                            );
-                          });
-
-                          if (q && filteredItems.length === 0) return null;
-
-                          return (
-                            <div
-                              key={sIdx}
-                              style={{
-                                backgroundColor: 'var(--bg-subtle)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: 6,
-                                padding: 14
-                              }}
-                            >
-                              {/* Sub-Group Header Bar */}
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  borderBottom: '1px dashed var(--border-color)',
-                                  paddingBottom: 8,
-                                  marginBottom: 10
-                                }}
-                              >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <span
-                                    style={{
-                                      width: 8,
-                                      height: 8,
-                                      borderRadius: '50%',
-                                      backgroundColor: 'var(--primary-red)'
-                                    }}
-                                  ></span>
-                                  <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)' }}>
-                                    {sub.titleBn}
-                                  </span>
-                                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                                    ({sub.titleEn || sub.titleBn}) • {sub.items.length} টি বিষয়
-                                  </span>
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenAddCategory(grp.id, sub.titleBn)}
-                                    style={{
-                                      fontSize: '0.75rem',
-                                      fontWeight: 700,
-                                      color: 'var(--primary-red)',
-                                      padding: '2px 8px',
-                                      borderRadius: 4,
-                                      border: '1px solid rgba(230,0,18,0.3)',
-                                      backgroundColor: 'rgba(230,0,18,0.06)'
-                                    }}
-                                  >
-                                    + বিষয় যোগ
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenEditSubGroup(grp.id, sub)}
-                                    style={{ color: '#2563EB', padding: 3 }}
-                                    title="সাব-গ্রুপ রিনেম"
-                                  >
-                                    <Edit size={14} />
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (window.confirm(`আপনি কি "${sub.titleBn}" সাব-গ্রুপটি মুছে ফেলতে চান?`)) {
-                                        deleteSubGroup(grp.id, sub.titleBn);
-                                        triggerSaveToast('সাব-গ্রুপ মুছে ফেলা হয়েছে!');
-                                      }
-                                    }}
-                                    style={{ color: '#DC2626', padding: 3 }}
-                                    title="সাব-গ্রুপ মুছুন"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Category Items Grid */}
-                              <div
-                                style={{
-                                  display: 'grid',
-                                  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-                                  gap: 8
-                                }}
-                              >
-                                {filteredItems.map((item) => (
-                                  <div
-                                    key={item.id}
-                                    style={{
-                                      backgroundColor: 'var(--bg-surface)',
-                                      border: '1px solid var(--border-color)',
-                                      borderRadius: 4,
-                                      padding: '7px 10px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'space-between',
-                                      gap: 6
-                                    }}
-                                  >
-                                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                      <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-main)' }}>
-                                        {item.nameBn}
-                                      </div>
-                                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                                        {item.nameEn} • <code style={{ fontSize: '0.7rem' }}>{item.id}</code>
-                                      </div>
-                                    </div>
-
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleOpenEditCategory(item, grp.id, sub.titleBn)}
-                                        style={{ color: '#2563EB', padding: 3 }}
-                                        title="সম্পাদনা ও গ্রুপ চেঞ্জ"
-                                      >
-                                        <Edit size={14} />
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          if (window.confirm(`আপনি কি "${item.nameBn}" ক্যাটাগরি মুছে ফেলতে চান?`)) {
-                                            deleteCategoryFromMasterGroup(item.id);
-                                            triggerSaveToast('ক্যাটাগরি মুছে ফেলা হয়েছে!');
-                                          }
-                                        }}
-                                        style={{ color: '#DC2626', padding: 3 }}
-                                        title="মুছে ফেলুন"
-                                      >
-                                        <Trash2 size={14} />
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-
-                                {filteredItems.length === 0 && (
-                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: 6 }}>
-                                    এই সাব-গ্রুপে কোনো বিষয় নেই
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-
-            {/* ========================================================
-                MODAL 1: ADD / EDIT CATEGORY ITEM
-                ======================================================== */}
-            {isCategoryModalOpen && (
-              <div
-                style={{
-                  position: 'fixed',
-                  inset: 0,
-                  backgroundColor: 'rgba(0,0,0,0.65)',
-                  backdropFilter: 'blur(4px)',
-                  zIndex: 99999,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 16
-                }}
-                onClick={() => setIsCategoryModalOpen(false)}
-              >
-                <div
-                  className="admin-card"
-                  style={{
-                    width: 540,
-                    maxWidth: '95vw',
-                    borderTop: '4px solid var(--primary-red)',
-                    boxShadow: '0 20px 50px rgba(0,0,0,0.35)',
-                    animation: 'drawerSlideIn 0.22s ease forwards'
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid var(--border-color)', paddingBottom: 10 }}>
-                    <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.25rem', fontWeight: 800 }}>
-                      {editingCategoryItem ? 'ক্যাটাগরি সম্পাদনা ও গ্রুপ স্থানান্তর' : 'নতুন ক্যাটাগরি / মেনু আইটেম যোগ'}
-                    </h2>
-                    <button
-                      type="button"
-                      onClick={() => setIsCategoryModalOpen(false)}
-                      style={{ color: 'var(--text-muted)', cursor: 'pointer' }}
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-
-                  <form onSubmit={handleSaveCategoryItem}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-                      <div className="admin-form-group">
-                        <label className="admin-label">ক্যাটাগরির নাম (বাংলা) *</label>
-                        <input
-                          type="text"
-                          className="admin-input"
-                          placeholder="যেমন: পরিবেশ"
-                          value={categoryItemForm.nameBn}
-                          onChange={(e) => setCategoryItemForm({ ...categoryItemForm, nameBn: e.target.value })}
-                          required
-                        />
-                      </div>
-
-                      <div className="admin-form-group">
-                        <label className="admin-label">Category Name (English)</label>
-                        <input
-                          type="text"
-                          className="admin-input"
-                          placeholder="e.g. Environment"
-                          value={categoryItemForm.nameEn}
-                          onChange={(e) => setCategoryItemForm({ ...categoryItemForm, nameEn: e.target.value })}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="admin-form-group" style={{ marginBottom: 14 }}>
-                      <label className="admin-label">URL Slug / আইডেন্টিফায়ার (ইংরেজি)</label>
-                      <input
-                        type="text"
-                        className="admin-input"
-                        placeholder="environment"
-                        value={categoryItemForm.slug}
-                        onChange={(e) => setCategoryItemForm({ ...categoryItemForm, slug: e.target.value })}
-                      />
-                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                        খালি রাখলে ইংরেজি নাম থেকে স্বয়ংক্রিয়ভাবে তৈরি হবে
-                      </span>
-                    </div>
-
-                    {/* Master Group Selector */}
-                    <div className="admin-form-group" style={{ marginBottom: 14 }}>
-                      <label className="admin-label">মাস্টার গ্রুপ নির্বাচন করুন *</label>
-                      <select
-                        className="admin-select"
-                        value={categoryItemForm.masterGroupId}
-                        onChange={(e) => {
-                          const newGroupId = e.target.value;
-                          const grpObj = categoryMasterGroups.find((g) => g.id === newGroupId);
-                          const firstSub = grpObj?.subGroups[0]?.titleBn || 'সাধারণ';
-                          setCategoryItemForm({
-                            ...categoryItemForm,
-                            masterGroupId: newGroupId,
-                            subGroupTitleBn: firstSub
-                          });
-                        }}
-                      >
-                        {categoryMasterGroups.map((g, gIdx) => (
-                          <option key={g.id} value={g.id}>
-                            {gIdx + 1}. {g.nameBn} ({g.nameEn})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Sub-Group Selector */}
-                    <div className="admin-form-group" style={{ marginBottom: 20 }}>
-                      <label className="admin-label">সাব-গ্রুপ নির্বাচন করুন *</label>
-                      <select
-                        className="admin-select"
-                        value={categoryItemForm.subGroupTitleBn}
-                        onChange={(e) => setCategoryItemForm({ ...categoryItemForm, subGroupTitleBn: e.target.value })}
-                      >
-                        {(categoryMasterGroups.find((g) => g.id === categoryItemForm.masterGroupId)?.subGroups || []).map((sub, sIdx) => (
-                          <option key={sIdx} value={sub.titleBn}>
-                            {sub.titleBn} ({sub.titleEn || sub.titleBn})
-                          </option>
-                        ))}
-                        <option value="__custom__">+ নতুন সাব-গ্রুপ তৈরি করুন...</option>
-                      </select>
-
-                      {categoryItemForm.subGroupTitleBn === '__custom__' && (
-                        <div style={{ marginTop: 10 }}>
-                          <input
-                            type="text"
-                            className="admin-input"
-                            placeholder="নতুন সাব-গ্রুপের নাম লিখুন (যেমন: আবহাওয়া ও জলবায়ু)"
-                            value={categoryItemForm.customSubGroupTitleBn}
-                            onChange={(e) => setCategoryItemForm({ ...categoryItemForm, customSubGroupTitleBn: e.target.value })}
-                            required
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                      <button
-                        type="button"
-                        className="admin-btn-secondary"
-                        onClick={() => setIsCategoryModalOpen(false)}
-                      >
-                        বাতিল
-                      </button>
-                      <button type="submit" className="admin-btn-primary">
-                        <Save size={16} />
-                        <span>{editingCategoryItem ? 'পরিবর্তন সংরক্ষণ করুন' : 'ক্যাটাগরি যুক্ত করুন'}</span>
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {/* ========================================================
-                MODAL 2: ADD / EDIT MASTER GROUP
-                ======================================================== */}
-            {isGroupModalOpen && (
-              <div
-                style={{
-                  position: 'fixed',
-                  inset: 0,
-                  backgroundColor: 'rgba(0,0,0,0.65)',
-                  backdropFilter: 'blur(4px)',
-                  zIndex: 99999,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 16
-                }}
-                onClick={() => setIsGroupModalOpen(false)}
-              >
-                <div
-                  className="admin-card"
-                  style={{
-                    width: 480,
-                    maxWidth: '95vw',
-                    borderTop: '4px solid var(--primary-red)',
-                    boxShadow: '0 20px 50px rgba(0,0,0,0.35)'
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid var(--border-color)', paddingBottom: 10 }}>
-                    <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.25rem', fontWeight: 800 }}>
-                      {editingGroup ? 'মাস্টার গ্রুপের নাম সম্পাদনা' : 'নতুন মাস্টার গ্রুপ তৈরি'}
-                    </h2>
-                    <button
-                      type="button"
-                      onClick={() => setIsGroupModalOpen(false)}
-                      style={{ color: 'var(--text-muted)', cursor: 'pointer' }}
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-
-                  <form onSubmit={handleSaveMasterGroup}>
-                    <div className="admin-form-group" style={{ marginBottom: 14 }}>
-                      <label className="admin-label">মাস্টার গ্রুপের নাম (বাংলা) *</label>
-                      <input
-                        type="text"
-                        className="admin-input"
-                        placeholder="যেমন: প্রযুক্তি ও উদ্ভাবন"
-                        value={groupForm.nameBn}
-                        onChange={(e) => setGroupForm({ ...groupForm, nameBn: e.target.value })}
-                        required
-                      />
-                    </div>
-
-                    <div className="admin-form-group" style={{ marginBottom: 20 }}>
-                      <label className="admin-label">Master Group Name (English)</label>
-                      <input
-                        type="text"
-                        className="admin-input"
-                        placeholder="e.g. Technology & Innovation"
-                        value={groupForm.nameEn}
-                        onChange={(e) => setGroupForm({ ...groupForm, nameEn: e.target.value })}
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                      <button
-                        type="button"
-                        className="admin-btn-secondary"
-                        onClick={() => setIsGroupModalOpen(false)}
-                      >
-                        বাতিল
-                      </button>
-                      <button type="submit" className="admin-btn-primary">
-                        <Save size={16} />
-                        <span>{editingGroup ? 'আপডেট করুন' : 'গ্রুপ তৈরি করুন'}</span>
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {/* ========================================================
-                MODAL 3: ADD / EDIT SUB-GROUP
-                ======================================================== */}
-            {isSubGroupModalOpen && (
-              <div
-                style={{
-                  position: 'fixed',
-                  inset: 0,
-                  backgroundColor: 'rgba(0,0,0,0.65)',
-                  backdropFilter: 'blur(4px)',
-                  zIndex: 99999,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 16
-                }}
-                onClick={() => setIsSubGroupModalOpen(false)}
-              >
-                <div
-                  className="admin-card"
-                  style={{
-                    width: 480,
-                    maxWidth: '95vw',
-                    borderTop: '4px solid var(--primary-red)',
-                    boxShadow: '0 20px 50px rgba(0,0,0,0.35)'
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid var(--border-color)', paddingBottom: 10 }}>
-                    <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.25rem', fontWeight: 800 }}>
-                      {editingSubGroup ? 'সাব-গ্রুপের শিরোনাম সম্পাদনা' : 'নতুন সাব-গ্রুপ তৈরি'}
-                    </h2>
-                    <button
-                      type="button"
-                      onClick={() => setIsSubGroupModalOpen(false)}
-                      style={{ color: 'var(--text-muted)', cursor: 'pointer' }}
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-
-                  <form onSubmit={handleSaveSubGroup}>
-                    <div className="admin-form-group" style={{ marginBottom: 14 }}>
-                      <label className="admin-label">সাব-গ্রুপের নাম (বাংলা) *</label>
-                      <input
-                        type="text"
-                        className="admin-input"
-                        placeholder="যেমন: অর্থনীতি ও ব্যাংকিং"
-                        value={subGroupForm.titleBn}
-                        onChange={(e) => setSubGroupForm({ ...subGroupForm, titleBn: e.target.value })}
-                        required
-                      />
-                    </div>
-
-                    <div className="admin-form-group" style={{ marginBottom: 20 }}>
-                      <label className="admin-label">Sub-Group Title (English)</label>
-                      <input
-                        type="text"
-                        className="admin-input"
-                        placeholder="e.g. Economy & Banking"
-                        value={subGroupForm.titleEn}
-                        onChange={(e) => setSubGroupForm({ ...subGroupForm, titleEn: e.target.value })}
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                      <button
-                        type="button"
-                        className="admin-btn-secondary"
-                        onClick={() => setIsSubGroupModalOpen(false)}
-                      >
-                        বাতিল
-                      </button>
-                      <button type="submit" className="admin-btn-primary">
-                        <Save size={16} />
-                        <span>{editingSubGroup ? 'আপডেট করুন' : 'সাব-গ্রুপ তৈরি করুন'}</span>
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-          </div>
+        {/* TAB: HOMEPAGE SECTIONS */}
+        {activeTab === 'homepage-sections' && (
+          <HomepageSectionManager triggerSaveToast={triggerSaveToast} />
         )}
 
         {/* TAB 4: BREAKING NEWS */}
         {activeTab === 'breaking' && (
           <div>
             <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, marginBottom: 20 }}>
-              ব্রেকিং নিউজ টিকার পরিচালনা
+              {isBn ? 'ব্রেকিং নিউজ টিকার পরিচালনা' : 'Breaking News Ticker Management'}
             </h1>
 
             <div className="admin-card">
               <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.2rem', marginBottom: 14 }}>
-                নতুন ব্রেকিং হেডলাইন যোগ করুন
+                {isBn ? 'নতুন ব্রেকিং হেডলাইন যোগ করুন' : 'Add New Breaking Headline'}
               </h2>
               <form onSubmit={handleAddBreaking} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'flex-end' }}>
                 <div>
-                  <label className="admin-label">ব্রেকিং টেক্সট (বাংলা) *</label>
+                  <label className="admin-label">{isBn ? 'ব্রেকিং টেক্সট (বাংলা) *' : 'Breaking Text (Bangla) *'}</label>
                   <input
                     type="text"
                     className="admin-input"
-                    placeholder="ব্রেকিং নিউজ শিরোনাম লিখুন..."
+                    placeholder={isBn ? "ব্রেকিং নিউজ শিরোনাম লিখুন..." : "Breaking headline in Bangla..."}
                     value={newBreakBn}
                     onChange={(e) => setNewBreakBn(e.target.value)}
                     required
                   />
                 </div>
                 <div>
-                  <label className="admin-label">Breaking Text (English)</label>
+                  <label className="admin-label">{isBn ? 'ব্রেকিং টেক্সট (English)' : 'Breaking Text (English)'}</label>
                   <input
                     type="text"
                     className="admin-input"
@@ -1813,14 +1240,14 @@ export default function AdminDashboard() {
                 </div>
                 <button type="submit" className="admin-btn-primary" style={{ height: 42 }}>
                   <Plus size={16} />
-                  <span>যোগ করুন</span>
+                  <span>{isBn ? 'যোগ করুন' : 'Add Headline'}</span>
                 </button>
               </form>
             </div>
 
             <div className="admin-card">
               <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.2rem', marginBottom: 14 }}>
-                লাইভ ব্রেকিং আইটেমসমূহ ({breakingNews.length}টি)
+                {isBn ? `লাইভ ব্রেকিং আইটেমসমূহ (${breakingNews.length}টি)` : `Live Breaking Items (${breakingNews.length})`}
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {breakingNews.map((b) => (
@@ -1839,14 +1266,24 @@ export default function AdminDashboard() {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <Zap size={16} color="var(--primary-red)" />
-                      <span style={{ fontWeight: 600 }}>{b.textBn}</span>
+                      <span style={{ fontWeight: 600 }}>{isBn ? b.textBn : (b.textEn || b.textBn)}</span>
                     </div>
                     <button
                       onClick={() => {
-                        deleteBreakingItem(b.id);
-                        triggerSaveToast('ব্রেকিং নিউজ সরানো হয়েছে!');
+                        openConfirm({
+                          title: isBn ? 'ব্রেকিং নিউজ মুছে ফেলা' : 'Delete Breaking News',
+                          message: isBn
+                            ? `আপনি কি "${b.textBn}" ব্রেকিং নিউজটি তালিকা থেকে মুছে ফেলতে চান?`
+                            : `Are you sure you want to remove this breaking news?`,
+                          confirmText: isBn ? 'হ্যাঁ, মুছুন' : 'Yes, Delete',
+                          onConfirm: () => {
+                            deleteBreakingItem(b.id);
+                            triggerSaveToast(isBn ? 'ব্রেকিং নিউজ সরানো হয়েছে!' : 'Breaking news removed!');
+                          }
+                        });
                       }}
-                      style={{ color: '#DC2626' }}
+                      style={{ color: '#DC2626', background: 'none', border: 'none', cursor: 'pointer' }}
+                      title={isBn ? "মুছে ফেলুন" : "Delete"}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -1863,10 +1300,10 @@ export default function AdminDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div>
                 <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800 }}>
-                  🎙️ আমাদের পডকাস্ট ভিডিও পরিচালনা
+                  {isBn ? '🎙️ আমাদের পডকাস্ট ভিডিও পরিচালনা' : '🎙️ Podcast Video Management'}
                 </h1>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                  হোমপেজের "Our Podcast" সেকশনের ইউটিউব ভিডিও ও পর্ব নিয়ন্ত্রণ করুন
+                  {isBn ? 'হোমপেজের "Our Podcast" সেকশনের ইউটিউব ভিডিও ও পর্ব নিয়ন্ত্রণ করুন' : 'Manage YouTube videos and episodes in Homepage Podcast section'}
                 </p>
               </div>
 
@@ -1892,7 +1329,7 @@ export default function AdminDashboard() {
                 }}
               >
                 <Plus size={18} />
-                <span>নতুন পর্ব যুক্ত করুন</span>
+                <span>{isBn ? 'নতুন পর্ব যুক্ত করুন' : 'Add New Episode'}</span>
               </button>
             </div>
 
@@ -1901,7 +1338,7 @@ export default function AdminDashboard() {
               <div className="admin-card" style={{ border: '2px solid var(--primary-red)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                   <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.3rem' }}>
-                    {editingPodcast ? 'পডকাস্ট পর্ব সম্পাদনা' : 'নতুন পডকাস্ট পর্ব প্রকাশ'}
+                    {editingPodcast ? (isBn ? 'পডকাস্ট পর্ব সম্পাদনা' : 'Edit Podcast Episode') : (isBn ? 'নতুন পডকাস্ট পর্ব প্রকাশ' : 'Publish New Podcast Episode')}
                   </h2>
                   <button
                     onClick={() => {
@@ -1910,25 +1347,25 @@ export default function AdminDashboard() {
                     }}
                     style={{ color: 'var(--text-muted)' }}
                   >
-                    ✕ বাতিল
+                    {isBn ? '✕ বাতিল' : '✕ Cancel'}
                   </button>
                 </div>
 
                 <form onSubmit={handleSavePodcast}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 14 }}>
                     <div className="admin-form-group">
-                      <label className="admin-label">পর্বের শিরোনাম (বাংলা) *</label>
+                      <label className="admin-label">{isBn ? 'পর্বের শিরোনাম (বাংলা) *' : 'Episode Title (Bangla) *'}</label>
                       <input
                         type="text"
                         className="admin-input"
-                        placeholder="পডকাস্টের শিরোনাম লিখুন..."
+                        placeholder={isBn ? "পডকাস্টের শিরোনাম লিখুন..." : "Podcast episode title in Bangla..."}
                         value={podcastForm.titleBn}
                         onChange={(e) => setPodcastForm({ ...podcastForm, titleBn: e.target.value })}
                         required
                       />
                     </div>
                     <div className="admin-form-group">
-                      <label className="admin-label">Episode Title (English)</label>
+                      <label className="admin-label">{isBn ? 'Episode Title (English)' : 'Episode Title (English)'}</label>
                       <input
                         type="text"
                         className="admin-input"
@@ -1941,7 +1378,7 @@ export default function AdminDashboard() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 16, marginBottom: 14 }}>
                     <div className="admin-form-group">
-                      <label className="admin-label">পডকাস্টের বিষয় / বিষয়শ্রেণী (Topic / Subject) *</label>
+                      <label className="admin-label">{isBn ? 'পডকাস্টের বিষয় / বিষয়শ্রেণী (Topic / Subject) *' : 'Podcast Topic / Subject *'}</label>
                       <select
                         className="admin-input"
                         value={podcastForm.subjectId || 'politics'}
@@ -1959,28 +1396,28 @@ export default function AdminDashboard() {
                       >
                         {podcastSubjects.filter((s) => s.id !== 'all').map((s) => (
                           <option key={s.id} value={s.id}>
-                            {s.icon} {s.nameBn} ({s.nameEn})
+                            {s.icon} {isBn ? `${s.nameBn} (${s.nameEn})` : `${s.nameEn || s.nameBn} (${s.nameBn})`}
                           </option>
                         ))}
                       </select>
                     </div>
 
                     <div className="admin-form-group">
-                      <label className="admin-label">হোস্ট / উপস্থাপক</label>
+                      <label className="admin-label">{isBn ? 'হোস্ট / উপস্থাপক' : 'Host / Presenter'}</label>
                       <input
                         type="text"
                         className="admin-input"
-                        value={podcastForm.hostBn}
+                        value={isBn ? podcastForm.hostBn : (podcastForm.hostEn || podcastForm.hostBn)}
                         onChange={(e) => setPodcastForm({ ...podcastForm, hostBn: e.target.value })}
                       />
                     </div>
 
                     <div className="admin-form-group">
-                      <label className="admin-label">সময়কাল (Duration)</label>
+                      <label className="admin-label">{isBn ? 'সময়কাল (Duration)' : 'Duration'}</label>
                       <input
                         type="text"
                         className="admin-input"
-                        placeholder="যেমন: ২৫:৪০"
+                        placeholder={isBn ? "যেমন: ২৫:৪০" : "e.g. 25:40"}
                         value={podcastForm.duration}
                         onChange={(e) => setPodcastForm({ ...podcastForm, duration: e.target.value })}
                       />
@@ -1989,11 +1426,11 @@ export default function AdminDashboard() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: 16, marginBottom: 14 }}>
                     <div className="admin-form-group">
-                      <label className="admin-label">YouTube ভিডিও লিঙ্ক বা ID *</label>
+                      <label className="admin-label">{isBn ? 'YouTube ভিডিও লিঙ্ক বা ID *' : 'YouTube Video Link or ID *'}</label>
                       <input
                         type="text"
                         className="admin-input"
-                        placeholder="https://www.youtube.com/watch?v=... বা ভিডিও ID"
+                        placeholder={isBn ? "https://www.youtube.com/watch?v=... বা ভিডিও ID" : "https://www.youtube.com/watch?v=... or Video ID"}
                         value={podcastForm.youtubeUrl}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -2013,18 +1450,18 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="admin-form-group">
-                      <label className="admin-label">অতিথি (Guest Name - বাংলা)</label>
+                      <label className="admin-label">{isBn ? 'অতিথি (Guest Name)' : 'Guest Name'}</label>
                       <input
                         type="text"
                         className="admin-input"
-                        placeholder="যেমন: ড. আতিকুর রহমান (অর্থনীতিবিদ)"
+                        placeholder={isBn ? "যেমন: ড. আতিকুর রহমান (অর্থনীতিবিদ)" : "e.g. Dr. Atikur Rahman"}
                         value={podcastForm.guestBn}
                         onChange={(e) => setPodcastForm({ ...podcastForm, guestBn: e.target.value })}
                       />
                     </div>
 
                     <div className="admin-form-group">
-                      <label className="admin-label">কাস্টম থাম্বনেইল URL (ঐচ্ছিক)</label>
+                      <label className="admin-label">{isBn ? 'কাস্টম থাম্বনেইল URL (ঐচ্ছিক)' : 'Custom Thumbnail URL (Optional)'}</label>
                       <input
                         type="text"
                         className="admin-input"
@@ -2044,11 +1481,11 @@ export default function AdminDashboard() {
                         setEditingPodcast(null);
                       }}
                     >
-                      বাতিল
+                      {isBn ? 'বাতিল' : 'Cancel'}
                     </button>
                     <button type="submit" className="admin-btn-primary">
                       <Save size={16} />
-                      <span>{editingPodcast ? 'আপডেট করুন' : 'প্রকাশ করুন'}</span>
+                      <span>{editingPodcast ? (isBn ? 'আপডেট করুন' : 'Update Episode') : (isBn ? 'প্রকাশ করুন' : 'Publish Episode')}</span>
                     </button>
                   </div>
                 </form>
@@ -2058,7 +1495,7 @@ export default function AdminDashboard() {
             {/* Podcasts Table List */}
             <div className="admin-card">
               <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.2rem', marginBottom: 14 }}>
-                পডকাস্ট এপিসোড তালিকা ({podcasts.length}টি)
+                {isBn ? `পডকাস্ট এপিসোড তালিকা (${podcasts.length}টি)` : `Podcast Episodes List (${podcasts.length})`}
               </h2>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -2094,13 +1531,15 @@ export default function AdminDashboard() {
                               fontSize: '0.76rem'
                             }}
                           >
-                            {pod.subjectBn || 'রাজনীতি ও রাষ্ট্র'}
+                            {isBn ? (pod.subjectBn || 'রাজনীতি ও রাষ্ট্র') : (pod.subjectEn || pod.subjectBn || 'Politics & Governance')}
                           </span>
-                          <h4 style={{ fontWeight: 700, fontSize: '0.98rem', margin: 0 }}>{pod.titleBn}</h4>
+                          <h4 style={{ fontWeight: 700, fontSize: '0.98rem', margin: 0 }}>
+                            {isBn ? pod.titleBn : (pod.titleEn || pod.titleBn)}
+                          </h4>
                         </div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: 12, marginTop: 2 }}>
-                          <span>🎙️ {pod.hostBn}</span>
-                          {pod.guestBn && <span>👤 অতিথি: {pod.guestBn}</span>}
+                          <span>🎙️ {isBn ? pod.hostBn : (pod.hostEn || pod.hostBn)}</span>
+                          {pod.guestBn && <span>👤 {isBn ? 'অতিথি: ' : 'Guest: '} {isBn ? pod.guestBn : (pod.guestEn || pod.guestBn)}</span>}
                           <span>⏱ {pod.duration}</span>
                         </div>
                       </div>
@@ -2110,17 +1549,26 @@ export default function AdminDashboard() {
                       <button
                         onClick={() => handleOpenEditPodcast(pod)}
                         style={{ color: '#2563EB', padding: 6 }}
-                        title="সম্পাদনা"
+                        title={isBn ? "সম্পাদনা" : "Edit"}
                       >
                         <Edit size={16} />
                       </button>
                       <button
                         onClick={() => {
-                          deletePodcast(pod.id);
-                          triggerSaveToast('পডকাস্ট পর্ব মুছে ফেলা হয়েছে!');
+                          openConfirm({
+                            title: isBn ? 'পডকাস্ট পর্ব মুছে ফেলা' : 'Delete Podcast Episode',
+                            message: isBn
+                              ? `আপনি কি "${pod.titleBn || pod.titleEn}" পডকাস্ট পর্বটি মুছে ফেলতে চান?`
+                              : `Are you sure you want to delete podcast episode "${pod.titleEn || pod.titleBn}"?`,
+                            confirmText: isBn ? 'হ্যাঁ, মুছুন' : 'Yes, Delete',
+                            onConfirm: () => {
+                              deletePodcast(pod.id);
+                              triggerSaveToast(isBn ? 'পডকাস্ট পর্ব মুছে ফেলা হয়েছে!' : 'Podcast episode deleted!');
+                            }
+                          });
                         }}
-                        style={{ color: '#DC2626', padding: 6 }}
-                        title="মুছে ফেলুন"
+                        style={{ color: '#DC2626', padding: 6, background: 'none', border: 'none', cursor: 'pointer' }}
+                        title={isBn ? "মুছে ফেলুন" : "Delete"}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -2138,10 +1586,10 @@ export default function AdminDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div>
                 <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800 }}>
-                  🚨 জাতীয় জরুরি সেবা ও নাগরিক হেল্পলাইন
+                  {isBn ? '🚨 জাতীয় জরুরি সেবা ও নাগরিক হেল্পলাইন' : '🚨 National Emergency Services & Helplines'}
                 </h1>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                  বাংলাদেশ সরকারের জাতীয় হেল্পলাইন ও জরুরি অনলাইন সেবাসমূহ নিয়ন্ত্রণ ও আপডেট করুন
+                  {isBn ? 'বাংলাদেশ সরকারের জাতীয় হেল্পলাইন ও জরুরি অনলাইন সেবাসমূহ নিয়ন্ত্রণ ও আপডেট করুন' : 'Manage national helplines and emergency online government services'}
                 </p>
               </div>
 
@@ -2164,7 +1612,7 @@ export default function AdminDashboard() {
                 }}
               >
                 <Plus size={18} />
-                <span>নতুন সেবা যুক্ত করুন</span>
+                <span>{isBn ? 'নতুন সেবা যুক্ত করুন' : 'Add New Service'}</span>
               </button>
             </div>
 
@@ -2173,7 +1621,7 @@ export default function AdminDashboard() {
               <div className="admin-card" style={{ border: '2px solid var(--primary-red)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                   <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.3rem' }}>
-                    {editingService ? 'জরুরি সেবা তথ্য সম্পাদনা' : 'নতুন জাতীয় জরুরি সেবা প্রকাশ'}
+                    {editingService ? (isBn ? 'জরুরি সেবা তথ্য সম্পাদনা' : 'Edit Emergency Service') : (isBn ? 'নতুন জাতীয় জরুরি সেবা প্রকাশ' : 'Publish Emergency Service')}
                   </h2>
                   <button
                     onClick={() => {
@@ -2182,25 +1630,25 @@ export default function AdminDashboard() {
                     }}
                     style={{ color: 'var(--text-muted)' }}
                   >
-                    ✕ বাতিল
+                    {isBn ? '✕ বাতিল' : '✕ Cancel'}
                   </button>
                 </div>
 
                 <form onSubmit={handleSaveService}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 14 }}>
                     <div className="admin-form-group">
-                      <label className="admin-label">সেবার নাম (বাংলা) *</label>
+                      <label className="admin-label">{isBn ? 'সেবার নাম (বাংলা) *' : 'Service Name (Bangla) *'}</label>
                       <input
                         type="text"
                         className="admin-input"
-                        placeholder="যেমন: জাতীয় জরুরি সেবা (৯৯৯)"
+                        placeholder={isBn ? "যেমন: জাতীয় জরুরি সেবা (৯৯৯)" : "e.g. National Emergency Service (999)"}
                         value={serviceForm.nameBn}
                         onChange={(e) => setServiceForm({ ...serviceForm, nameBn: e.target.value })}
                         required
                       />
                     </div>
                     <div className="admin-form-group">
-                      <label className="admin-label">Service Name (English)</label>
+                      <label className="admin-label">{isBn ? 'সেবার নাম (English)' : 'Service Name (English)'}</label>
                       <input
                         type="text"
                         className="admin-input"
@@ -2213,29 +1661,29 @@ export default function AdminDashboard() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 14 }}>
                     <div className="admin-form-group">
-                      <label className="admin-label">হেল্পলাইন নম্বর (ঐচ্ছিক)</label>
+                      <label className="admin-label">{isBn ? 'হেল্পলাইন নম্বর' : 'Helpline Number'}</label>
                       <input
                         type="text"
                         className="admin-input"
-                        placeholder="যেমন: 999 বা 333 বা 16122"
+                        placeholder={isBn ? "যেমন: 999 বা 333 বা 16122" : "e.g. 999 or 333 or 16122"}
                         value={serviceForm.number}
                         onChange={(e) => setServiceForm({ ...serviceForm, number: e.target.value })}
                       />
                     </div>
 
                     <div className="admin-form-group">
-                      <label className="admin-label">ক্যাটাগরি (বাংলা)</label>
+                      <label className="admin-label">{isBn ? 'ক্যাটাগরি (বাংলা)' : 'Category (Bangla)'}</label>
                       <input
                         type="text"
                         className="admin-input"
-                        placeholder="যেমন: পুলিশ, ফায়ার ও অ্যাম্বুলেন্স"
+                        placeholder={isBn ? "যেমন: পুলিশ, ফায়ার ও অ্যাম্বুলেন্স" : "e.g. Police, Fire & Ambulance"}
                         value={serviceForm.categoryBn}
                         onChange={(e) => setServiceForm({ ...serviceForm, categoryBn: e.target.value })}
                       />
                     </div>
 
                     <div className="admin-form-group">
-                      <label className="admin-label">Category (English)</label>
+                      <label className="admin-label">{isBn ? 'Category (English)' : 'Category (English)'}</label>
                       <input
                         type="text"
                         className="admin-input"
@@ -2248,7 +1696,7 @@ export default function AdminDashboard() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 14 }}>
                     <div className="admin-form-group">
-                      <label className="admin-label">অফিসিয়াল ওয়েবসাইট / পোর্টাল লিংক</label>
+                      <label className="admin-label">{isBn ? 'অফিসিয়াল ওয়েবসাইট / পোর্টাল লিংক' : 'Official Website / Portal Link'}</label>
                       <input
                         type="url"
                         className="admin-input"
@@ -2259,38 +1707,38 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="admin-form-group">
-                      <label className="admin-label">আইকন ধরন (Icon Style)</label>
+                      <label className="admin-label">{isBn ? 'আইকন ধরন (Icon Style)' : 'Icon Style'}</label>
                       <select
                         className="admin-input"
                         value={serviceForm.icon}
                         onChange={(e) => setServiceForm({ ...serviceForm, icon: e.target.value })}
                       >
-                        <option value="phone">📞 ফোন / সার্বিক জরুরি</option>
-                        <option value="shield">🛡️ নিরাপত্তা / নারী-শিশু</option>
-                        <option value="alert">⚠️ অভিযোগ / দুদক</option>
-                        <option value="id">🪪 এনআইডি ও ভোটার</option>
-                        <option value="globe">🌐 ভূমি / ডিজিটাল সেবা</option>
-                        <option value="cloud">☁️ আবহাওয়া / দুর্যোগ</option>
-                        <option value="link">🔗 পাসপোর্ট / অনলাইন লিঙ্ক</option>
-                        <option value="gov">🏛️ সরকারি সাধারণ সেবা</option>
+                        <option value="phone">{isBn ? '📞 ফোন / সার্বিক জরুরি' : '📞 Phone / General Emergency'}</option>
+                        <option value="shield">{isBn ? '🛡️ নিরাপত্তা / নারী-শিশু' : '🛡️ Security / Women & Child'}</option>
+                        <option value="alert">{isBn ? '⚠️ অভিযোগ / দুদক' : '⚠️ Anti-Corruption / Complaints'}</option>
+                        <option value="id">{isBn ? '🪪 এনআইডি ও ভোটার' : '🪪 NID & Voter Services'}</option>
+                        <option value="globe">{isBn ? '🌐 ভূমি / ডিজিটাল সেবা' : '🌐 Land & Digital Services'}</option>
+                        <option value="cloud">{isBn ? '☁️ আবহাওয়া / দুর্যোগ' : '☁️ Weather & Disaster'}</option>
+                        <option value="link">{isBn ? '🔗 পাসপোর্ট / অনলাইন লিঙ্ক' : '🔗 Passport / Online Links'}</option>
+                        <option value="gov">{isBn ? '🏛️ সরকারি সাধারণ সেবা' : '🏛️ General Gov Services'}</option>
                       </select>
                     </div>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 14 }}>
                     <div className="admin-form-group">
-                      <label className="admin-label">সংক্ষিপ্ত বিবরণ (বাংলা)</label>
+                      <label className="admin-label">{isBn ? 'সংক্ষিপ্ত বিবরণ (বাংলা)' : 'Description (Bangla)'}</label>
                       <textarea
                         className="admin-input"
                         rows={3}
-                        placeholder="এই জরুরি সেবার উদ্দেশ্য ও কী ধরনের সহায়তা পাওয়া যায় লিখুন..."
+                        placeholder={isBn ? "এই জরুরি সেবার উদ্দেশ্য ও কী ধরনের সহায়তা পাওয়া যায় লিখুন..." : "Brief description of emergency service..."}
                         value={serviceForm.descriptionBn}
                         onChange={(e) => setServiceForm({ ...serviceForm, descriptionBn: e.target.value })}
                       />
                     </div>
 
                     <div className="admin-form-group">
-                      <label className="admin-label">Description (English)</label>
+                      <label className="admin-label">{isBn ? 'Description (English)' : 'Description (English)'}</label>
                       <textarea
                         className="admin-input"
                         rows={3}
@@ -2310,11 +1758,11 @@ export default function AdminDashboard() {
                         setEditingService(null);
                       }}
                     >
-                      বাতিল
+                      {isBn ? 'বাতিল' : 'Cancel'}
                     </button>
                     <button type="submit" className="admin-btn-primary">
                       <Save size={16} />
-                      <span>{editingService ? 'আপডেট করুন' : 'সংরক্ষণ করুন'}</span>
+                      <span>{editingService ? (isBn ? 'আপডেট করুন' : 'Update Service') : (isBn ? 'সংরক্ষণ করুন' : 'Save Service')}</span>
                     </button>
                   </div>
                 </form>
@@ -2324,7 +1772,7 @@ export default function AdminDashboard() {
             {/* Emergency Services Table / Cards List */}
             <div className="admin-card">
               <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.2rem', marginBottom: 14 }}>
-                বিদ্যমান জরুরি সেবা তালিকা ({emergencyServices.length}টি)
+                {isBn ? `বিদ্যমান জরুরি সেবা তালিকা (${emergencyServices.length}টি)` : `Active Emergency Services (${emergencyServices.length})`}
               </h2>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
@@ -2348,7 +1796,9 @@ export default function AdminDashboard() {
                           <span style={{ fontSize: '1.3rem' }}>
                             {srv.icon === 'shield' ? '🛡️' : srv.icon === 'alert' ? '⚠️' : srv.icon === 'id' ? '🪪' : srv.icon === 'globe' ? '🌐' : srv.icon === 'cloud' ? '☁️' : srv.icon === 'link' ? '🔗' : '📞'}
                           </span>
-                          <h4 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-color)' }}>{srv.nameBn}</h4>
+                          <h4 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-color)' }}>
+                            {isBn ? srv.nameBn : (srv.nameEn || srv.nameBn)}
+                          </h4>
                         </div>
 
                         {srv.number && (
@@ -2372,12 +1822,12 @@ export default function AdminDashboard() {
                       </div>
 
                       <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>
-                        <span>বিভাগ: {srv.categoryBn || 'জরুরি'}</span>
-                        {srv.nameEn && <span> • {srv.nameEn}</span>}
+                        <span>{isBn ? 'বিভাগ: ' : 'Category: '} {isBn ? (srv.categoryBn || 'জরুরি') : (srv.categoryEn || srv.categoryBn || 'Emergency')}</span>
+                        {isBn ? (srv.nameEn && <span> • {srv.nameEn}</span>) : (srv.nameBn && <span> • {srv.nameBn}</span>)}
                       </div>
 
                       <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '6px 0' }}>
-                        {srv.descriptionBn}
+                        {isBn ? srv.descriptionBn : (srv.descriptionEn || srv.descriptionBn)}
                       </p>
 
                       {srv.websiteUrl && (
@@ -2417,17 +1867,24 @@ export default function AdminDashboard() {
                           borderRadius: 4,
                           backgroundColor: '#EFF6FF'
                         }}
-                        title="সম্পাদনা করুন"
+                        title={isBn ? "সম্পাদনা করুন" : "Edit"}
                       >
                         <Edit size={14} />
-                        <span>এডিট</span>
+                        <span>{isBn ? 'এডিট' : 'Edit'}</span>
                       </button>
                       <button
                         onClick={() => {
-                          if (window.confirm(`আপনি কি "${srv.nameBn}" তালিকা থেকে মুছে ফেলতে চান?`)) {
-                            deleteEmergencyService(srv.id);
-                            triggerSaveToast('জরুরি সেবা তালিকা থেকে মুছে ফেলা হয়েছে!');
-                          }
+                          openConfirm({
+                            title: isBn ? 'জরুরি সেবা মুছে ফেলার নিশ্চিতকরণ' : 'Delete Emergency Service',
+                            message: isBn
+                              ? `আপনি কি "${srv.nameBn}" তালিকা থেকে মুছে ফেলতে চান?`
+                              : `Are you sure you want to remove "${srv.nameEn || srv.nameBn}" from emergency services?`,
+                            confirmText: isBn ? 'হ্যাঁ, মুছে ফেলুন' : 'Yes, Delete',
+                            onConfirm: () => {
+                              deleteEmergencyService(srv.id);
+                              triggerSaveToast(isBn ? 'জরুরি সেবা তালিকা থেকে মুছে ফেলা হয়েছে!' : 'Emergency service removed!');
+                            }
+                          });
                         }}
                         style={{
                           display: 'inline-flex',
@@ -2439,12 +1896,13 @@ export default function AdminDashboard() {
                           padding: '4px 8px',
                           border: '1px solid #FECACA',
                           borderRadius: 4,
-                          backgroundColor: '#FEF2F2'
+                          backgroundColor: '#FEF2F2',
+                          cursor: 'pointer'
                         }}
-                        title="মুছে ফেলুন"
+                        title={isBn ? "মুছে ফেলুন" : "Delete"}
                       >
                         <Trash2 size={14} />
-                        <span>মুছুন</span>
+                        <span>{isBn ? 'মুছুন' : 'Delete'}</span>
                       </button>
                     </div>
                   </div>
@@ -2454,271 +1912,26 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 5: GLOBAL SETTINGS (BRANDING, COLORS, FONTS, CONTACT, TERMS) */}
+        {/* TAB 5: GLOBAL SETTINGS (BRANDING, POPUP, ABOUT, ADVERTISEMENTS, CONTACT, POLICIES) */}
         {activeTab === 'settings' && (
-          <div>
-            <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, marginBottom: 20 }}>
-              গ্লোবাল সাইট সেটিংস ও ব্র্যান্ডিং
-            </h1>
-
-            <form onSubmit={handleSaveSettings}>
-              {/* 1. Brand Colors (NO Gradients) */}
-              <div className="admin-card">
-                <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.2rem', marginBottom: 14 }}>
-                  🎨 সাইটের ব্র্যান্ড কালার (Zero Gradient)
-                </h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-                  <div>
-                    <label className="admin-label">Primary Red</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <input
-                        type="color"
-                        value={settingsForm.primaryRed}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, primaryRed: e.target.value })}
-                        style={{ width: 44, height: 40, border: 'none', cursor: 'pointer', borderRadius: 4 }}
-                      />
-                      <input
-                        type="text"
-                        className="admin-input"
-                        value={settingsForm.primaryRed}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, primaryRed: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="admin-label">Dark Red</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <input
-                        type="color"
-                        value={settingsForm.darkRed}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, darkRed: e.target.value })}
-                        style={{ width: 44, height: 40, border: 'none', cursor: 'pointer', borderRadius: 4 }}
-                      />
-                      <input
-                        type="text"
-                        className="admin-input"
-                        value={settingsForm.darkRed}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, darkRed: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="admin-label">Black Accent</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <input
-                        type="color"
-                        value={settingsForm.black}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, black: e.target.value })}
-                        style={{ width: 44, height: 40, border: 'none', cursor: 'pointer', borderRadius: 4 }}
-                      />
-                      <input
-                        type="text"
-                        className="admin-input"
-                        value={settingsForm.black}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, black: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="admin-label">Silver/Gray Border</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <input
-                        type="color"
-                        value={settingsForm.silver}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, silver: e.target.value })}
-                        style={{ width: 44, height: 40, border: 'none', cursor: 'pointer', borderRadius: 4 }}
-                      />
-                      <input
-                        type="text"
-                        className="admin-input"
-                        value={settingsForm.silver}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, silver: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Brand Identity & URLs */}
-              <div className="admin-card">
-                <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.2rem', marginBottom: 14 }}>
-                  📰 পোর্টাল নাম ও তথ্য
-                </h2>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                  <div className="admin-form-group">
-                    <label className="admin-label">ওয়েবসাইট নাম (বাংলা)</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={settingsForm.siteNameBn}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, siteNameBn: e.target.value })}
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Website Name (English)</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={settingsForm.siteNameEn}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, siteNameEn: e.target.value })}
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">স্লোগান / ট্যাগলাইন (বাংলা)</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={settingsForm.sloganBn}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, sloganBn: e.target.value })}
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Domain URL</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={settingsForm.websiteUrl}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, websiteUrl: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Founder & Office Contact Info */}
-              <div className="admin-card">
-                <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.2rem', marginBottom: 14 }}>
-                  🏢 প্রতিষ্ঠাতা ও কার্যালয়ের যোগাযোগ তথ্য
-                </h2>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                  <div className="admin-form-group">
-                    <label className="admin-label">প্রতিষ্ঠাতা / সম্পাদক (বাংলা)</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={settingsForm.founderBn}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, founderBn: e.target.value })}
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Founder / Editor (English)</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={settingsForm.founderEn}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, founderEn: e.target.value })}
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">পদবি (Designation)</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={settingsForm.designationBn}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, designationBn: e.target.value })}
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">মোবাইল ফোন নম্বর</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={settingsForm.phone}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">অফিসিয়াল ইমেইল</label>
-                    <input
-                      type="email"
-                      className="admin-input"
-                      value={settingsForm.email}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">ফেসবুক পেজ লিংক</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={settingsForm.facebook}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, facebook: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="admin-form-group">
-                  <label className="admin-label">কার্যালয়ের পূর্ণাঙ্গ ঠিকানা</label>
-                  <input
-                    type="text"
-                    className="admin-input"
-                    value={settingsForm.address}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, address: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              {/* 4. Terms & Conditions and Policies (from tcpp.txt) */}
-              <div className="admin-card">
-                <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.2rem', marginBottom: 14 }}>
-                  📜 নীতিমালা ও শর্তাবলী (Terms & Policies)
-                </h2>
-                <div className="admin-form-group">
-                  <label className="admin-label">ব্যবহারের শর্তাবলী (Terms & Conditions)</label>
-                  <textarea
-                    className="admin-textarea"
-                    rows={4}
-                    value={settingsForm.termsAndConditions}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, termsAndConditions: e.target.value })}
-                  />
-                </div>
-
-                <div className="admin-form-group">
-                  <label className="admin-label">গোপনীয়তা নীতি (Privacy Policy)</label>
-                  <textarea
-                    className="admin-textarea"
-                    rows={4}
-                    value={settingsForm.privacyPolicy}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, privacyPolicy: e.target.value })}
-                  />
-                </div>
-
-                <div className="admin-form-group">
-                  <label className="admin-label">সম্পাদকীয় নীতি (Editorial Policy)</label>
-                  <textarea
-                    className="admin-textarea"
-                    rows={3}
-                    value={settingsForm.editorialPolicy}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, editorialPolicy: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <button type="submit" className="admin-btn-primary" style={{ padding: '12px 24px', fontSize: '1rem' }}>
-                <Save size={18} />
-                <span>সব গ্লোবাল সেটিংস সংরক্ষণ করুন</span>
-              </button>
-            </form>
-          </div>
+          <GlobalSettingsManager triggerSaveToast={triggerSaveToast} />
         )}
 
         {/* TAB 6: ADSENSE & MONETIZATION */}
         {activeTab === 'ads' && (
           <div>
             <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, marginBottom: 20 }}>
-              Google AdSense ও বিজ্ঞাপন কনফিগারেশন
+              {isBn ? 'Google AdSense ও বিজ্ঞাপন কনফিগারেশন' : 'Google AdSense & Advertisements'}
             </h1>
 
             <div className="admin-card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                 <div>
                   <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.25rem' }}>
-                    Google AdSense মাস্টার কন্ট্রোল
+                    {isBn ? 'Google AdSense মাস্টার কন্ট্রোল' : 'Google AdSense Master Control'}
                   </h2>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                    AdSense অ্যাপ্রুভালের পর যেকোনো স্লটে কোড বসিয়ে স্বয়ংক্রিয় বিজ্ঞাপন প্রদর্শন চালু করুন
+                    {isBn ? 'AdSense অ্যাপ্রুভালের পর যেকোনো স্লটে কোড বসিয়ে স্বয়ংক্রিয় বিজ্ঞাপন প্রদর্শন চালু করুন' : 'Enable automated advertisements and manage custom ad unit placements'}
                   </p>
                 </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
@@ -2727,16 +1940,16 @@ export default function AdminDashboard() {
                     checked={settings.adSenseEnabled}
                     onChange={(e) => {
                       updateSiteSettings({ adSenseEnabled: e.target.checked });
-                      triggerSaveToast(e.target.checked ? 'AdSense সক্রিয় করা হয়েছে!' : 'AdSense নিষ্ক্রিয় করা হয়েছে');
+                      triggerSaveToast(e.target.checked ? (isBn ? 'AdSense সক্রিয় করা হয়েছে!' : 'AdSense enabled!') : (isBn ? 'AdSense নিষ্ক্রিয় করা হয়েছে' : 'AdSense disabled'));
                     }}
                     style={{ width: 20, height: 20 }}
                   />
-                  <span style={{ fontWeight: 700 }}>বিজ্ঞাপন চালু রাখুন</span>
+                  <span style={{ fontWeight: 700 }}>{isBn ? 'বিজ্ঞাপন চালু রাখুন' : 'Enable Ads'}</span>
                 </label>
               </div>
 
               <div className="admin-form-group">
-                <label className="admin-label">Google AdSense Publisher / Client ID</label>
+                <label className="admin-label">{isBn ? 'Google AdSense পাবলিশার / ক্লায়েন্ট আইডি' : 'Google AdSense Publisher / Client ID'}</label>
                 <input
                   type="text"
                   className="admin-input"
@@ -2750,7 +1963,7 @@ export default function AdminDashboard() {
             {/* Individual Slot Configs */}
             <div className="admin-card">
               <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.25rem', marginBottom: 14 }}>
-                বিজ্ঞাপন স্লটসমূহ (Ad Slots Placement)
+                {isBn ? 'বিজ্ঞাপন স্লটসমূহ (Ad Slots Placement)' : 'Ad Slots Placement'}
               </h2>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -2776,10 +1989,10 @@ export default function AdminDashboard() {
                               [slotKey]: { ...slotVal, enabled: e.target.checked }
                             };
                             updateSiteSettings({ adSlots: updatedSlots });
-                            triggerSaveToast();
+                            triggerSaveToast(isBn ? 'স্লট আপডেট হয়েছে!' : 'Slot updated!');
                           }}
                         />
-                        স্লট সক্রিয়
+                        {isBn ? 'স্লট সক্রিয়' : 'Slot Active'}
                       </label>
                     </div>
                     <textarea
@@ -2806,15 +2019,17 @@ export default function AdminDashboard() {
         {activeTab === 'database' && (
           <div>
             <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, marginBottom: 20 }}>
-              Supabase ডাটাবেজ ও ক্লাউড স্টোরেজ
+              {isBn ? 'Supabase ডাটাবেজ ও ক্লাউড স্টোরেজ' : 'Supabase Database & Cloud Storage'}
             </h1>
 
             <div className="admin-card">
               <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.25rem', marginBottom: 14 }}>
-                Supabase Connection Setup
+                {isBn ? 'Supabase কানেকশন সেটআপ' : 'Supabase Connection Setup'}
               </h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: 16 }}>
-                প্রজেক্ট রুট ফোল্ডারে থাকা <code>supabase_schema.sql</code> ফাইলটি আপনার Supabase SQL Editor-এ রান করার পর নিচের তথ্যগুলো বসান:
+                {isBn
+                  ? 'প্রজেক্ট রুট ফোল্ডারে থাকা supabase_schema.sql ফাইলটি আপনার Supabase SQL Editor-এ রান করার পর নিচের তথ্যগুলো বসান:'
+                  : 'Run supabase_schema.sql in your Supabase SQL Editor, then enter connection details below:'}
               </p>
 
               <form onSubmit={handleConfigureSupabase}>
@@ -2842,7 +2057,7 @@ export default function AdminDashboard() {
 
                 <button type="submit" className="admin-btn-primary">
                   <RefreshCw size={16} />
-                  <span>কানেকশন সেভ করুন</span>
+                  <span>{isBn ? 'কানেকশন সেভ করুন' : 'Save Connection'}</span>
                 </button>
               </form>
             </div>
@@ -2850,7 +2065,7 @@ export default function AdminDashboard() {
             {/* Backblaze B2 Status */}
             <div className="admin-card">
               <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.25rem', marginBottom: 14 }}>
-                Backblaze B2 Cloud Storage Status
+                {isBn ? 'Backblaze B2 ক্লাউড স্টোরেজ স্ট্যাটাস' : 'Backblaze B2 Cloud Storage Status'}
               </h2>
               <div style={{ fontSize: '0.9rem', lineHeight: 1.8 }}>
                 <div><strong>Primary Image Bucket:</strong> <code>janogon-news-images</code></div>
@@ -2863,19 +2078,34 @@ export default function AdminDashboard() {
             {/* Data Export & Backup */}
             <div className="admin-card">
               <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.25rem', marginBottom: 14 }}>
-                ডাটাবেজ ও কনটেন্ট ব্যাকআপ
+                {isBn ? 'ডাটাবেজ ও কনটেন্ট ব্যাকআপ' : 'Database & Content Backup'}
               </h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: 16 }}>
-                আপনার সমস্ত সংবাদ, সেটিংস ও ক্যাটাগরির ব্যাকআপ এক ক্লিকে ডাউনলোড করুন:
+                {isBn
+                  ? 'আপনার সমস্ত সংবাদ, সেটিংস ও ক্যাটাগরির ব্যাকআপ এক ক্লিকে ডাউনলোড করুন:'
+                  : 'Download complete JSON snapshot backup of all articles, settings, and menus in one click:'}
               </p>
               <button onClick={handleExportBackup} className="admin-btn-primary">
                 <Download size={18} />
-                <span>সম্পূর্ণ ডাটাবেজ ব্যাকআপ ডাউনলোড করুন (.json)</span>
+                <span>{isBn ? 'সম্পূর্ণ ডাটাবেজ ব্যাকআপ ডাউনলোড করুন (.json)' : 'Download Full Database Backup (.json)'}</span>
               </button>
             </div>
           </div>
         )}
       </main>
+
+      {/* Modern UI Confirm / Alert Modal Dialog */}
+      <ConfirmModal
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        subMessage={confirmDialog.subMessage}
+        confirmText={confirmDialog.confirmText}
+        type={confirmDialog.type}
+        isBn={isBn}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

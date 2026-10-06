@@ -20,6 +20,7 @@ import NewsletterRibbon from './components/Newsletter/NewsletterRibbon';
 import ComplaintBoxSection from './components/News/ComplaintBoxSection';
 import Footer from './components/Footer/Footer';
 import PolicyModal from './components/Modals/PolicyModal';
+import WebsiteLoadPopup from './components/Modals/WebsiteLoadPopup';
 import ScrollToTop from './components/UI/ScrollToTop';
 import SideWatchWidget from './components/Widgets/SideWatchWidget';
 import AdminDashboard from './admin/AdminDashboard';
@@ -59,8 +60,8 @@ export default function App() {
     }
   }, [activePage, isBn, settings]);
 
-  // If Admin Dashboard View is toggled
-  if (isAdminOpen) {
+  // If Admin Dashboard View is toggled or URL route is /admin
+  if (isAdminOpen || activePage === 'admin') {
     return <AdminDashboard />;
   }
 
@@ -94,7 +95,7 @@ export default function App() {
       return <CategoryPage />;
     }
 
-    // Default: Master Editorial Homepage
+    // Default: Master Editorial Homepage (Exact Layout from GitHub Push f31f69e)
     return (
       <div className="container">
         {/* Ad Banner directly below Breaking Tickers (970 × 90) */}
@@ -123,7 +124,6 @@ export default function App() {
         <div className="section-interval-ad-wrap" style={{ margin: '22px 0' }}>
           <AdSenseSlot slotId="afterVideoBanner" customClass="ad-slot-970x90" />
         </div>
-
 
         {/* Section 4: My District News (Dynamic District News Selector) */}
         <DistrictNewsSection />
@@ -184,6 +184,9 @@ export default function App() {
 
       {/* Policy & Terms Modal (fallback/quick modal) */}
       <PolicyModal />
+
+      {/* Website On-Load Dynamic Popup Modal */}
+      <WebsiteLoadPopup />
 
       {/* Floating Bottom to Top Button */}
       <ScrollToTop />

@@ -5,8 +5,13 @@ import { Clock, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
 
 export default function LatestNewsGrid() {
-  const { language, articles, openArticle, setActiveCategory } = useNews();
+  const { language, articles, openArticle, setActiveCategory, homepageSections } = useNews();
   const isBn = language === 'bn';
+
+  // Section visibility check from homepageSections
+  const secConfig = (homepageSections || []).find((s) => s.id === 'latestNewsGrid');
+  if (secConfig && secConfig.isVisible === false) return null;
+
   const scrollContainerRef = useRef(null);
 
   // Ensure at least 12 cards per half for consistent track width and velocity

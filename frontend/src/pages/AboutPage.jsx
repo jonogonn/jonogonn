@@ -63,22 +63,35 @@ export default function AboutPage() {
         <div className="page-content-layout">
           {/* Main Article Body */}
           <div className="page-main-body">
-            {/* Section 1: Our Mission */}
+            {/* Section 1: Our Story / About Us */}
             <section className="page-section-block">
               <h2 className="section-subheading">
                 <span className="bullet-accent"></span>
-                {isBn ? 'আমাদের লক্ষ্য ও উদ্দেশ্য' : 'Our Mission & Vision'}
+                {isBn ? 'আমাদের পরিচয় ও অঙ্গীকার' : 'Who We Are & Our Commitment'}
               </h2>
-              <p className="page-paragraph">
+              <p className="page-paragraph" style={{ whiteSpace: 'pre-line' }}>
                 {isBn
-                  ? 'জনগণ.নিউজ-এর মূল দর্শন হলো ‘সত্যের সাথে, জনতার পাশে’। আমরা বিশ্বাস করি তথ্যের অবাধ প্রবাহ এবং নির্ভীক সাংবাদিকতাই একটি সুন্দর, গণতান্ত্রিক ও জবাবদিহিতামূলক সমাজ বিনির্মাণের চাবিকাঠি। তৃণমূলের কণ্ঠস্বর থেকে শুরু করে জাতীয় ও বৈশ্বিক পলিসি—সব ক্ষেত্রেই বস্তুনিষ্ঠ তথ্য পৌঁছে দিতে আমাদের সংবাদকর্মীরা দিনরাত কাজ করে যাচ্ছেন।'
-                  : 'At Jonogon News, our core mantra is "With Truth, For The People". We believe unobstructed flow of information and fearless journalism are foundational to a thriving democracy.'}
+                  ? (settings.aboutUsBn || 'জনগণ.নিউজ (Jonogon.News) একটি স্বাধীন, নিরপেক্ষ ও জনকল্যাণমুখী ডিজিটাল সংবাদ মাধ্যম। সত্যের সাথে, জনতার পাশে—এই অঙ্গীকার নিয়ে আমরা প্রতিনিয়ত দেশ-বিদেশের বস্তুনিষ্ঠ সংবাদ পরিবেশন করছি।')
+                  : (settings.aboutUsEn || 'Jonogon News is an independent, non-partisan, digital news organisation dedicated to authentic journalism standing with the people.')}
               </p>
-              <p className="page-paragraph">
+            </section>
+
+            {/* Section 2: Mission & Vision */}
+            <section className="page-section-block">
+              <h2 className="section-subheading">
+                <span className="bullet-accent"></span>
+                {isBn ? 'আমাদের লক্ষ্য ও ভিশন' : 'Our Mission & Vision'}
+              </h2>
+              <p className="page-paragraph" style={{ whiteSpace: 'pre-line' }}>
                 {isBn
-                  ? 'আমরা কোনো দলীয় বা স্বার্থান্বেষী মহলের প্রচারমাধ্যম নই; বরং সাধারণ নাগরিকের সংকট, সম্ভাবনা, উদ্ভাবন ও অর্জনকে বিশ্ব দরবারে তুলে ধরাই আমাদের প্রধান লক্ষ্য।'
-                  : 'We are committed to delivering balanced perspectives, holding power to account while showcasing the grassroots stories that define our society.'}
+                  ? (settings.missionBn || 'জনগণ.নিউজ-এর মূল দর্শন হলো ‘সত্যের সাথে, জনতার পাশে’। আমরা বিশ্বাস করি তথ্যের অবাধ প্রবাহ এবং নির্ভীক সাংবাদিকতাই একটি সুন্দর, গণতান্ত্রিক ও জবাবদিহিতামূলক সমাজ বিনির্মাণের চাবিকাঠি।')
+                  : (settings.missionEn || 'At Jonogon News, our core mantra is "With Truth, For The People". We believe unobstructed flow of information and fearless journalism are foundational to a thriving democracy.')}
               </p>
+              {((isBn && settings.visionBn) || (!isBn && settings.visionEn)) && (
+                <p className="page-paragraph" style={{ whiteSpace: 'pre-line' }}>
+                  {isBn ? settings.visionBn : settings.visionEn}
+                </p>
+              )}
             </section>
 
             {/* Core Values 3 Cards */}

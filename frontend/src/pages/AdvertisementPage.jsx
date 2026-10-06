@@ -151,6 +151,52 @@ export default function AdvertisementPage() {
               </ul>
             </section>
 
+            {/* Live Advertisement Terms from Admin Settings */}
+            {((isBn && settings.advertisementTermsBn) || (!isBn && settings.advertisementTermsEn)) && (
+              <section className="page-section-block">
+                <h2 className="section-subheading">
+                  <span className="bullet-accent"></span>
+                  {isBn ? 'বিজ্ঞাপন নীতিমালা ও প্রকাশনার শর্তাবলী' : 'Advertisement Terms & Editorial Standards'}
+                </h2>
+                <div
+                  style={{
+                    backgroundColor: 'var(--bg-subtle)',
+                    border: '1px solid var(--border-color)',
+                    borderLeft: '4px solid var(--primary-red)',
+                    padding: '16px 20px',
+                    borderRadius: 6,
+                    lineHeight: 1.7,
+                    whiteSpace: 'pre-line'
+                  }}
+                >
+                  {isBn ? settings.advertisementTermsBn : settings.advertisementTermsEn}
+                </div>
+              </section>
+            )}
+
+            {/* Live Payment & Billing Instructions from Admin Settings */}
+            {((isBn && settings.adPaymentInfoBn) || (!isBn && settings.adPaymentInfoEn)) && (
+              <section className="page-section-block">
+                <h2 className="section-subheading">
+                  <span className="bullet-accent"></span>
+                  {isBn ? 'পেমেন্ট ও বিল পরিশোধের নিয়মাবলী' : 'Payment & Billing Instructions'}
+                </h2>
+                <div
+                  style={{
+                    backgroundColor: 'rgba(22, 163, 74, 0.05)',
+                    border: '1px solid rgba(22, 163, 74, 0.2)',
+                    borderLeft: '4px solid #16A34A',
+                    padding: '16px 20px',
+                    borderRadius: 6,
+                    lineHeight: 1.7,
+                    whiteSpace: 'pre-line'
+                  }}
+                >
+                  {isBn ? settings.adPaymentInfoBn : settings.adPaymentInfoEn}
+                </div>
+              </section>
+            )}
+
             {/* Sponsored Content */}
             <section className="page-section-block">
               <h2 className="section-subheading">

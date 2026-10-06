@@ -34,11 +34,36 @@ export const initialSiteSettings = {
 
   // Office & Contact Info
   address: 'House 101, Alia Madrasa Road, Faydabad, Dakshinkhan, Dhaka-1230',
+  addressBn: 'বাড়ি ১০১, আলিয়া মাদ্রাসা রোড, ফায়দাবাদ, দক্ষিণখান, ঢাকা-১২৩০',
+  addressEn: 'House 101, Alia Madrasa Road, Faydabad, Dakshinkhan, Dhaka-1230',
   phone: '01936618534',
+  whatsapp: '01936618534',
+  adPhone: '01936618534',
   email: 'brandbiplob1234@gmail.com',
+  adEmail: 'brandbiplob1234@gmail.com',
   facebook: 'https://www.facebook.com/jonogon.newstv/',
   youtube: 'https://www.youtube.com/@jonogon.newstv',
+  twitter: 'https://twitter.com/jonogonnews',
+  instagram: 'https://instagram.com/jonogonnews',
+  linkedin: 'https://linkedin.com/company/jonogonnews',
+  telegram: 'https://t.me/jonogonnews',
   country: 'Bangladesh',
+
+  // Website On-Load Popup Settings
+  loadPopup: {
+    enabled: false,
+    type: 'notice', // 'notice' | 'breaking' | 'ad' | 'welcome'
+    titleBn: 'জনগণ.নিউজ-এ আপনাকে স্বাগতম',
+    titleEn: 'Welcome to Jonogon News',
+    messageBn: 'সত্য ও বস্তুনিষ্ঠ সংবাদের বিশ্বস্ত ডিজিটাল মাধ্যম। দেশ-বিদেশের ব্রেকিং নিউজ এবং গভীর বিশ্লেষণের সাথে থাকুন।',
+    messageEn: 'Your trusted digital source for authentic journalism, ground reporting and real-time updates.',
+    imageUrl: '',
+    actionTextBn: 'বিস্তারিত জানুন',
+    actionTextEn: 'Learn More',
+    actionUrl: '',
+    frequency: 'once_per_session', // 'every_visit' | 'once_per_session' | 'once_per_day'
+    autoCloseSeconds: 0
+  },
 
   // Google AdSense & Ads Configuration
   adSenseEnabled: true,
@@ -52,7 +77,38 @@ export const initialSiteSettings = {
     bottomSlidingAd: { enabled: true, code: '', fallbackText: '⚡ ব্রেকিং নোটিফিকেশন ও স্পন্সরড অফার — সত্যের সাথে, জনতার পাশে জনগণ.নিউজ' }
   },
 
-  // Terms & Conditions and Policies (Merged from Prothom Alo, Kalbela, BDNews24, TimesTodayBD standards - Editable from Admin)
+  // About Us Information
+  aboutUsBn: `জনগণ.নিউজ (Jonogon.News) একটি স্বাধীন, নিরপেক্ষ ও জনকল্যাণমুখী ডিজিটাল সংবাদ মাধ্যম। আমরা ‘সত্যের সাথে, জনতার পাশে’ মূলমন্ত্রে বিশ্বাসী। তৃণমূলের কণ্ঠস্বর থেকে শুরু করে জাতীয় ও বৈশ্বিক পলিসি—সব ক্ষেত্রেই বস্তুনিষ্ঠ তথ্য পৌঁছে দিতে আমাদের সংবাদকর্মীরা নিরলসভাবে কাজ করে যাচ্ছেন।`,
+  aboutUsEn: `Jonogon News is an independent, non-partisan digital news organization dedicated to authentic journalism. Our core philosophy is "With Truth, Standing for the People".`,
+  missionBn: `নির্ভীক ও সৎ সাংবাদিকতার মাধ্যমে জনগণের তথ্যের অধিকার নিশ্চিত করা এবং সমাজের অন্যায় ও অসঙ্গতি তুলে ধরে একটি জবাবদিহিতামূলক সমাজ গঠনে সহায়তা করা।`,
+  missionEn: `To empower the citizens with unbiased, verified information and foster transparent democratic dialogue.`,
+  visionBn: `বাংলাদেশের অন্যতম নির্ভরযোগ্য ও প্রযুক্তিবান্ধব ডিজিটাল গণমাধ্যম হিসেবে বিশ্বমঞ্চে সত্যের পক্ষে প্রতিনিধিত্ব করা।`,
+  visionEn: `To be the premier digital news portal recognized globally for journalistic integrity and public trust.`,
+
+  // Advertisement Policy & Terms
+  advertisementTermsBn: `১. বিজ্ঞাপনের গ্রহণযোগ্যতা: জনগণ.নিউজ-এ প্রচারিত সকল বিজ্ঞাপনের বিষয়বস্তু বাংলাদেশের জাতীয় আইন, ভোক্তা অধিকার ও শালীনতা বজায় রেখে হতে হবে।
+২. দায়বদ্ধতা: বিজ্ঞাপনে উল্লেখিত পণ্য বা সেবার গুণগত মান ও প্রতিশ্রুতির একক দায় সংশ্লিষ্ট বিজ্ঞাপনদাতার।
+৩. অগ্রিম পেমেন্ট: ডিজিটাল ব্যানার বা স্পন্সরড আর্টিকেলের ক্ষেত্রে নির্ধারিত পেমেন্ট সম্পন্ন হওয়ার পর বিজ্ঞাপন কার্যকর হবে।
+৪. পরিবর্তন বা বাতিল: বুকিংয়ের ২৪ ঘণ্টার মধ্যে বিজ্ঞাপন পরিবর্তনের সুযোগ থাকে।`,
+  advertisementTermsEn: `1. Ad Compliance: All digital ad creatives must comply with the laws and ethical advertising guidelines of Bangladesh.
+2. Advertiser Responsibility: Quality and claims made in advertisements are the sole responsibility of the advertiser.
+3. Pre-payment: All campaigns require confirmed upfront billing via Bank, bKash or approved gateways.`,
+  adRatesSummaryBn: `টপ হেডার ব্যানার (৭২৮×৯০): ১৫,০০০ টাকা/মাস
+ইন-কনটেন্ট ব্যানার (৯৭০×৯০): ১২,০০০ টাকা/মাস
+সাইডবার ব্যানার (৩০০×২৫০): ৮,০০০ টাকা/মাস
+স্টিকি ভিডিও ব্যানার (৩০০×৬০০): ১০,০০০ টাকা/মাস`,
+  adRatesSummaryEn: `Top Header Banner (728x90): BDT 15,000 / month
+In-Content Banner (970x90): BDT 12,000 / month
+Sidebar Banner (300x250): BDT 8,000 / month
+Sticky Half-Page Banner (300x600): BDT 10,000 / month`,
+  adPaymentInfoBn: `বিকাশ / নগদ মার্চেন্ট: 01936618534
+ব্যাংক ট্রান্সফার: ডাচ-বাংলা ব্যাংক লিমিটেড / সিটি ব্যাংক
+অফিসিয়াল যোগাযোগ: brandbiplob1234@gmail.com`,
+  adPaymentInfoEn: `bKash / Nagad Merchant: 01936618534
+Bank Wire: Dutch-Bangla Bank Limited / The City Bank
+Commercial Desk: brandbiplob1234@gmail.com`,
+
+  // Terms & Conditions and Policies
   termsAndConditions: `১. শর্তাবলীর গ্রহণযোগ্যতা ও আওতা: জনগণ.নিউজ (Jonogon News) অনলাইন পোর্টাল, মোবাইল সংস্করণ বা সামাজিক যোগাযোগ মাধ্যমের যেকোনো কনটেন্ট পাঠ ও ব্যবহারের ক্ষেত্রে আপনি এই শর্তাবলীর প্রতি পূর্ণ সম্মতি জ্ঞাপন করছেন। যদি আপনি এই শর্তাবলীর কোনো অংশে অসম্মত হন, তবে ওয়েবসাইট ব্রাউজ না করার অনুরোধ করা হলো।
 
 ২. বুদ্ধিবৃত্তিক সম্পদ ও কপিরাইট আইন: জনগণ.নিউজ-এ প্রকাশিত সকল সংবাদ প্রতিবেদন, অনুসন্ধানী ফিচার, ছবি, ইনফোগ্রাফিক, অডিও ও ভিডিও কনটেন্ট কপিরাইট আইন (Copyright Act of Bangladesh) এবং আন্তর্জাতিক মেধাস্বত্ব আইনের আওতায় সম্পূর্ণ সংরক্ষিত। কর্তৃপক্ষের লিখিত অনুমতি ব্যতিরেকে বাণিজ্যিক উদ্দেশ্যে কোনো কনটেন্ট হুবহু বা আংশিক পুনর্মুদ্রণ, পুনঃপ্রচার, ডাউনলোড বা স্ক্র্যাপিং করা আইনত দণ্ডনীয় অপরাধ।
@@ -89,7 +145,14 @@ export const initialSiteSettings = {
 
 ৫. অসাম্প্রদায়িকতা ও মানবাধিকার: আমরা ধর্মনিরপেক্ষতা, মুক্তিযুদ্ধের চেতনা, সাম্প্রদায়িক সম্প্রীতি এবং সার্বজনীন মানবাধিকার সুরক্ষায় অবিচল অবস্থান বজায় রাখি।
 
-৬. স্বার্থের সংঘাত ও উপহার গ্রহণ নীতিমালা: আমাদের সাংবাদিকদের কোনো উৎস থেকে উপহার, আর্থিক সুবিধা বা অনৈতিক সুযোগ গ্রহণ কঠোরভাবে নিষিদ্ধ, যাতে সাংবাদিকতার স্বাধীনতা অক্ষুণ্ণ থাকে।`
+৬. স্বার্থের সংঘাত ও উপহার গ্রহণ নীতিমালা: আমাদের সাংবাদিকদের কোনো উৎস থেকে উপহার, আর্থিক সুবিধা বা অনৈতিক সুযোগ গ্রহণ কঠোরভাবে নিষিদ্ধ, যাতে সাংবাদিকতার স্বাধীনতা অক্ষুণ্ণ থাকে।`,
+
+  disclaimerPolicy: `জনগণ.নিউজ-এ প্রকাশিত তথ্য ও বিশ্লেষণ পাঠকদের সাধারণ অবগতির জন্য পরিবেশিত হয়। আর্থিক বিনিয়োগ, স্বাস্থ্য বা আইনি সিদ্ধান্তের ক্ষেত্রে পাঠকদের সংশ্লিষ্ট বিশেষজ্ঞদের পরামর্শ নেওয়ার অনুরোধ করা হচ্ছে।`,
+
+  cookiePolicy: `ব্যবহারকারীর ব্রাউজিং অভিজ্ঞতা উন্নত করতে এবং গুগল অ্যাডসেন্স ও প্রাসঙ্গিক কনটেন্ট পরিবেশনের স্বার্থে আমরা স্ট্যান্ডার্ড ব্রাউজার কুকিজ ব্যবহার করি। পাঠক যেকোনো সময় ব্রাউজার সেটিং থেকে এটি নিয়ন্ত্রণ করতে পারেন।`,
+
+  copyrightTextBn: '© ২০২৬ সর্বস্বত্ব সংরক্ষিত — জনগণ.নিউজ | Jonogon News',
+  copyrightTextEn: '© 2026 All Rights Reserved — Jonogon News'
 };
 
 export const initialCategories = [
@@ -1435,3 +1498,491 @@ export const initialEmergencyServices = [
 ];
 
 
+
+export const defaultHomepageSections = [
+  {
+    "id": "heroLeadGrid",
+    "nameBn": "১. হিরো লিড ৩-কলাম গ্রিড",
+    "nameEn": "Hero Lead 3-Column Grid",
+    "descriptionBn": "প্রধান সংবাদ, মতামত, স্পেশাল লিড ও সাইডবার ট্রেন্ডিং",
+    "descriptionEn": "Top story banner, newly published news stream and trending sidebar",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "LayoutGrid",
+    "type": "main"
+  },
+  {
+    "id": "latestNewsGrid",
+    "nameBn": "২. সর্বশেষ সংবাদ ট্র্যাক",
+    "nameEn": "Latest News Track",
+    "descriptionBn": "সর্বশেষ সংবাদের অনুদৈর্ঘ্য কার্ড স্ক্রলিং ট্র্যাক",
+    "descriptionEn": "Horizontal latest news feed with timestamps and quick category filter",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "Clock",
+    "type": "main"
+  },
+  {
+    "id": "bangladeshSection",
+    "nameBn": "৩. বাংলাদেশ ও জাতীয় সংবাদ",
+    "nameEn": "Bangladesh & National Section",
+    "descriptionBn": "জাতীয় সংবাদ, লাইভ আবহাওয়া ও সোশ্যাল ফলো উইজেট",
+    "descriptionEn": "National reports, district live weather and social followers widget",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "Flag",
+    "type": "main"
+  },
+  {
+    "id": "remittanceFighter",
+    "nameBn": "৪. প্রবাসী ও রেমিট্যান্স যোদ্ধা",
+    "nameEn": "Expatriates & Remittance Fighters",
+    "descriptionBn": "প্রবাসী ভাই-বোনদের খবর ও রেমিট্যান্স তথ্য",
+    "descriptionEn": "Global diaspora news, currency exchange rates and 24/7 hotline",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "Plane",
+    "type": "main"
+  },
+  {
+    "id": "districtNewsSection",
+    "nameBn": "৫. আমার জেলা সংবাদ",
+    "nameEn": "My District News",
+    "descriptionBn": "৬৪ জেলার বিভাগভিত্তিক আঞ্চলিক সংবাদ ফিল্টার ও মানচিত্র",
+    "descriptionEn": "Interactive district-level regional news filter for 64 districts",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "MapPin",
+    "type": "main"
+  },
+  {
+    "id": "videoNewsSection",
+    "nameBn": "৬. ভিডিও সংবাদ ও প্লেয়ার",
+    "nameEn": "Video News & Player",
+    "descriptionBn": "ইউটিউব ও ভিডিও বুলেটিন সংবাদ প্লেয়ার এবং প্লেলিস্ট",
+    "descriptionEn": "Featured YouTube video player, playlist and bulletin news stream",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "PlaySquare",
+    "type": "main"
+  },
+  {
+    "id": "podcastSection",
+    "nameBn": "৭. পডকাস্ট পর্বসমূহ",
+    "nameEn": "Our Podcasts",
+    "descriptionBn": "অডিও ও ভিডিও পডকাস্ট আলোচনার পর্বসমূহ",
+    "descriptionEn": "Deep-dive audio & video podcast discussion episodes",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "Mic",
+    "type": "main"
+  },
+  {
+    "id": "subgroup-bangladesh-governance-0",
+    "masterGroupId": "bangladesh-governance",
+    "subGroupIndex": 0,
+    "subGroupTitleBn": "জাতীয় ও নগর",
+    "subGroupTitleEn": "National & Urban",
+    "masterGroupNameBn": "বাংলাদেশ ও জাতীয়",
+    "masterGroupNameEn": "Bangladesh & National",
+    "nameBn": "বাংলাদেশ ও জাতীয়: জাতীয় ও নগর",
+    "nameEn": "Bangladesh & National: National & Urban",
+    "descriptionBn": "জাতীয় ও নগর সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for National & Urban",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-bangladesh-governance-1",
+    "masterGroupId": "bangladesh-governance",
+    "subGroupIndex": 1,
+    "subGroupTitleBn": "রাজনীতি ও নির্বাচন",
+    "subGroupTitleEn": "Politics & Elections",
+    "masterGroupNameBn": "বাংলাদেশ ও জাতীয়",
+    "masterGroupNameEn": "Bangladesh & National",
+    "nameBn": "বাংলাদেশ ও জাতীয়: রাজনীতি ও নির্বাচন",
+    "nameEn": "Bangladesh & National: Politics & Elections",
+    "descriptionBn": "রাজনীতি ও নির্বাচন সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Politics & Elections",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-bangladesh-governance-2",
+    "masterGroupId": "bangladesh-governance",
+    "subGroupIndex": 2,
+    "subGroupTitleBn": "প্রশাসন ও বিচার ব্যবস্থা",
+    "subGroupTitleEn": "Admin & Judiciary",
+    "masterGroupNameBn": "বাংলাদেশ ও জাতীয়",
+    "masterGroupNameEn": "Bangladesh & National",
+    "nameBn": "বাংলাদেশ ও জাতীয়: প্রশাসন ও বিচার ব্যবস্থা",
+    "nameEn": "Bangladesh & National: Admin & Judiciary",
+    "descriptionBn": "প্রশাসন ও বিচার ব্যবস্থা সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Admin & Judiciary",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-international-world-0",
+    "masterGroupId": "international-world",
+    "subGroupIndex": 0,
+    "subGroupTitleBn": "বৈশ্বিক রাজনীতি",
+    "subGroupTitleEn": "Global Affairs",
+    "masterGroupNameBn": "আন্তর্জাতিক ও বিশ্ব",
+    "masterGroupNameEn": "International & World",
+    "nameBn": "আন্তর্জাতিক ও বিশ্ব: বৈশ্বিক রাজনীতি",
+    "nameEn": "International & World: Global Affairs",
+    "descriptionBn": "বৈশ্বিক রাজনীতি সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Global Affairs",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-international-world-1",
+    "masterGroupId": "international-world",
+    "subGroupIndex": 1,
+    "subGroupTitleBn": "এশিয়া ও মধ্যপ্রাচ্য",
+    "subGroupTitleEn": "Asia & Middle East",
+    "masterGroupNameBn": "আন্তর্জাতিক ও বিশ্ব",
+    "masterGroupNameEn": "International & World",
+    "nameBn": "আন্তর্জাতিক ও বিশ্ব: এশিয়া ও মধ্যপ্রাচ্য",
+    "nameEn": "International & World: Asia & Middle East",
+    "descriptionBn": "এশিয়া ও মধ্যপ্রাচ্য সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Asia & Middle East",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-international-world-2",
+    "masterGroupId": "international-world",
+    "subGroupIndex": 2,
+    "subGroupTitleBn": "পাশ্চাত্য ও অন্যান্য অঞ্চল",
+    "subGroupTitleEn": "West & Other Continents",
+    "masterGroupNameBn": "আন্তর্জাতিক ও বিশ্ব",
+    "masterGroupNameEn": "International & World",
+    "nameBn": "আন্তর্জাতিক ও বিশ্ব: পাশ্চাত্য ও অন্যান্য অঞ্চল",
+    "nameEn": "International & World: West & Other Continents",
+    "descriptionBn": "পাশ্চাত্য ও অন্যান্য অঞ্চল সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for West & Other Continents",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-business-economy-0",
+    "masterGroupId": "business-economy",
+    "subGroupIndex": 0,
+    "subGroupTitleBn": "বাণিজ্য ও করপোরেট",
+    "subGroupTitleEn": "Trade & Corporate",
+    "masterGroupNameBn": "বাণিজ্য ও অর্থনীতি",
+    "masterGroupNameEn": "Business & Economy",
+    "nameBn": "বাণিজ্য ও অর্থনীতি: বাণিজ্য ও করপোরেট",
+    "nameEn": "Business & Economy: Trade & Corporate",
+    "descriptionBn": "বাণিজ্য ও করপোরেট সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Trade & Corporate",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-business-economy-1",
+    "masterGroupId": "business-economy",
+    "subGroupIndex": 1,
+    "subGroupTitleBn": "বাজার, ব্যাংকিং ও বিনিয়োগ",
+    "subGroupTitleEn": "Markets & Banking",
+    "masterGroupNameBn": "বাণিজ্য ও অর্থনীতি",
+    "masterGroupNameEn": "Business & Economy",
+    "nameBn": "বাণিজ্য ও অর্থনীতি: বাজার, ব্যাংকিং ও বিনিয়োগ",
+    "nameEn": "Business & Economy: Markets & Banking",
+    "descriptionBn": "বাজার, ব্যাংকিং ও বিনিয়োগ সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Markets & Banking",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-jobs-education-0",
+    "masterGroupId": "jobs-education",
+    "subGroupIndex": 0,
+    "subGroupTitleBn": "চাকরি ও নিয়োগ বিজ্ঞপ্তি",
+    "subGroupTitleEn": "Jobs & Recruitment",
+    "masterGroupNameBn": "চাকরি ও শিক্ষা",
+    "masterGroupNameEn": "Jobs & Education",
+    "nameBn": "চাকরি ও শিক্ষা: চাকরি ও নিয়োগ বিজ্ঞপ্তি",
+    "nameEn": "Jobs & Education: Jobs & Recruitment",
+    "descriptionBn": "চাকরি ও নিয়োগ বিজ্ঞপ্তি সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Jobs & Recruitment",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-jobs-education-1",
+    "masterGroupId": "jobs-education",
+    "subGroupIndex": 1,
+    "subGroupTitleBn": "শিক্ষা ও শিক্ষাঙ্গন",
+    "subGroupTitleEn": "Education & Campus",
+    "masterGroupNameBn": "চাকরি ও শিক্ষা",
+    "masterGroupNameEn": "Jobs & Education",
+    "nameBn": "চাকরি ও শিক্ষা: শিক্ষা ও শিক্ষাঙ্গন",
+    "nameEn": "Jobs & Education: Education & Campus",
+    "descriptionBn": "শিক্ষা ও শিক্ষাঙ্গন সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Education & Campus",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-science-tech-0",
+    "masterGroupId": "science-tech",
+    "subGroupIndex": 0,
+    "subGroupTitleBn": "ডিজিটাল ও আইটি প্রযুক্তি",
+    "subGroupTitleEn": "Digital & IT Tech",
+    "masterGroupNameBn": "বিজ্ঞান ও প্রযুক্তি",
+    "masterGroupNameEn": "Science & Technology",
+    "nameBn": "বিজ্ঞান ও প্রযুক্তি: ডিজিটাল ও আইটি প্রযুক্তি",
+    "nameEn": "Science & Technology: Digital & IT Tech",
+    "descriptionBn": "ডিজিটাল ও আইটি প্রযুক্তি সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Digital & IT Tech",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-science-tech-1",
+    "masterGroupId": "science-tech",
+    "subGroupIndex": 1,
+    "subGroupTitleBn": "গ্যাজেট ও অটোমোবাইল",
+    "subGroupTitleEn": "Gadgets & Auto",
+    "masterGroupNameBn": "বিজ্ঞান ও প্রযুক্তি",
+    "masterGroupNameEn": "Science & Technology",
+    "nameBn": "বিজ্ঞান ও প্রযুক্তি: গ্যাজেট ও অটোমোবাইল",
+    "nameEn": "Science & Technology: Gadgets & Auto",
+    "descriptionBn": "গ্যাজেট ও অটোমোবাইল সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Gadgets & Auto",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-religion-society-0",
+    "masterGroupId": "religion-society",
+    "subGroupIndex": 0,
+    "subGroupTitleBn": "সমাজ ও মানুষ",
+    "subGroupTitleEn": "Society & People",
+    "masterGroupNameBn": "ধর্ম ও সমাজ",
+    "masterGroupNameEn": "Religion & Society",
+    "nameBn": "ধর্ম ও সমাজ: সমাজ ও মানুষ",
+    "nameEn": "Religion & Society: Society & People",
+    "descriptionBn": "সমাজ ও মানুষ সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Society & People",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-religion-society-1",
+    "masterGroupId": "religion-society",
+    "subGroupIndex": 1,
+    "subGroupTitleBn": "ধর্ম ও বিশ্বাস",
+    "subGroupTitleEn": "Religion & Faith",
+    "masterGroupNameBn": "ধর্ম ও সমাজ",
+    "masterGroupNameEn": "Religion & Society",
+    "nameBn": "ধর্ম ও সমাজ: ধর্ম ও বিশ্বাস",
+    "nameEn": "Religion & Society: Religion & Faith",
+    "descriptionBn": "ধর্ম ও বিশ্বাস সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Religion & Faith",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-sports-health-0",
+    "masterGroupId": "sports-health",
+    "subGroupIndex": 0,
+    "subGroupTitleBn": "জনপ্রিয় খেলাধুলা",
+    "subGroupTitleEn": "Popular Sports",
+    "masterGroupNameBn": "খেলাধুলা ও স্বাস্থ্য",
+    "masterGroupNameEn": "Sports & Health",
+    "nameBn": "খেলাধুলা ও স্বাস্থ্য: জনপ্রিয় খেলাধুলা",
+    "nameEn": "Sports & Health: Popular Sports",
+    "descriptionBn": "জনপ্রিয় খেলাধুলা সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Popular Sports",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-sports-health-1",
+    "masterGroupId": "sports-health",
+    "subGroupIndex": 1,
+    "subGroupTitleBn": "স্বাস্থ্য, পরিবেশ ও কৃষি",
+    "subGroupTitleEn": "Health, Climate & Agri",
+    "masterGroupNameBn": "খেলাধুলা ও স্বাস্থ্য",
+    "masterGroupNameEn": "Sports & Health",
+    "nameBn": "খেলাধুলা ও স্বাস্থ্য: স্বাস্থ্য, পরিবেশ ও কৃষি",
+    "nameEn": "Sports & Health: Health, Climate & Agri",
+    "descriptionBn": "স্বাস্থ্য, পরিবেশ ও কৃষি সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Health, Climate & Agri",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-entertainment-0",
+    "masterGroupId": "entertainment",
+    "subGroupIndex": 0,
+    "subGroupTitleBn": "সিনেমা, ওটিটি ও টেলিভিশন",
+    "subGroupTitleEn": "Cinema & OTT",
+    "masterGroupNameBn": "বিনোদন ও শোবিজ",
+    "masterGroupNameEn": "Entertainment & Showbiz",
+    "nameBn": "বিনোদন ও শোবিজ: সিনেমা, ওটিটি ও টেলিভিশন",
+    "nameEn": "Entertainment & Showbiz: Cinema & OTT",
+    "descriptionBn": "সিনেমা, ওটিটি ও টেলিভিশন সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Cinema & OTT",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-entertainment-1",
+    "masterGroupId": "entertainment",
+    "subGroupIndex": 1,
+    "subGroupTitleBn": "বিশ্ব শোবিজ অঙ্গন",
+    "subGroupTitleEn": "Global Showbiz",
+    "masterGroupNameBn": "বিনোদন ও শোবিজ",
+    "masterGroupNameEn": "Entertainment & Showbiz",
+    "nameBn": "বিনোদন ও শোবিজ: বিশ্ব শোবিজ অঙ্গন",
+    "nameEn": "Entertainment & Showbiz: Global Showbiz",
+    "descriptionBn": "বিশ্ব শোবিজ অঙ্গন সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Global Showbiz",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-lifestyle-culture-0",
+    "masterGroupId": "lifestyle-culture",
+    "subGroupIndex": 0,
+    "subGroupTitleBn": "জীবনযাপন, ফ্যাশন ও রূপচর্চা",
+    "subGroupTitleEn": "Lifestyle & Fashion",
+    "masterGroupNameBn": "জীবনযাপন ও সংস্কৃতি",
+    "masterGroupNameEn": "Lifestyle & Culture",
+    "nameBn": "জীবনযাপন ও সংস্কৃতি: জীবনযাপন, ফ্যাশন ও রূপচর্চা",
+    "nameEn": "Lifestyle & Culture: Lifestyle & Fashion",
+    "descriptionBn": "জীবনযাপন, ফ্যাশন ও রূপচর্চা সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Lifestyle & Fashion",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-lifestyle-culture-1",
+    "masterGroupId": "lifestyle-culture",
+    "subGroupIndex": 1,
+    "subGroupTitleBn": "ভ্রমণ ও পর্যটন",
+    "subGroupTitleEn": "Travel & Tourism",
+    "masterGroupNameBn": "জীবনযাপন ও সংস্কৃতি",
+    "masterGroupNameEn": "Lifestyle & Culture",
+    "nameBn": "জীবনযাপন ও সংস্কৃতি: ভ্রমণ ও পর্যটন",
+    "nameEn": "Lifestyle & Culture: Travel & Tourism",
+    "descriptionBn": "ভ্রমণ ও পর্যটন সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Travel & Tourism",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-lifestyle-culture-2",
+    "masterGroupId": "lifestyle-culture",
+    "subGroupIndex": 2,
+    "subGroupTitleBn": "শিল্প-সাহিত্য ও ইতিহাস",
+    "subGroupTitleEn": "Literature & History",
+    "masterGroupNameBn": "জীবনযাপন ও সংস্কৃতি",
+    "masterGroupNameEn": "Lifestyle & Culture",
+    "nameBn": "জীবনযাপন ও সংস্কৃতি: শিল্প-সাহিত্য ও ইতিহাস",
+    "nameEn": "Lifestyle & Culture: Literature & History",
+    "descriptionBn": "শিল্প-সাহিত্য ও ইতিহাস সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Literature & History",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-opinion-specials-0",
+    "masterGroupId": "opinion-specials",
+    "subGroupIndex": 0,
+    "subGroupTitleBn": "মতামত ও সম্পাদকীয়",
+    "subGroupTitleEn": "Opinion & Editorials",
+    "masterGroupNameBn": "মতামত, মিডিয়া ও বিশেষ",
+    "masterGroupNameEn": "Opinion & Specials",
+    "nameBn": "মতামত, মিডিয়া ও বিশেষ: মতামত ও সম্পাদকীয়",
+    "nameEn": "Opinion & Specials: Opinion & Editorials",
+    "descriptionBn": "মতামত ও সম্পাদকীয় সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Opinion & Editorials",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-opinion-specials-1",
+    "masterGroupId": "opinion-specials",
+    "subGroupIndex": 1,
+    "subGroupTitleBn": "মাল্টিমিডিয়া ও গ্যালারি",
+    "subGroupTitleEn": "Multimedia & Gallery",
+    "masterGroupNameBn": "মতামত, মিডিয়া ও বিশেষ",
+    "masterGroupNameEn": "Opinion & Specials",
+    "nameBn": "মতামত, মিডিয়া ও বিশেষ: মাল্টিমিডিয়া ও গ্যালারি",
+    "nameEn": "Opinion & Specials: Multimedia & Gallery",
+    "descriptionBn": "মাল্টিমিডিয়া ও গ্যালারি সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Multimedia & Gallery",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  },
+  {
+    "id": "subgroup-opinion-specials-2",
+    "masterGroupId": "opinion-specials",
+    "subGroupIndex": 2,
+    "subGroupTitleBn": "ফিচার, ম্যাগাজিন ও প্রকাশনা",
+    "subGroupTitleEn": "Features & Publications",
+    "masterGroupNameBn": "মতামত, মিডিয়া ও বিশেষ",
+    "masterGroupNameEn": "Opinion & Specials",
+    "nameBn": "মতামত, মিডিয়া ও বিশেষ: ফিচার, ম্যাগাজিন ও প্রকাশনা",
+    "nameEn": "Opinion & Specials: Features & Publications",
+    "descriptionBn": "ফিচার, ম্যাগাজিন ও প্রকাশনা সম্পর্কিত ৩-কলাম সাব-গ্রুপ নিউজ সেকশন",
+    "descriptionEn": "3-Column subgroup news section for Features & Publications",
+    "isVisible": true,
+    "isFullWidth": false,
+    "icon": "FolderTree",
+    "type": "subgroup"
+  }
+];

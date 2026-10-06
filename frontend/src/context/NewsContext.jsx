@@ -4,6 +4,7 @@ import {
   initialCategories,
   categoryGroups,
   categoryMasterGroups as initialCategoryMasterGroups,
+  defaultHomepageSections,
   initialBreakingNews,
   initialNewsArticles,
   initialPodcasts,
@@ -13,18 +14,87 @@ import {
 } from '../data/initialData';
 import { supabase, configureSupabase } from '../supabase';
 import { fetchLiveGoogleWeather, getDefaultWeather } from '../services/weatherService';
+import AppDialogModal from '../components/Modals/AppDialogModal';
 
 const NewsContext = createContext();
 
 export function NewsProvider({ children }) {
-  // 1. Language State (Bangla Default)
+  // Global Branded Modal & Alert Dialog System
+  const [dialogConfig, setDialogConfig] = useState({
+    isOpen: false,
+    type: 'info',
+    title: '',
+    message: '',
+    subMessage: '',
+    confirmText: '',
+    cancelText: '',
+    onConfirm: null,
+    onCancel: null
+  });
+
+  const closeDialog = () => {
+    setDialogConfig((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const showAlert = ({ title = '', message = '', type = 'info', confirmText = '' } = {}) => {
+    return new Promise((resolve) => {
+      setDialogConfig({
+        isOpen: true,
+        type,
+        title,
+        message,
+        confirmText,
+        onConfirm: () => resolve(true),
+        onCancel: () => resolve(false)
+      });
+    });
+  };
+
+  const showConfirm = ({
+    title = '',
+    message = '',
+    subMessage = '',
+    type = 'warning',
+    confirmText = '',
+    cancelText = ''
+  } = {}) => {
+    return new Promise((resolve) => {
+      setDialogConfig({
+        isOpen: true,
+        type,
+        title,
+        message,
+        subMessage,
+        confirmText,
+        cancelText,
+        onConfirm: () => resolve(true),
+        onCancel: () => resolve(false)
+      });
+    });
+  };
+
+  const showError = (message, title = '') => showAlert({ title, message, type: 'error' });
+  const showSuccess = (message, title = '') => showAlert({ title, message, type: 'success' });
+  const showWarning = (message, title = '') => showAlert({ title, message, type: 'warning' });
+
+  // 1. Public Website Language State (Bangla Default)
   const [language, setLanguage] = useState(() => {
     return localStorage.getItem('jonogon_lang') || 'bn';
   });
 
-  // 2. Theme State (Light / Dark)
+  // 1b. Admin Panel Language State (Independent from public website)
+  const [adminLanguage, setAdminLanguage] = useState(() => {
+    return localStorage.getItem('jonogon_admin_lang') || 'bn';
+  });
+
+  // 2. Public Website Theme State (Light / Dark)
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('jonogon_theme') || 'light';
+  });
+
+  // 2b. Admin Panel Theme State (Independent from public website)
+  const [adminTheme, setAdminTheme] = useState(() => {
+    return localStorage.getItem('jonogon_admin_theme') || 'dark';
   });
 
   // 3. Site Branding & Settings
@@ -171,6 +241,72 @@ export function NewsProvider({ children }) {
     return saved ? JSON.parse(saved) : initialEmergencyServices;
   });
 
+  // 7c. Homepage Modular Sections Order & Visibility State (31 sections)
+  const [homepageSections, setHomepageSections] = useState(() => {
+    const saved = localStorage.getItem('jonogon_homepage_sections');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const cleanList = [];
+          // Keep valid saved sections matched with default metadata
+          parsed.forEach((savedSec) => {
+            const def = defaultHomepageSections.find((d) => d.id === savedSec.id);
+            if (def) {
+              cleanList.push({ ...def, ...savedSec });
+            }
+          });
+
+          // Append any missing default sections
+          defaultHomepageSections.forEach((def) => {
+            if (!cleanList.some((m) => m.id === def.id)) {
+              cleanList.push(def);
+            }
+          });
+
+          if (cleanList.length === defaultHomepageSections.length) {
+            localStorage.setItem('jonogon_homepage_sections', JSON.stringify(cleanList));
+            return cleanList;
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing homepage sections', e);
+      }
+    }
+    localStorage.setItem('jonogon_homepage_sections', JSON.stringify(defaultHomepageSections));
+    return defaultHomepageSections;
+  });
+
+  // 7d. 3-Column Grid Sections Layout State (Left, Middle, Right column reordering)
+  const defaultSectionColumnsOrder = {
+    heroLeadGrid: ['leadSlider', 'newlyPosted', 'mostRead'],
+    bangladeshSection: ['featuredLead', 'subLeads', 'weatherFollow'],
+    remittanceFighter: ['featuredLead', 'subLeads', 'ratesHelpline'],
+    subGroupSections: ['heroCard', 'colA', 'colB'],
+    'master-international-world': ['heroCard', 'colA', 'colB'],
+    'master-business-economy': ['heroCard', 'colA', 'colB'],
+    'master-jobs-education': ['heroCard', 'colA', 'colB'],
+    'master-science-tech': ['heroCard', 'colA', 'colB'],
+    'master-religion-society': ['heroCard', 'colA', 'colB'],
+    'master-sports-health': ['heroCard', 'colA', 'colB'],
+    'master-entertainment': ['heroCard', 'colA', 'colB'],
+    'master-lifestyle-culture': ['heroCard', 'colA', 'colB'],
+    'master-opinion-specials': ['heroCard', 'colA', 'colB']
+  };
+
+  const [sectionColumnsOrder, setSectionColumnsOrder] = useState(() => {
+    const saved = localStorage.getItem('jonogon_section_columns');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { ...defaultSectionColumnsOrder, ...parsed };
+      } catch (e) {
+        console.error('Error parsing section columns order', e);
+      }
+    }
+    return defaultSectionColumnsOrder;
+  });
+
   // 8. Navigation & Routing View States
   const [activePage, setActivePage] = useState('home'); // 'home' | 'article' | 'category' | 'about' | 'advertisement' | 'contact' | 'editorial' | 'privacy' | 'terms'
   const [activeCategory, setActiveCategoryState] = useState('latest');
@@ -230,6 +366,16 @@ export function NewsProvider({ children }) {
     const params = new URLSearchParams(window.location.search);
     const newsParam = params.get('news') || params.get('article');
     const catParam = params.get('cat') || params.get('category');
+
+    if (path === '/admin' || path === '/admin/' || path.startsWith('/admin')) {
+      setIsAdminOpen(true);
+      setActivePage('admin');
+      setCurrentArticle(null);
+      return;
+    }
+
+    // Clear admin if navigated to non-admin path
+    setIsAdminOpen(false);
 
     if (path.startsWith('/news/')) {
       const slug = decodeURIComponent(path.replace('/news/', '').trim());
@@ -319,6 +465,7 @@ export function NewsProvider({ children }) {
     incrementViews(art.id);
     setCurrentArticle(art);
     setActivePage('article');
+    setIsAdminOpen(false);
     const slug = art.slug || art.id;
     window.history.pushState({ page: 'article', articleId: art.id, slug }, '', `/news/${encodeURIComponent(slug)}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -333,8 +480,24 @@ export function NewsProvider({ children }) {
     setActiveCategoryState(catId);
     setCurrentArticle(null);
     setActivePage('category');
+    setIsAdminOpen(false);
     window.history.pushState({ page: 'category', categoryId: catId }, '', `/category/${encodeURIComponent(catId)}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Open Admin Panel with URL /admin
+  const openAdmin = () => {
+    setIsAdminOpen(true);
+    setActivePage('admin');
+    setCurrentArticle(null);
+    window.history.pushState({ page: 'admin' }, '', '/admin');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Close Admin Panel and return to Home /
+  const closeAdmin = () => {
+    setIsAdminOpen(false);
+    goToHome();
   };
 
   // General Navigation Method for Standalone Pages
@@ -344,6 +507,13 @@ export function NewsProvider({ children }) {
       goToHome();
       return;
     }
+    if (cleanPath === '/admin' || cleanPath === '/admin/') {
+      openAdmin();
+      return;
+    }
+
+    setIsAdminOpen(false);
+
     if (cleanPath === '/about') {
       setActivePage('about');
       setCurrentArticle(null);
@@ -389,6 +559,7 @@ export function NewsProvider({ children }) {
 
   // Navigate back to Home
   const goToHome = () => {
+    setIsAdminOpen(false);
     setCurrentArticle(null);
     setActiveCategoryState('latest');
     setActivePage('home');
@@ -397,17 +568,41 @@ export function NewsProvider({ children }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Sync Language
+  // Sync Public Language
   useEffect(() => {
     localStorage.setItem('jonogon_lang', language);
-    document.documentElement.lang = language;
-  }, [language]);
+    const isCurrentlyAdmin = window.location.pathname.startsWith('/admin') || isAdminOpen || activePage === 'admin';
+    if (!isCurrentlyAdmin) {
+      document.documentElement.lang = language;
+    }
+  }, [language, isAdminOpen, activePage]);
 
-  // Sync Theme & CSS Custom Properties
+  // Sync Admin Language
+  useEffect(() => {
+    localStorage.setItem('jonogon_admin_lang', adminLanguage);
+    const isCurrentlyAdmin = window.location.pathname.startsWith('/admin') || isAdminOpen || activePage === 'admin';
+    if (isCurrentlyAdmin) {
+      document.documentElement.lang = adminLanguage;
+    }
+  }, [adminLanguage, isAdminOpen, activePage]);
+
+  // Sync Public Theme & CSS Custom Properties
   useEffect(() => {
     localStorage.setItem('jonogon_theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    const isCurrentlyAdmin = window.location.pathname.startsWith('/admin') || isAdminOpen || activePage === 'admin';
+    if (!isCurrentlyAdmin) {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+  }, [theme, isAdminOpen, activePage]);
+
+  // Sync Admin Theme
+  useEffect(() => {
+    localStorage.setItem('jonogon_admin_theme', adminTheme);
+    const isCurrentlyAdmin = window.location.pathname.startsWith('/admin') || isAdminOpen || activePage === 'admin';
+    if (isCurrentlyAdmin) {
+      document.documentElement.setAttribute('data-theme', adminTheme);
+    }
+  }, [adminTheme, isAdminOpen, activePage]);
 
   // Apply Dynamic Brand Colors & Fonts from Admin Settings
   useEffect(() => {
@@ -447,6 +642,14 @@ export function NewsProvider({ children }) {
   useEffect(() => {
     localStorage.setItem('jonogon_emergency_services', JSON.stringify(emergencyServices));
   }, [emergencyServices]);
+
+  useEffect(() => {
+    localStorage.setItem('jonogon_homepage_sections', JSON.stringify(homepageSections));
+  }, [homepageSections]);
+
+  useEffect(() => {
+    localStorage.setItem('jonogon_section_columns', JSON.stringify(sectionColumnsOrder));
+  }, [sectionColumnsOrder]);
 
   // Article Actions
   const addArticle = (newArticle) => {
@@ -583,7 +786,8 @@ export function NewsProvider({ children }) {
       slug,
       masterGroupId,
       subGroupTitleBn,
-      subGroupTitleEn
+      subGroupTitleEn,
+      targetPosition
     }
   ) => {
     const cleanSlug = (slug || nameEn || nameBn)
@@ -618,12 +822,16 @@ export function NewsProvider({ children }) {
         targetGroup.subGroups = targetGroup.subGroups.map((sub) => {
           if (sub.titleBn === subGroupTitleBn) {
             subFound = true;
+            const items = [...sub.items];
+            const newItem = { id: updatedId, nameBn: updatedCategoryObj.nameBn, nameEn: updatedCategoryObj.nameEn };
+            if (typeof targetPosition === 'number' && targetPosition >= 0 && targetPosition <= items.length) {
+              items.splice(targetPosition, 0, newItem);
+            } else {
+              items.push(newItem);
+            }
             return {
               ...sub,
-              items: [
-                ...sub.items,
-                { id: updatedId, nameBn: updatedCategoryObj.nameBn, nameEn: updatedCategoryObj.nameEn }
-              ]
+              items
             };
           }
           return sub;
@@ -733,6 +941,58 @@ export function NewsProvider({ children }) {
     setCategoryMasterGroups((prev) => prev.filter((g) => g.id !== groupId));
   };
 
+  const moveMasterGroup = (fromIndex, toIndex) => {
+    setCategoryMasterGroups((prev) => {
+      if (fromIndex < 0 || toIndex < 0 || fromIndex >= prev.length || toIndex >= prev.length) return prev;
+      const updated = [...prev];
+      const [moved] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, moved);
+      return updated;
+    });
+  };
+
+  const reorderMasterGroups = (newGroups) => {
+    setCategoryMasterGroups(newGroups);
+  };
+
+  const moveSubGroupOrder = (groupId, fromIndex, toIndex) => {
+    setCategoryMasterGroups((prev) =>
+      prev.map((g) => {
+        if (g.id === groupId) {
+          const subs = [...g.subGroups];
+          if (fromIndex < 0 || toIndex < 0 || fromIndex >= subs.length || toIndex >= subs.length) return g;
+          const [moved] = subs.splice(fromIndex, 1);
+          subs.splice(toIndex, 0, moved);
+          return { ...g, subGroups: subs };
+        }
+        return g;
+      })
+    );
+  };
+
+  const moveCategoryItemOrder = (groupId, subGroupTitleBn, fromIndex, toIndex) => {
+    setCategoryMasterGroups((prev) =>
+      prev.map((g) => {
+        if (g.id === groupId) {
+          return {
+            ...g,
+            subGroups: g.subGroups.map((sub) => {
+              if (sub.titleBn === subGroupTitleBn) {
+                const items = [...(sub.items || [])];
+                if (fromIndex < 0 || toIndex < 0 || fromIndex >= items.length || toIndex >= items.length) return sub;
+                const [moved] = items.splice(fromIndex, 1);
+                items.splice(toIndex, 0, moved);
+                return { ...sub, items };
+              }
+              return sub;
+            })
+          };
+        }
+        return g;
+      })
+    );
+  };
+
   // Sub-Group Operations
   const addSubGroup = (groupId, { titleBn, titleEn }) => {
     setCategoryMasterGroups((prev) =>
@@ -755,9 +1015,47 @@ export function NewsProvider({ children }) {
     );
   };
 
-  const updateSubGroup = (groupId, oldTitleBn, { titleBn, titleEn }) => {
-    setCategoryMasterGroups((prev) =>
-      prev.map((g) => {
+  const updateSubGroup = (groupId, oldTitleBn, { titleBn, titleEn, targetGroupId }) => {
+    setCategoryMasterGroups((prev) => {
+      const destinationGroupId = targetGroupId || groupId;
+
+      // If transferring to another master group
+      if (destinationGroupId !== groupId) {
+        let subGroupToTransfer = null;
+        const cleaned = prev.map((g) => {
+          if (g.id === groupId) {
+            const found = g.subGroups.find((s) => s.titleBn === oldTitleBn);
+            if (found) {
+              subGroupToTransfer = {
+                ...found,
+                titleBn: (titleBn || oldTitleBn).trim(),
+                titleEn: (titleEn || found.titleEn || titleBn || oldTitleBn).trim()
+              };
+            }
+            return {
+              ...g,
+              subGroups: g.subGroups.filter((s) => s.titleBn !== oldTitleBn)
+            };
+          }
+          return g;
+        });
+
+        if (subGroupToTransfer) {
+          return cleaned.map((g) => {
+            if (g.id === destinationGroupId) {
+              return {
+                ...g,
+                subGroups: [...g.subGroups, subGroupToTransfer]
+              };
+            }
+            return g;
+          });
+        }
+        return cleaned;
+      }
+
+      // If updating within the same master group
+      return prev.map((g) => {
         if (g.id === groupId) {
           return {
             ...g,
@@ -773,8 +1071,8 @@ export function NewsProvider({ children }) {
           };
         }
         return g;
-      })
-    );
+      });
+    });
   };
 
   const deleteSubGroup = (groupId, titleBn) => {
@@ -848,6 +1146,74 @@ export function NewsProvider({ children }) {
     setEmergencyServices((prev) => prev.filter((s) => s.id !== id));
   };
 
+  // ==========================================
+  // HOMEPAGE MODULAR SECTIONS ACTIONS
+  // ==========================================
+  const moveHomepageSection = (fromIndex, toIndex) => {
+    setHomepageSections((prev) => {
+      if (fromIndex < 0 || toIndex < 0 || fromIndex >= prev.length || toIndex >= prev.length) return prev;
+      const updated = [...prev];
+      const [moved] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, moved);
+      return updated;
+    });
+  };
+
+  const setHomepageSectionsOrder = (newSectionsList) => {
+    if (Array.isArray(newSectionsList)) {
+      setHomepageSections(newSectionsList);
+    }
+  };
+
+  const toggleHomepageSectionVisibility = (sectionId) => {
+    setHomepageSections((prev) =>
+      prev.map((sec) =>
+        sec.id === sectionId ? { ...sec, isVisible: sec.isVisible === false ? true : false } : sec
+      )
+    );
+  };
+
+  const resetHomepageSectionsToDefault = () => {
+    setHomepageSections(defaultHomepageSections);
+    localStorage.setItem('jonogon_homepage_sections', JSON.stringify(defaultHomepageSections));
+  };
+
+  // 3-Column Grid Order Handlers
+  const moveSectionColumn = (sectionId, fromIndex, toIndex) => {
+    setSectionColumnsOrder((prev) => {
+      const currentList = prev[sectionId] || defaultSectionColumnsOrder[sectionId] || ['col1', 'col2', 'col3'];
+      if (fromIndex < 0 || toIndex < 0 || fromIndex >= currentList.length || toIndex >= currentList.length) return prev;
+      const updated = [...currentList];
+      const [moved] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, moved);
+      return {
+        ...prev,
+        [sectionId]: updated
+      };
+    });
+  };
+
+  const setSectionColumnOrder = (sectionId, newOrder) => {
+    if (Array.isArray(newOrder)) {
+      setSectionColumnsOrder((prev) => ({
+        ...prev,
+        [sectionId]: newOrder
+      }));
+    }
+  };
+
+  const resetSectionColumns = (sectionId) => {
+    if (sectionId) {
+      setSectionColumnsOrder((prev) => ({
+        ...prev,
+        [sectionId]: defaultSectionColumnsOrder[sectionId] || ['heroCard', 'colA', 'colB']
+      }));
+    } else {
+      setSectionColumnsOrder(defaultSectionColumnsOrder);
+      localStorage.setItem('jonogon_section_columns', JSON.stringify(defaultSectionColumnsOrder));
+    }
+  };
+
   const updateSiteSettings = (newSettings) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
   };
@@ -856,8 +1222,24 @@ export function NewsProvider({ children }) {
     setLanguage((prev) => (prev === 'bn' ? 'en' : 'bn'));
   };
 
+  const toggleAdminLanguage = () => {
+    setAdminLanguage((prev) => {
+      const next = prev === 'bn' ? 'en' : 'bn';
+      localStorage.setItem('jonogon_admin_lang', next);
+      return next;
+    });
+  };
+
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
+
+  const toggleAdminTheme = () => {
+    setAdminTheme((prev) => {
+      const next = prev === 'light' ? 'dark' : 'light';
+      localStorage.setItem('jonogon_admin_theme', next);
+      return next;
+    });
   };
 
   return (
@@ -866,8 +1248,14 @@ export function NewsProvider({ children }) {
         language,
         setLanguage,
         toggleLanguage,
+        adminLanguage,
+        setAdminLanguage,
+        toggleAdminLanguage,
         theme,
         toggleTheme,
+        adminTheme,
+        setAdminTheme,
+        toggleAdminTheme,
         settings,
         updateSiteSettings,
         articles,
@@ -887,10 +1275,25 @@ export function NewsProvider({ children }) {
         addMasterGroup,
         updateMasterGroup,
         deleteMasterGroup,
+        moveMasterGroup,
+        reorderMasterGroups,
         addSubGroup,
         updateSubGroup,
         deleteSubGroup,
+        moveSubGroupOrder,
+        moveCategoryItemOrder,
         resetMasterGroupsToDefault,
+        homepageSections,
+        moveHomepageSection,
+        setHomepageSectionsOrder,
+        toggleHomepageSectionVisibility,
+        resetHomepageSectionsToDefault,
+        sectionColumnsOrder,
+        moveSectionColumn,
+        setSectionColumnOrder,
+        updateSectionColumnsOrder: setSectionColumnOrder,
+        resetSectionColumns,
+        resetSectionColumnsOrder: resetSectionColumns,
         breakingNews,
         addBreakingItem,
         deleteBreakingItem,
@@ -920,14 +1323,26 @@ export function NewsProvider({ children }) {
         setActivePolicyModal,
         isAdminOpen,
         setIsAdminOpen,
+        openAdmin,
+        closeAdmin,
         userDistrict,
         setUserDistrict,
         liveWeather,
         isWeatherLoading,
-        refreshWeather
+        refreshWeather,
+
+        // Global Branded Modal & Alert Dialog System
+        dialogConfig,
+        showAlert,
+        showConfirm,
+        showError,
+        showSuccess,
+        showWarning,
+        closeDialog
       }}
     >
       {children}
+      <AppDialogModal />
     </NewsContext.Provider>
   );
 }

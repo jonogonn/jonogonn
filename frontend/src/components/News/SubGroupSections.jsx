@@ -39,6 +39,8 @@ const renderMasterGroupIcon = (groupId) => {
 export default function SubGroupSections() {
   const {
     categoryMasterGroups,
+    homepageSections,
+    sectionColumnsOrder,
     articles,
     openArticle,
     setActiveCategory,
@@ -47,13 +49,13 @@ export default function SubGroupSections() {
 
   const isBn = language === 'bn';
 
-  // Flatten all 24 Sub-Groups with parent master group info
+  // Flatten all 24 Sub-Groups with master group metadata
   const all24SubGroups = useMemo(() => {
     const list = [];
     (categoryMasterGroups || []).forEach((masterGrp) => {
-      (masterGrp.subGroups || []).forEach((subGrp) => {
+      (masterGrp.subGroups || []).forEach((subGrp, sIdx) => {
         list.push({
-          id: `${masterGrp.id}-${list.length}`,
+          id: `subgroup-${masterGrp.id}-${sIdx}`,
           masterGroupId: masterGrp.id,
           masterGroupNameBn: masterGrp.nameBn,
           masterGroupNameEn: masterGrp.nameEn,
@@ -66,6 +68,29 @@ export default function SubGroupSections() {
     });
     return list;
   }, [categoryMasterGroups]);
+
+  // Filter & Order subgroups based on homepageSections
+  const displayedSubGroups = useMemo(() => {
+    const subgroupSectionItems = (homepageSections || []).filter(
+      (s) => s.type === 'subgroup' || s.id.startsWith('subgroup-')
+    );
+
+    if (!subgroupSectionItems || subgroupSectionItems.length === 0) {
+      return all24SubGroups;
+    }
+
+    const result = [];
+    subgroupSectionItems.forEach((sec) => {
+      if (sec.isVisible !== false) {
+        const foundSub = all24SubGroups.find((sg) => sg.id === sec.id);
+        if (foundSub) {
+          result.push(foundSub);
+        }
+      }
+    });
+
+    return result;
+  }, [homepageSections, all24SubGroups]);
 
   // Helper to extract 9 news articles (1 Big Hero + 4 in Col A + 4 in Col B = 9 total) for each sub-group
   const getSubGroup9Articles = (subGrp) => {
@@ -101,30 +126,44 @@ export default function SubGroupSections() {
     return [...exactMatches, ...fallbacks].slice(0, 9);
   };
 
+  // Helper to get default columns order for a subgroup
+  const getDefaultColumnsForSubGroup = (subGroupId, index) => {
+    const pattern = index % 3;
+    if (pattern === 0) return ['heroCard', 'colA', 'colB'];
+    if (pattern === 1) return ['colA', 'heroCard', 'colB'];
+    return ['colA', 'colB', 'heroCard'];
+  };
+
+  if (displayedSubGroups.length === 0) return null;
+
   return (
     <section className="subgroup-sections-root" aria-label="২৪টি ক্যাটাগরি সাব-গ্রুপ সংবাদ সেকশন">
       <div className="subgroup-sections-grid-stream">
-        {all24SubGroups.map((subGrp, idx) => {
+        {displayedSubGroups.map((subGrp, idx) => {
           const subArticles = getSubGroup9Articles(subGrp);
           const heroArticle = subArticles[0] || (articles && articles[0]);
           const smallArtsColA = subArticles.slice(1, 5); // 4 articles for Column A
           const smallArtsColB = subArticles.slice(5, 9); // 4 articles for Column B
           const firstCategoryItem = subGrp.items[0];
 
-          // Layout Pattern: Left (idx % 3 === 0), Center (idx % 3 === 1), Right (idx % 3 === 2)
-          const layoutPattern = idx % 3;
+          // 3-Column order from custom state or dynamic default
+          const defaultColumns = getDefaultColumnsForSubGroup(subGrp.id, idx);
+          const currentColumnsOrder = sectionColumnsOrder?.[subGrp.id] || defaultColumns;
+
+          // Determine layout class based on position of heroCard
+          const heroPosIndex = currentColumnsOrder.indexOf('heroCard');
           const layoutClass =
-            layoutPattern === 0
+            heroPosIndex === 0
               ? 'layout-hero-left'
-              : layoutPattern === 1
+              : heroPosIndex === 1
               ? 'layout-hero-center'
               : 'layout-hero-right';
 
           // Animation variation class
           const animClass =
-            layoutPattern === 0
+            (idx % 3) === 0
               ? 'anim-tilt-lift'
-              : layoutPattern === 1
+              : (idx % 3) === 1
               ? 'anim-zoom-fade'
               : 'anim-slide-accent';
 
@@ -224,9 +263,7 @@ export default function SubGroupSections() {
               )}
 
               <section className="subgroup-section-card" id={`subgroup-${subGrp.id}`}>
-                {/* -------------------------------------------------------------
-                    Section Header (Index, Subgroup Title, Master Label & Tags)
-                   ------------------------------------------------------------- */}
+                {/* Section Header */}
                 <div className="subgroup-card-header">
                   <div className="subgroup-header-left">
                     <h3 className="subgroup-title">
@@ -269,36 +306,14 @@ export default function SubGroupSections() {
                   </div>
                 </div>
 
-                {/* -------------------------------------------------------------
-                    3-Column Dynamic Alignment Grid: (Total 1 + 4 + 4 = 9 News Cards)
-                    - layout-hero-left:   [1 Big Hero] [4 Small Cards] [4 Small Cards]
-                    - layout-hero-center: [4 Small Cards] [1 Big Hero] [4 Small Cards]
-                    - layout-hero-right:  [4 Small Cards] [4 Small Cards] [1 Big Hero]
-                   ------------------------------------------------------------- */}
+                {/* 3-Column Dynamic Layout Grid based on sectionColumnsOrder */}
                 <div className={`subgroup-3col-grid ${layoutClass}`}>
-                  {layoutPattern === 0 && (
-                    <>
-                      {renderHeroCard()}
-                      {renderSmallColumn(smallArtsColA, 'col-a')}
-                      {renderSmallColumn(smallArtsColB, 'col-b')}
-                    </>
-                  )}
-
-                  {layoutPattern === 1 && (
-                    <>
-                      {renderSmallColumn(smallArtsColA, 'col-a')}
-                      {renderHeroCard()}
-                      {renderSmallColumn(smallArtsColB, 'col-b')}
-                    </>
-                  )}
-
-                  {layoutPattern === 2 && (
-                    <>
-                      {renderSmallColumn(smallArtsColA, 'col-a')}
-                      {renderSmallColumn(smallArtsColB, 'col-b')}
-                      {renderHeroCard()}
-                    </>
-                  )}
+                  {currentColumnsOrder.map((colKey) => {
+                    if (colKey === 'heroCard') return renderHeroCard();
+                    if (colKey === 'colA') return renderSmallColumn(smallArtsColA, 'col-a');
+                    if (colKey === 'colB') return renderSmallColumn(smallArtsColB, 'col-b');
+                    return null;
+                  })}
                 </div>
               </section>
             </React.Fragment>

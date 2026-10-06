@@ -48,10 +48,16 @@ export default function PodcastSection() {
     podcasts,
     podcastSubjects,
     selectedPodcastSubject,
-    setSelectedPodcastSubject
+    setSelectedPodcastSubject,
+    homepageSections
   } = useNews();
 
   const isBn = language === 'bn';
+
+  // Section visibility check from homepageSections
+  const secConfig = (homepageSections || []).find((s) => s.id === 'podcastSection');
+  if (secConfig && secConfig.isVisible === false) return null;
+
   const scrollContainerRef = useRef(null);
 
   const [activeVideoModal, setActiveVideoModal] = useState(null);

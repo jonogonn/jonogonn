@@ -5,8 +5,12 @@ import { Play, Volume2, VolumeX, Clock, ArrowRight } from 'lucide-react';
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
 
 export default function VideoNewsSection() {
-  const { language, articles, openArticle, setActiveCategory } = useNews();
+  const { language, articles, openArticle, setActiveCategory, homepageSections } = useNews();
   const isBn = language === 'bn';
+
+  // Section visibility check from homepageSections
+  const secConfig = (homepageSections || []).find((s) => s.id === 'videoNewsSection');
+  if (secConfig && secConfig.isVisible === false) return null;
 
   // Video Articles Pool
   const videoArticles = articles.filter((a) => a.isVideo);

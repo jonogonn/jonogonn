@@ -4,7 +4,7 @@ import { MapPin, Phone, Mail, User, Lock } from 'lucide-react';
 import { FacebookIcon, YoutubeIcon } from '../Icons/SocialIcons';
 
 export default function Footer() {
-  const { language, settings, setActiveCategory, navigateTo, setIsAdminOpen } = useNews();
+  const { language, settings, setActiveCategory, navigateTo, openAdmin } = useNews();
   const isBn = language === 'bn';
 
   return (
@@ -200,7 +200,7 @@ export default function Footer() {
               © {new Date().getFullYear()} {isBn ? settings.siteNameBn : settings.siteNameEn}। সর্বস্বত্ব সংরক্ষিত।
             </span>
             <button
-              onClick={() => setIsAdminOpen(true)}
+              onClick={() => openAdmin()}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
