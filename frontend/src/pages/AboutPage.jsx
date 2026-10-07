@@ -71,8 +71,8 @@ export default function AboutPage() {
               </h2>
               <p className="page-paragraph" style={{ whiteSpace: 'pre-line' }}>
                 {isBn
-                  ? (settings.aboutUsBn || 'জনগণ.নিউজ (Jonogon.News) একটি স্বাধীন, নিরপেক্ষ ও জনকল্যাণমুখী ডিজিটাল সংবাদ মাধ্যম। সত্যের সাথে, জনতার পাশে—এই অঙ্গীকার নিয়ে আমরা প্রতিনিয়ত দেশ-বিদেশের বস্তুনিষ্ঠ সংবাদ পরিবেশন করছি।')
-                  : (settings.aboutUsEn || 'Jonogon News is an independent, non-partisan, digital news organisation dedicated to authentic journalism standing with the people.')}
+                  ? (settings.aboutUsBn || 'জনগণ.নিউজ (Jonogon.News) একটি স্বাধীন, নিরপেক্ষ ও জনকল্যাণমুখী ডিজিটাল সংবাদ মাধ্যম। জনতার কণ্ঠস্বর—এই অঙ্গীকার নিয়ে আমরা প্রতিনিয়ত দেশ-বিদেশের বস্তুনিষ্ঠ সংবাদ পরিবেশন করছি।')
+                  : (settings.aboutUsEn || 'Jonogon News is an independent, non-partisan, digital news organisation dedicated to authentic journalism. Our core philosophy is "Voice of the People".')}
               </p>
             </section>
 
@@ -84,8 +84,8 @@ export default function AboutPage() {
               </h2>
               <p className="page-paragraph" style={{ whiteSpace: 'pre-line' }}>
                 {isBn
-                  ? (settings.missionBn || 'জনগণ.নিউজ-এর মূল দর্শন হলো ‘সত্যের সাথে, জনতার পাশে’। আমরা বিশ্বাস করি তথ্যের অবাধ প্রবাহ এবং নির্ভীক সাংবাদিকতাই একটি সুন্দর, গণতান্ত্রিক ও জবাবদিহিতামূলক সমাজ বিনির্মাণের চাবিকাঠি।')
-                  : (settings.missionEn || 'At Jonogon News, our core mantra is "With Truth, For The People". We believe unobstructed flow of information and fearless journalism are foundational to a thriving democracy.')}
+                  ? (settings.missionBn || 'জনগণ.নিউজ-এর মূল দর্শন হলো ‘জনতার কণ্ঠস্বর’। আমরা বিশ্বাস করি তথ্যের অবাধ প্রবাহ এবং নির্ভীক সাংবাদিকতাই একটি সুন্দর, গণতান্ত্রিক ও জবাবদিহিতামূলক সমাজ বিনির্মাণের চাবিকাঠি।')
+                  : (settings.missionEn || 'At Jonogon News, our core mantra is "Voice of the People". We believe unobstructed flow of information and fearless journalism are foundational to a thriving democracy.')}
               </p>
               {((isBn && settings.visionBn) || (!isBn && settings.visionEn)) && (
                 <p className="page-paragraph" style={{ whiteSpace: 'pre-line' }}>

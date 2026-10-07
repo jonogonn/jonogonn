@@ -198,8 +198,8 @@ VALUES
   ('general_branding', '{
     "siteNameBn": "জনগণ.নিউজ",
     "siteNameEn": "Jonogon News",
-    "sloganBn": "সত্যের সাথে, জনতার পাশে",
-    "sloganEn": "With Truth, Standing for the People",
+    "sloganBn": "জনতার কণ্ঠস্বর",
+    "sloganEn": "Voice of the People",
     "domain": "jonogon.news",
     "websiteUrl": "https://jonogon.news",
     "logoUrl": "/logo.svg",

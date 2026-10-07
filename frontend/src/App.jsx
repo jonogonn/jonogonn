@@ -50,7 +50,9 @@ export default function App() {
   useEffect(() => {
     if (activePage === 'home') {
       updateSEO({
-        title: isBn ? `${settings.siteNameBn || 'জনগণ.নিউজ'} — সত্যের সাথে, জনতার পাশে` : 'Jonogon News — With Truth, For The People',
+        title: isBn
+          ? `${settings.siteNameBn || 'জনগণ.নিউজ'} — ${settings.sloganBn || 'জনতার কণ্ঠস্বর'}`
+          : `Jonogon News — ${settings.sloganEn || 'Voice of the People'}`,
         description: isBn
           ? 'জনগণের পক্ষে সত্য ও বস্তুনিষ্ঠ সংবাদের বিশ্বস্ত ঠিকানা। দেশ-বিদেশের ব্রেকিং নিউজ, রাজনীতি, বাণিজ্য, খেলা ও বিনোদনের তাজা খবর।'
           : 'Your trusted digital source for verified, objective, and timely journalism standing for the people of Bangladesh.',

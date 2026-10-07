@@ -54,8 +54,8 @@ export default function GlobalSettingsManager({ triggerSaveToast }) {
     // 2. Site Identity & Branding
     siteNameBn: settings?.siteNameBn || 'জনগণ.নিউজ',
     siteNameEn: settings?.siteNameEn || 'Jonogon News',
-    sloganBn: settings?.sloganBn || 'সত্যের সাথে, জনতার পাশে',
-    sloganEn: settings?.sloganEn || 'With Truth, Standing for the People',
+    sloganBn: settings?.sloganBn || 'জনতার কণ্ঠস্বর',
+    sloganEn: settings?.sloganEn || 'Voice of the People',
     domain: settings?.domain || 'jonogon.news',
     websiteUrl: settings?.websiteUrl || 'https://jonogon.news',
     logoUrl: settings?.logoUrl || '/logo.svg',

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Minus, Plus, RotateCcw, ShieldAlert, Lock, Eye, Type, Palette } from 'lucide-react';
+import { Minus, Plus, RotateCcw, ShieldAlert, Lock, Eye, Type, Palette, Lightbulb } from 'lucide-react';
 
 export default function SocialNewsCardPreview({
   title = '',
@@ -204,14 +204,15 @@ export default function SocialNewsCardPreview({
       >
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
           <Lock size={13} />
-          <span>অটো-জেনারেটেড সোশ্যাল ফটো কার্ড (View Only)</span>
+          <span>অফিসিয়াল সোশ্যাল ফটোকার্ড (View Only)</span>
         </span>
-        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-          🔒 ডাউনলোড ও স্ক্রিনশট নিষ্ক্রিয়
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+          <Lock size={11} />
+          <span>ডাউনলোড ও স্ক্রিনশট সুরক্ষিত</span>
         </span>
       </div>
 
-      {/* Main Square Card Container (1:1 Ratio) */}
+      {/* Main Square Card Container (1:1 Ratio with Container Queries) */}
       <div
         className="protected-social-card"
         style={{
@@ -222,11 +223,12 @@ export default function SocialNewsCardPreview({
           borderRadius: '0 0 10px 10px',
           overflow: 'hidden',
           boxShadow: '0 12px 36px rgba(0, 0, 0, 0.25)',
-          border: '1px solid var(--border-color)'
+          border: '1px solid var(--border-color)',
+          containerType: 'inline-size'
         }}
         onClick={isLockedOut ? handleUnlock : undefined}
       >
-        {/* Layer 0: Headline Area Background (Clean white with subtle world map watermark) */}
+        {/* Layer 0: Headline Area Background with subtle Bangladesh Map watermark texture */}
         <div
           style={{
             position: 'absolute',
@@ -234,7 +236,21 @@ export default function SocialNewsCardPreview({
             backgroundColor: '#FFFFFF',
             zIndex: 0
           }}
-        />
+        >
+          {/* Subtle graphical watermark pattern in the bottom half */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '5.2%',
+              left: '5%',
+              right: '5%',
+              height: '24%',
+              opacity: 0.06,
+              backgroundImage: 'radial-gradient(circle at center, #E50914 10%, transparent 70%), linear-gradient(135deg, rgba(230,0,18,0.3) 0%, transparent 60%)',
+              pointerEvents: 'none'
+            }}
+          />
+        </div>
 
         {/* Layer 1: Background News Photo (sitting precisely behind the template window) */}
         <div
@@ -244,7 +260,7 @@ export default function SocialNewsCardPreview({
             left: '6.35%',
             width: '87.3%',
             height: '50.0%',
-            borderTopLeftRadius: '135px',
+            borderTopLeftRadius: '26cqw',
             overflow: 'hidden',
             backgroundColor: '#1E1E1E',
             zIndex: 1
@@ -264,7 +280,7 @@ export default function SocialNewsCardPreview({
           />
         </div>
 
-        {/* Layer 2: Official Template Frame (SVG/PNG overlay with header logo, QR code, red frame, ribbon & footer) */}
+        {/* Layer 2: Official Template Frame (Header logo, QR code, red frame, golden pill, ribbon & footer) */}
         <img
           src="/news-card-template.png"
           alt="Card Template Frame"
@@ -280,110 +296,129 @@ export default function SocialNewsCardPreview({
           draggable={false}
         />
 
-        {/* Layer 3: Dynamic Date Badge inside Golden Top Pill */}
+        {/* Layer 3: Dynamic Date Badge inside Golden Top Pill (Dead-Center Aligned) */}
         <div
           style={{
             position: 'absolute',
-            top: '16.4%',
-            left: '50%',
-            transform: 'translateX(-50%)',
+            top: '17.58%',
+            left: '50.05%',
+            transform: 'translate(-50%, -50%)',
+            width: '25.5%',
+            height: '2.73%',
             zIndex: 3,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             color: '#FFFFFF',
-            fontSize: 'clamp(0.68rem, 2.1vw, 0.86rem)',
+            fontSize: 'clamp(9px, 1.85cqw, 19px)',
             fontWeight: 800,
             letterSpacing: 0.3,
+            lineHeight: 1,
             whiteSpace: 'nowrap',
-            textShadow: '0 1px 2px rgba(0,0,0,0.4)',
-            pointerEvents: 'none'
+            textShadow: '0 1px 2px rgba(0,0,0,0.45)',
+            pointerEvents: 'none',
+            fontFamily: 'var(--font-headline, "Anek Bangla", "Hind Siliguri", sans-serif)'
           }}
         >
           {displayDate}
         </div>
 
-        {/* Layer 4: Photo Caption (bottom right under ribbon) */}
+        {/* Layer 4: Photo Caption (bottom right under photo frame, clean crisp background) */}
         <div
           style={{
             position: 'absolute',
-            top: '67.2%',
-            right: '7.2%',
+            top: '67.97%',
+            right: '6.45%',
+            transform: 'translateY(-50%)',
             zIndex: 3,
-            fontSize: 'clamp(0.62rem, 1.7vw, 0.78rem)',
-            color: '#333333',
+            backgroundColor: '#FFFFFF',
+            padding: '1px 6px',
+            borderRadius: '3px',
+            fontSize: 'clamp(8.5px, 1.45cqw, 15px)',
+            color: '#222222',
             fontWeight: 800,
             whiteSpace: 'nowrap',
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 3,
+            fontFamily: 'var(--font-headline, "Anek Bangla", "Hind Siliguri", sans-serif)'
           }}
         >
-          {displayCaption}
+          {displayCaption.startsWith('ছবি') ? displayCaption : `ছবি: ${displayCaption}`}
         </div>
 
-        {/* Layer 5: Dynamic Headline Text Section (Cleanly positioned below photo) */}
+        {/* Layer 5: Dynamic Headline Text Section (Pixel-to-Pixel Proportionate Hierarchy) */}
         <div
           style={{
             position: 'absolute',
-            top: '69.8%',
-            bottom: '5.2%',
-            left: '4%',
-            width: '92%',
+            top: '70.8%',
+            bottom: '4.8%',
+            left: '3.5%',
+            width: '93%',
             zIndex: 3,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             textAlign: 'center',
-            padding: '0 6px',
+            padding: '0 4px',
             pointerEvents: 'none'
           }}
         >
-          {/* Optional Kicker / Subtitle */}
+          {/* Row 1: Optional Sub-headline / Kicker */}
           {kicker && (
             <div
               style={{
-                fontFamily: 'var(--font-headline, sans-serif)',
-                fontSize: `${kickerFontSize}px`,
+                fontFamily: 'var(--font-headline, "Anek Bangla", "Hind Siliguri", sans-serif)',
+                fontSize: `clamp(12px, ${kickerFontSize * 0.20}cqw, 32px)`,
                 fontWeight: 800,
-                color: '#9E2A2B', // Dark brownish red matching official design
-                lineHeight: 1.25,
-                marginBottom: '4px',
+                color: '#B82A24', // Crimson / Rust Red matching reference image
+                lineHeight: 1.2,
+                marginBottom: '0.4cqw',
                 maxWidth: '96%',
-                letterSpacing: 0.2
+                letterSpacing: 0.1
               }}
             >
               {kicker}
             </div>
           )}
 
-          {/* Headline Line 1 (Red by default) */}
+          {/* Row 2: Headline Line 1 (Vibrant Editorial Red) */}
           {line1 && (
             <div
               style={{
-                fontFamily: 'var(--font-headline, "Hind Siliguri", "Noto Sans Bengali", sans-serif)',
-                fontSize: `${titleFontSize}px`,
+                fontFamily: 'var(--font-headline, "Anek Bangla", "Hind Siliguri", sans-serif)',
+                fontSize: kicker
+                  ? `clamp(17px, ${titleFontSize * 0.20}cqw, 52px)`
+                  : `clamp(19px, ${titleFontSize * 0.22}cqw, 56px)`,
                 fontWeight: 900,
                 color: getLine1Color(),
                 lineHeight: lineHeightRatio,
                 wordBreak: 'break-word',
-                maxWidth: '96%',
-                letterSpacing: -0.2
+                maxWidth: '98%',
+                letterSpacing: -0.3
               }}
             >
               {line1}
             </div>
           )}
 
-          {/* Headline Line 2 (Navy Blue by default) */}
+          {/* Row 3: Headline Line 2 (Deep Navy Blue / Highlight) */}
           {line2 && (
             <div
               style={{
-                fontFamily: 'var(--font-headline, "Hind Siliguri", "Noto Sans Bengali", sans-serif)',
-                fontSize: `${titleFontSize}px`,
+                fontFamily: 'var(--font-headline, "Anek Bangla", "Hind Siliguri", sans-serif)',
+                fontSize: kicker
+                  ? `clamp(18px, ${(titleFontSize + 2) * 0.20}cqw, 54px)`
+                  : `clamp(20px, ${(titleFontSize + 2) * 0.22}cqw, 58px)`,
                 fontWeight: 900,
                 color: getLine2Color(),
                 lineHeight: lineHeightRatio,
                 wordBreak: 'break-word',
-                maxWidth: '96%',
-                marginTop: '2px',
-                letterSpacing: -0.2
+                maxWidth: '98%',
+                marginTop: '0.3cqw',
+                letterSpacing: -0.3
               }}
             >
               {line2}
@@ -391,23 +426,30 @@ export default function SocialNewsCardPreview({
           )}
         </div>
 
-        {/* Layer 6: Dynamic Category in Bottom Bar */}
+        {/* Layer 6: Dynamic Category in Bottom Red Bar ({sub_group} । {category}) */}
         <div
           style={{
             position: 'absolute',
-            bottom: '0.9%',
-            left: '49%',
-            transform: 'translateX(-50%)',
+            bottom: 0,
+            left: '29.2%',
+            width: '43.2%',
+            height: '4.5%',
             zIndex: 3,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#E50914',
             color: '#FFFFFF',
-            fontSize: 'clamp(0.65rem, 1.8vw, 0.8rem)',
-            fontWeight: 700,
+            fontSize: 'clamp(9.5px, 1.75cqw, 18px)',
+            fontWeight: 800,
             whiteSpace: 'nowrap',
-            letterSpacing: 0.4,
-            pointerEvents: 'none'
+            letterSpacing: 0.5,
+            pointerEvents: 'none',
+            fontFamily: 'var(--font-headline, "Anek Bangla", "Hind Siliguri", sans-serif)',
+            textShadow: '0 1px 2px rgba(0,0,0,0.35)'
           }}
         >
-          {category}
+          {category || 'সারাদেশ । বাংলাদেশ'}
         </div>
 
         {/* Layer 7: Invisible Transparent Security Glass Shield */}
@@ -432,7 +474,7 @@ export default function SocialNewsCardPreview({
             inset: 0,
             zIndex: 11,
             pointerEvents: 'none',
-            opacity: 0.07,
+            opacity: 0.05,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -486,8 +528,9 @@ export default function SocialNewsCardPreview({
               <ShieldAlert size={28} />
             </div>
 
-            <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#EF4444', marginBottom: 6 }}>
-              🔒 স্ক্রিনশট ও স্ক্রিন ক্যাপচার নিষিদ্ধ
+            <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#EF4444', marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <Lock size={16} />
+              <span>স্ক্রিনশট ও স্ক্রিন ক্যাপচার নিষিদ্ধ</span>
             </div>
 
             <div style={{ fontSize: '0.8rem', color: '#9CA3AF', maxWidth: 320, lineHeight: 1.45, marginBottom: 14 }}>
@@ -699,8 +742,9 @@ export default function SocialNewsCardPreview({
 
         {/* 4. Optional Manual Line Split Helper */}
         <div style={{ marginTop: 8 }}>
-          <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>
-            💡 ২ লাইনে আলাদা করতে চাইলে মাঝখানে `|` দিন (যেমন: ১ম অংশ | ২য় অংশ):
+          <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+            <Lightbulb size={12} style={{ color: 'var(--primary-red)' }} />
+            <span>২ লাইনে আলাদা করতে চাইলে মাঝখানে `|` দিন (যেমন: ১ম অংশ | ২য় অংশ):</span>
           </label>
           <input
             type="text"

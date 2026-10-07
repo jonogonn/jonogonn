@@ -15,7 +15,7 @@ export function updateSEO({
   jsonLd
 }) {
   const siteName = 'জনগণ.নিউজ';
-  const fullTitle = title ? `${title} | ${siteName}` : `${siteName} — সত্যের সাথে, জনতার পাশে`;
+  const fullTitle = title ? `${title} | ${siteName}` : `${siteName} — জনতার কণ্ঠস্বর`;
   const defaultDesc = description || 'জনগণের পক্ষে সত্য ও বস্তুনিষ্ঠ সংবাদের বিশ্বস্ত ঠিকানা। দেশ-বিদেশের ব্রেকিং নিউজ, রাজনীতি, বাণিজ্য, খেলা ও বিনোদনের তাজা খবর।';
   const currentUrl = url || window.location.href;
   const image = imageUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=1200&q=80';

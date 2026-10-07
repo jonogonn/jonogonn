@@ -385,7 +385,7 @@ export default function Navbar() {
                         <div className="aleric-mega-bottom-bar">
                           <div className="aleric-bottom-shortcuts">
                             <span className="aleric-bottom-hint">
-                              {isBn ? 'জনগণ.নিউজ — সত্যের সাথে, জনতার পাশে' : 'Jonogon News — With Truth, For The People'}
+                              {isBn ? 'জনগণ.নিউজ — জনতার কণ্ঠস্বর' : 'Jonogon News — Voice of the People'}
                             </span>
                           </div>
                           <div className="aleric-bottom-right">
@@ -579,7 +579,7 @@ export default function Navbar() {
             <div className="aleric-drawer-header">
               <div className="aleric-drawer-brand-wrap">
                 <span className="aleric-drawer-logo-title">{settings.siteNameBn || 'জনগণ.নিউজ'}</span>
-                <span className="aleric-drawer-slogan">{settings.sloganBn || 'সত্যের সাথে, জনতার পাশে'}</span>
+                <span className="aleric-drawer-slogan">{settings.sloganBn || 'জনতার কণ্ঠস্বর'}</span>
               </div>
               <button
                 type="button"

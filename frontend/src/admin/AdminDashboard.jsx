@@ -404,7 +404,7 @@ export default function AdminDashboard() {
                 {isBn ? 'জনগণ' : 'JONOGON'}
               </div>
               <div style={{ fontSize: '0.68rem', color: isLight ? '#64748B' : '#9CA3AF' }}>
-                {isBn ? 'সত্যের সাথে, সবার আগে' : 'Voice of the People'}
+                {isBn ? (settings.sloganBn || 'জনতার কণ্ঠস্বর') : (settings.sloganEn || 'Voice of the People')}
               </div>
             </div>
           )}
@@ -1448,11 +1448,15 @@ export default function AdminDashboard() {
                       <h3 style={{ fontSize: '0.98rem', fontWeight: 700, lineHeight: 1.3, marginBottom: 8 }}>
                         {isBn ? pod.titleBn : (pod.titleEn || pod.titleBn)}
                       </h3>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 12 }}>
-                        🎙️ {pod.hostBn} {pod.guestBn ? `• অতিথি: ${pod.guestBn}` : ''}
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Mic size={14} style={{ color: 'var(--primary-red)' }} />
+                        <span>{pod.hostBn} {pod.guestBn ? `• অতিথি: ${pod.guestBn}` : ''}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>⏱️ {pod.duration}</span>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Clock size={12} />
+                          <span>{pod.duration}</span>
+                        </span>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button type="button" className="admin-btn-action" onClick={() => handleOpenEditPodcast(pod)}>
                             <Edit size={14} />
@@ -1568,7 +1572,10 @@ export default function AdminDashboard() {
                     <div key={srv.id} className="admin-card" style={{ padding: 16, marginBottom: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                         <h3 style={{ fontSize: '1.05rem', fontWeight: 700 }}>{isBn ? srv.nameBn : (srv.nameEn || srv.nameBn)}</h3>
-                        <span style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--primary-red)' }}>📞 {srv.number}</span>
+                        <span style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--primary-red)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                          <PhoneCall size={15} />
+                          <span>{srv.number}</span>
+                        </span>
                       </div>
                       <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: 12 }}>
                         {isBn ? srv.descriptionBn : (srv.descriptionEn || srv.descriptionBn)}

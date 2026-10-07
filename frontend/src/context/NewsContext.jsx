@@ -15,6 +15,7 @@ import {
 import { supabase, configureSupabase } from '../supabase';
 import { fetchLiveGoogleWeather, getDefaultWeather } from '../services/weatherService';
 import AppDialogModal from '../components/Modals/AppDialogModal';
+import { saveArticleToMariaDb, deleteArticleFromMariaDb } from '../utils/mariaDbSync';
 
 const NewsContext = createContext();
 
@@ -100,7 +101,24 @@ export function NewsProvider({ children }) {
   // 3. Site Branding & Settings
   const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('jonogon_settings');
-    return saved ? JSON.parse(saved) : initialSiteSettings;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (
+          !parsed.sloganBn ||
+          parsed.sloganBn === 'সত্যের সাথে, জনতার পাশে' ||
+          parsed.sloganBn === 'সত্যের সাথে, সবার আগে'
+        ) {
+          parsed.sloganBn = 'জনতার কণ্ঠস্বর';
+          parsed.sloganEn = 'Voice of the People';
+          localStorage.setItem('jonogon_settings', JSON.stringify(parsed));
+        }
+        return { ...initialSiteSettings, ...parsed };
+      } catch (e) {
+        return initialSiteSettings;
+      }
+    }
+    return initialSiteSettings;
   });
 
   // 4. Articles Data (Auto-heal broken URLs if any cached)
@@ -651,29 +669,50 @@ export function NewsProvider({ children }) {
     localStorage.setItem('jonogon_section_columns', JSON.stringify(sectionColumnsOrder));
   }, [sectionColumnsOrder]);
 
-  // Article Actions
+  // Article Actions with MariaDB Sync
   const addArticle = (newArticle) => {
     const articleWithId = {
       ...newArticle,
-      id: `news-${Date.now()}`,
-      views: 0,
-      dateBn: new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }),
-      dateEn: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      id: newArticle.id || `news-${Date.now()}`,
+      views: newArticle.views || 0,
+      dateBn: newArticle.dateBn || new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }),
+      dateEn: newArticle.dateEn || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
     };
     setArticles((prev) => [articleWithId, ...prev]);
+
+    // Async sync to MariaDB Database
+    saveArticleToMariaDb(articleWithId).catch((err) => {
+      console.warn('MariaDB auto-sync error:', err);
+    });
   };
 
   const updateArticle = (id, updatedData) => {
+    let fullArticle = null;
     setArticles((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updatedData } : item))
+      prev.map((item) => {
+        if (item.id === id) {
+          fullArticle = { ...item, ...updatedData };
+          return fullArticle;
+        }
+        return item;
+      })
     );
     if (currentArticle && currentArticle.id === id) {
       setCurrentArticle((prev) => ({ ...prev, ...updatedData }));
+    }
+
+    if (fullArticle) {
+      saveArticleToMariaDb(fullArticle).catch((err) => {
+        console.warn('MariaDB update sync error:', err);
+      });
     }
   };
 
   const deleteArticle = (id) => {
     setArticles((prev) => prev.filter((item) => item.id !== id));
+    deleteArticleFromMariaDb(id).catch((err) => {
+      console.warn('MariaDB delete sync error:', err);
+    });
     if (currentArticle && currentArticle.id === id) {
       goToHome();
     }

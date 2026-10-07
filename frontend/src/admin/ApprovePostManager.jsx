@@ -23,10 +23,13 @@ import {
   Smartphone,
   Monitor,
   Check,
-  Share2
+  Share2,
+  Image as ImageIcon
 } from 'lucide-react';
 import SocialNewsCardPreview from './SocialNewsCardPreview';
 import { generateSocialCardJpg } from '../utils/generateSocialCardJpg';
+import { getCardCategoryLabel } from '../utils/cardCategoryHelper';
+import { saveArticleToMariaDb } from '../utils/mariaDbSync';
 
 export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit, onNavigateToCreate }) {
   const {
@@ -38,7 +41,8 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
     showConfirm,
     showSuccess,
     showError,
-    categories
+    categories,
+    categoryMasterGroups
   } = useNews();
 
   const isBn = (adminLanguage || language) === 'bn';
@@ -125,10 +129,22 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
     });
 
     if (confirmed) {
+      const publishedPayload = {
+        ...article,
+        status: 'published',
+        approvedAt: new Date().toISOString(),
+        publishedAt: new Date().toISOString()
+      };
+
       updateArticle(article.id, {
         status: 'published',
         approvedAt: new Date().toISOString(),
         publishedAt: new Date().toISOString()
+      });
+
+      // Save directly to MariaDB
+      saveArticleToMariaDb(publishedPayload).catch((err) => {
+        console.warn('MariaDB publish sync error:', err);
       });
 
       if (triggerSaveToast) {
@@ -137,8 +153,8 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
 
       showSuccess(
         isBn
-          ? 'সংবাদটি সফলভাবে অনুমোদিত হয়েছে এবং মূল ওয়েবসাইটে প্রকাশিত হয়েছে! আপনি এখন নিচে থেকে সোশ্যাল ফটোকার্ড .JPG ডাউনলোড করতে পারেন।'
-          : 'Post approved and published! You can now download the social poster JPG.'
+          ? 'সংবাদটি সফলভাবে অনুমোদিত হয়েছে, MariaDB ডাটাবেজে সংরক্ষিত হয়েছে এবং মূল ওয়েবসাইটে প্রকাশিত হয়েছে! আপনি এখন নিচে থেকে সোশ্যাল ফটোকার্ড .JPG ডাউনলোড করতে পারেন।'
+          : 'Post approved and saved to MariaDB! You can now download the social poster JPG.'
       );
 
       if (previewArticle && previewArticle.id === article.id) {
@@ -185,16 +201,18 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
         .replace(/\s+/g, '-')
         .slice(0, 50);
 
+      const cardCat = article.cardCategory || getCardCategoryLabel(article.category || (article.categories && article.categories[0]), categoryMasterGroups, categories);
+
       await generateSocialCardJpg({
         title: article.titleBn || article.titleEn,
         kicker: article.kicker || '',
         imageUrl: article.imageUrl,
         caption: article.cardCaption || 'ছবি: সংগৃহীত',
-        category: article.categoryBn || article.category || 'সারাদেশ । বাংলাদেশ',
+        category: cardCat,
         dateBn: article.dateBn,
-        titleFontSize: 42,
+        titleFontSize: 48,
         kickerFontSize: 26,
-        lineHeight: 1.22,
+        lineHeight: 1.18,
         colorMode: 'dual',
         fileName: `jonogon-card-${cleanSlug}.jpg`
       });
@@ -594,15 +612,22 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
                       {art.titleBn || art.titleEn || (isBn ? 'শিরোনামহীন' : 'Untitled')}
                     </h3>
 
-                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                       <span style={{ backgroundColor: 'rgba(230,0,18,0.12)', color: 'var(--primary-red)', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>
                         {art.categoryBn || art.category || 'বাংলাদেশ'}
                       </span>
-                      <span>✍️ {art.author || 'জনগণ ডেস্ক'}</span>
-                      <span>📅 {art.dateBn || 'আজ'}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <User size={12} />
+                        <span>{art.author || 'জনগণ ডেস্ক'}</span>
+                      </span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Calendar size={12} />
+                        <span>{art.dateBn || 'আজ'}</span>
+                      </span>
                       {art.approvalRequestedAt && (
-                        <span style={{ color: '#EAB308', fontWeight: 600 }}>
-                          ⏰ সাবমিট: {new Date(art.approvalRequestedAt).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#EAB308', fontWeight: 600 }}>
+                          <Clock size={12} />
+                          <span>সাবমিট: {new Date(art.approvalRequestedAt).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })}</span>
                         </span>
                       )}
                     </div>
@@ -672,30 +697,18 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
                     </button>
                   )}
 
-                  {/* 3. Download Official HD Social Poster .JPG Button */}
-                  {isApproved ? (
-                    <button
-                      type="button"
-                      className="admin-btn-action"
-                      style={{
-                        fontSize: '0.78rem',
-                        padding: '6px 12px',
-                        backgroundColor: 'rgba(230, 0, 18, 0.15)',
-                        color: 'var(--primary-red)',
-                        border: '1px solid rgba(230, 0, 18, 0.3)',
-                        fontWeight: 700,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5
-                      }}
-                      disabled={downloadingId === art.id}
-                      onClick={() => handleDownloadPosterJpg(art)}
-                      title={isBn ? 'সোশ্যাল ফটোকার্ড .JPG ডাউনলোড করুন' : 'Download Social Poster .JPG'}
-                    >
-                      <Download size={14} />
-                      <span>{downloadingId === art.id ? (isBn ? 'জেনারেট হচ্ছে...' : 'Generating...') : (isBn ? 'পোস্টার .JPG' : 'Poster .JPG')}</span>
-                    </button>
-                  ) : null}
+                  {/* 3. Download Official HD Social Poster .JPG Button (Always available in Approve Post tab) */}
+                  <button
+                    type="button"
+                    className="admin-btn-action"
+                    style={{ fontSize: '0.78rem', padding: '6px 12px' }}
+                    disabled={downloadingId === art.id}
+                    onClick={() => handleDownloadPosterJpg(art)}
+                    title={isBn ? 'সোশ্যাল ফটোকার্ড .JPG ডাউনলোড করুন' : 'Download Social Poster .JPG'}
+                  >
+                    <Download size={14} />
+                    <span>{downloadingId === art.id ? (isBn ? 'তৈরি হচ্ছে...' : 'Generating...') : (isBn ? 'ফটোকার্ড .JPG' : 'Card .JPG')}</span>
+                  </button>
 
                   {/* 4. Send for Revision Button */}
                   {isPending && (
@@ -781,7 +794,7 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
                 backgroundColor: 'rgba(0,0,0,0.2)'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button
                   type="button"
                   onClick={() => setPreviewSubTab('article')}
@@ -793,10 +806,14 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
                     border: previewSubTab === 'article' ? '1px solid var(--primary-red)' : '1px solid transparent',
                     backgroundColor: previewSubTab === 'article' ? 'rgba(230,0,18,0.15)' : 'transparent',
                     color: previewSubTab === 'article' ? 'var(--primary-red)' : 'var(--text-muted)',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6
                   }}
                 >
-                  📰 {isBn ? 'সম্পূর্ণ সংবাদ পড়ুন' : 'Read Article'}
+                  <FileText size={14} />
+                  <span>{isBn ? 'সম্পূর্ণ সংবাদ পড়ুন' : 'Read Article'}</span>
                 </button>
                 <button
                   type="button"
@@ -809,10 +826,14 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
                     border: previewSubTab === 'card' ? '1px solid var(--primary-red)' : '1px solid transparent',
                     backgroundColor: previewSubTab === 'card' ? 'rgba(230,0,18,0.15)' : 'transparent',
                     color: previewSubTab === 'card' ? 'var(--primary-red)' : 'var(--text-muted)',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6
                   }}
                 >
-                  🖼️ {isBn ? 'সোশ্যাল ফটো কার্ড' : 'Social Card'}
+                  <ImageIcon size={14} />
+                  <span>{isBn ? 'সোশ্যাল ফটো কার্ড' : 'Social Card'}</span>
                 </button>
               </div>
 
@@ -888,9 +909,23 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
                     kicker={previewArticle.kicker}
                     imageUrl={previewArticle.imageUrl}
                     caption={previewArticle.cardCaption || 'ছবি: সংগৃহীত'}
-                    category={previewArticle.categoryBn || previewArticle.category || 'বাংলাদেশ'}
+                    category={previewArticle.cardCategory || getCardCategoryLabel(previewArticle.category || (previewArticle.categories && previewArticle.categories[0]), categoryMasterGroups, categories)}
                     dateBn={previewArticle.dateBn}
                   />
+
+                  {/* Direct Download Button Below Card */}
+                  <div style={{ marginTop: 14, textAlign: 'center' }}>
+                    <button
+                      type="button"
+                      className="admin-btn-primary"
+                      style={{ padding: '9px 24px', fontSize: '0.9rem' }}
+                      disabled={downloadingId === previewArticle.id}
+                      onClick={() => handleDownloadPosterJpg(previewArticle)}
+                    >
+                      <Download size={16} />
+                      <span>{downloadingId === previewArticle.id ? (isBn ? 'পোস্টার তৈরি হচ্ছে...' : 'Generating...') : (isBn ? 'অফিসিয়াল সোশ্যাল ফটোকার্ড ডাউনলোড (.JPG)' : 'Download Official Social Card (.JPG)')}</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div style={{ maxWidth: previewDevice === 'mobile' ? 380 : '100%', margin: '0 auto' }}>
@@ -910,9 +945,15 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
                     {previewArticle.titleBn || previewArticle.titleEn}
                   </h1>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: 16, borderBottom: '1px solid var(--border-color)', paddingBottom: 10 }}>
-                    <span>✍️ {previewArticle.author || 'জনগণ ডেস্ক'}</span>
-                    <span>📅 {previewArticle.dateBn || 'আজ'}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: 16, borderBottom: '1px solid var(--border-color)', paddingBottom: 10 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <User size={13} />
+                      <span>{previewArticle.author || 'জনগণ ডেস্ক'}</span>
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Calendar size={13} />
+                      <span>{previewArticle.dateBn || 'আজ'}</span>
+                    </span>
                   </div>
 
                   {previewArticle.imageUrl && (
@@ -942,9 +983,10 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '12px 18px',
+                padding: '14px 20px',
                 borderTop: '1px solid var(--border-color)',
-                backgroundColor: 'rgba(0,0,0,0.2)'
+                backgroundColor: 'var(--bg-subtle, rgba(0,0,0,0.25))',
+                borderRadius: '0 0 12px 12px'
               }}
             >
               <button
@@ -952,47 +994,45 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
                 className="admin-btn-secondary"
                 onClick={() => setPreviewArticle(null)}
               >
-                {isBn ? 'বন্ধ করুন' : 'Close'}
+                <X size={15} />
+                <span>{isBn ? 'বন্ধ করুন' : 'Close'}</span>
               </button>
 
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {/* Always provide HD Social Poster Download button */}
+                <button
+                  type="button"
+                  className="admin-btn-primary"
+                  disabled={downloadingId === previewArticle.id}
+                  onClick={() => handleDownloadPosterJpg(previewArticle)}
+                >
+                  <Download size={15} />
+                  <span>{downloadingId === previewArticle.id ? (isBn ? 'জেনারেট হচ্ছে...' : 'Generating...') : (isBn ? 'সোশ্যাল পোস্টার ডাউনলোড (.JPG)' : 'Download Poster .JPG')}</span>
+                </button>
+
                 {previewArticle.status !== 'published' && previewArticle.status && (
                   <>
                     <button
                       type="button"
-                      className="admin-btn-action"
-                      style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+                      className="admin-btn-revision"
                       onClick={() => {
                         const art = previewArticle;
                         handleOpenRevisionModal(art);
                       }}
                     >
-                      <RotateCcw size={14} />
+                      <RotateCcw size={15} />
                       <span>{isBn ? 'সংশোধন ফেরত' : 'Send for Revision'}</span>
                     </button>
 
                     <button
                       type="button"
-                      className="admin-btn-primary"
-                      style={{ backgroundColor: '#10B981', borderColor: '#10B981', color: '#fff', fontWeight: 800 }}
+                      className="admin-btn-success"
                       onClick={() => handleApproveAndPublish(previewArticle)}
                     >
-                      <CheckCircle size={14} />
+                      <CheckCircle size={15} />
                       <span>{isBn ? 'অনুমোদন ও প্রকাশ করুন' : 'Approve & Publish'}</span>
                     </button>
                   </>
-                )}
-
-                {(previewArticle.status === 'published' || !previewArticle.status) && (
-                  <button
-                    type="button"
-                    className="admin-btn-primary"
-                    disabled={downloadingId === previewArticle.id}
-                    onClick={() => handleDownloadPosterJpg(previewArticle)}
-                  >
-                    <Download size={14} />
-                    <span>{downloadingId === previewArticle.id ? (isBn ? 'জেনারেট হচ্ছে...' : 'Generating...') : (isBn ? 'সোশ্যাল পোস্টার ডাউনলোড (.JPG)' : 'Download Poster .JPG')}</span>
-                  </button>
                 )}
               </div>
             </div>

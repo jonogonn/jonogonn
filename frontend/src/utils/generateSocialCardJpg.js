@@ -1,6 +1,6 @@
 /**
  * High-Resolution HTML5 Canvas Generator for Official Jonogon News Social Media Poster (.JPG)
- * Generates 1024x1024 HD card matching the official branding template.
+ * Generates 1024x1024 HD card matching the official branding template pixel-to-pixel.
  */
 
 export async function generateSocialCardJpg({
@@ -10,15 +10,23 @@ export async function generateSocialCardJpg({
   caption = 'ছবি: সংগৃহীত',
   category = 'সারাদেশ । বাংলাদেশ',
   dateBn = '',
-  titleFontSize = 42,
+  titleFontSize = 48,
   kickerFontSize = 26,
-  lineHeight = 1.25,
+  lineHeight = 1.18,
   colorMode = 'dual',
   manualLineBreak = '',
   fileName = 'jonogon-social-card.jpg'
 }) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
+      if (document.fonts && document.fonts.ready) {
+        try {
+          await document.fonts.ready;
+        } catch (e) {
+          // ignore font ready error
+        }
+      }
+
       const canvas = document.createElement('canvas');
       canvas.width = 1024;
       canvas.height = 1024;
@@ -35,7 +43,6 @@ export async function generateSocialCardJpg({
           img.crossOrigin = 'anonymous';
           img.onload = () => res(img);
           img.onerror = () => {
-            // If crossOrigin fails, try without crossOrigin
             const fallback = new Image();
             fallback.onload = () => res(fallback);
             fallback.onerror = (err) => rej(err);
@@ -71,7 +78,6 @@ export async function generateSocialCardJpg({
         ctx.clip();
 
         if (userImg) {
-          // Object-fit: cover inside photo box
           const imgRatio = userImg.width / userImg.height;
           const boxRatio = photoW / photoH;
           let drawW, drawH, drawX, drawY;
@@ -100,25 +106,32 @@ export async function generateSocialCardJpg({
           ctx.drawImage(templateImg, 0, 0, 1024, 1024);
         }
 
-        // 4. Draw Date inside Golden Pill
+        // Font family string
+        const fontSans = '"Anek Bangla", "Hind Siliguri", "Noto Sans Bengali", sans-serif';
+
+        // 4. Draw Date inside Golden Pill (Dead-Center: X=512, Y=180)
         const dateText = dateBn || new Date().toLocaleDateString('bn-BD', {
           day: '2-digit',
           month: 'long',
           year: 'numeric'
         });
 
-        ctx.font = 'bold 22px "Hind Siliguri", "Noto Sans Bengali", sans-serif';
+        ctx.font = `800 20px ${fontSans}`;
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(dateText, 512, 192);
+        ctx.fillText(dateText, 512, 180);
 
-        // 5. Draw Photo Caption (bottom right under ribbon)
-        ctx.font = 'bold 16px "Hind Siliguri", "Noto Sans Bengali", sans-serif';
-        ctx.fillStyle = '#333333';
+        // 5. Draw Photo Caption (bottom right under photo frame, right-aligned to photo edge)
+        const fullCaption = caption ? (caption.startsWith('ছবি') ? caption : `ছবি: ${caption}`) : 'ছবি: সংগৃহীত';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(840, 680, 120, 32);
+
+        ctx.font = `800 15px ${fontSans}`;
+        ctx.fillStyle = '#222222';
         ctx.textAlign = 'right';
-        ctx.textBaseline = 'alphabetic';
-        ctx.fillText(caption || 'ছবি: সংগৃহীত', 890, 700);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(fullCaption, 958, 696);
 
         // 6. Draw Text Section (Kicker & Headline)
         const rawTitle = title || 'একবছরে গরিব জনগণ বেড়েছে প্রায় ২১ লাখ !';
@@ -153,42 +166,60 @@ export async function generateSocialCardJpg({
           }
         }
 
-        const line1Color = colorMode === 'blue' ? '#0B2545' : colorMode === 'dark' ? '#111827' : '#E50914';
-        const line2Color = colorMode === 'red' ? '#E50914' : colorMode === 'dark' ? '#111827' : '#0B2545';
+        const line1Color = colorMode === 'blue' ? '#0C1D48' : colorMode === 'dark' ? '#111827' : '#E50914';
+        const line2Color = colorMode === 'red' ? '#E50914' : colorMode === 'dark' ? '#111827' : '#0C1D48';
 
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
-        // Calculate vertical positions
-        let currentY = 740;
-        if (kicker) {
-          ctx.font = `bold ${kickerFontSize}px "Hind Siliguri", "Noto Sans Bengali", sans-serif`;
-          ctx.fillStyle = '#9E2A2B';
-          ctx.fillText(kicker, 512, currentY);
-          currentY += kickerFontSize * 1.5;
-        } else {
-          currentY += 20;
-        }
+        // Coordinated Positioning in the text box (Y: 725px to 970px, Center: 848px)
+        if (kicker && line1 && line2) {
+          // 3 tiers: Kicker, Line 1, Line 2
+          ctx.font = `800 ${kickerFontSize || 28}px ${fontSans}`;
+          ctx.fillStyle = '#B82A24';
+          ctx.fillText(kicker, 512, 762);
 
-        // Line 1
-        if (line1) {
-          ctx.font = `900 ${titleFontSize}px "Hind Siliguri", "Noto Sans Bengali", sans-serif`;
+          ctx.font = `900 ${titleFontSize || 48}px ${fontSans}`;
           ctx.fillStyle = line1Color;
-          ctx.fillText(line1, 512, currentY + titleFontSize * 0.4);
-          currentY += titleFontSize * lineHeight;
-        }
+          ctx.fillText(line1, 512, 826);
 
-        // Line 2
-        if (line2) {
-          ctx.font = `900 ${titleFontSize}px "Hind Siliguri", "Noto Sans Bengali", sans-serif`;
+          ctx.font = `900 ${(titleFontSize || 48) + 4}px ${fontSans}`;
           ctx.fillStyle = line2Color;
-          ctx.fillText(line2, 512, currentY + titleFontSize * 0.3);
+          ctx.fillText(line2, 512, 888);
+        } else if (kicker && line1 && !line2) {
+          // 2 tiers: Kicker, Line 1
+          ctx.font = `800 ${kickerFontSize || 28}px ${fontSans}`;
+          ctx.fillStyle = '#B82A24';
+          ctx.fillText(kicker, 512, 785);
+
+          ctx.font = `900 ${titleFontSize || 50}px ${fontSans}`;
+          ctx.fillStyle = line1Color;
+          ctx.fillText(line1, 512, 856);
+        } else if (!kicker && line1 && line2) {
+          // 2 tiers: Line 1, Line 2
+          ctx.font = `900 ${titleFontSize || 50}px ${fontSans}`;
+          ctx.fillStyle = line1Color;
+          ctx.fillText(line1, 512, 808);
+
+          ctx.font = `900 ${(titleFontSize || 50) + 4}px ${fontSans}`;
+          ctx.fillStyle = line2Color;
+          ctx.fillText(line2, 512, 876);
+        } else if (line1) {
+          // Single Line
+          ctx.font = `900 ${titleFontSize || 52}px ${fontSans}`;
+          ctx.fillStyle = line1Color;
+          ctx.fillText(line1, 512, 848);
         }
 
-        // 7. Draw Category in Bottom Bar
-        ctx.font = 'bold 18px "Hind Siliguri", "Noto Sans Bengali", sans-serif';
+        // 7. Draw Dynamic Category in Bottom Red Bar ({sub_group} । {category})
+        ctx.fillStyle = '#E50914';
+        ctx.fillRect(298, 978, 442, 46);
+
+        ctx.font = `800 18px ${fontSans}`;
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
-        ctx.fillText(category || 'সারাদেশ । বাংলাদেশ', 505, 995);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(category || 'সারাদেশ । বাংলাদেশ', 519, 1001);
 
         // 8. Convert to JPEG Blob and Download
         canvas.toBlob(

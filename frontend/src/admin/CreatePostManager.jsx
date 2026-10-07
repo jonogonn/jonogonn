@@ -15,6 +15,7 @@ import {
   FileDown,
   Video,
   User,
+  Calendar,
   Tags,
   Plus,
   Trash2,
@@ -52,10 +53,13 @@ import {
   FileText,
   Send,
   Lock,
-  Share2
+  Share2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { uploadImageToStorage } from '../supabase';
 import SocialNewsCardPreview from './SocialNewsCardPreview';
+import { getCardCategoryLabel } from '../utils/cardCategoryHelper';
 
 export default function CreatePostManager({ initialPostId = null, triggerSaveToast, onSwitchToArticles }) {
   const {
@@ -98,6 +102,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
   // Social News Card Specific Fields
   const [kicker, setKicker] = useState(''); // e.g. "অর্থবছর ২০২৪-২৫ থেকে ২৫-২৬"
   const [cardCaption, setCardCaption] = useState('ছবি: সংগৃহীত');
+  const [cardCategory, setCardCategory] = useState(''); // e.g. "{sub_group} । {category}"
 
   // Blocks State
   const [blocks, setBlocks] = useState([
@@ -142,6 +147,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
         setIsVideo(Boolean(art.isVideo));
         setVideoDuration(art.videoDuration || '');
         setCardCaption(art.cardCaption || 'ছবি: সংগৃহীত');
+        setCardCategory(art.cardCategory || '');
 
         if (art.blocks && art.blocks.length > 0) {
           setBlocks(art.blocks);
@@ -192,10 +198,11 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
   const featuredImageBlock = blocks.find((b) => b.type === 'image' && b.url);
   const featuredImageUrl = featuredImageBlock?.url || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80';
 
-  // Helper: Primary category display
+  // Helper: Primary category & Social Card Category label ({sub_group} । {category})
   const primaryCatId = selectedCategories[0] || 'bangladesh';
   const primaryCatObj = categories.find((c) => c.id === primaryCatId || c.slug === primaryCatId);
-  const primaryCatName = primaryCatObj ? (isBn ? primaryCatObj.nameBn : primaryCatObj.nameEn || primaryCatObj.nameBn) : 'সারাদেশ | বাংলাদেশ';
+  const primaryCatName = primaryCatObj ? (isBn ? primaryCatObj.nameBn : primaryCatObj.nameEn || primaryCatObj.nameBn) : 'বাংলাদেশ';
+  const cardCategoryDisplay = cardCategory || getCardCategoryLabel(primaryCatId, categoryMasterGroups, categories);
 
   // Calculate word count and estimated reading time
   const totalText = blocks
@@ -253,6 +260,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
         isVideo,
         videoDuration,
         cardCaption,
+        cardCategory: cardCategoryDisplay,
         updatedAt: new Date().toISOString()
       };
 
@@ -485,6 +493,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
     setIsVideo(Boolean(draft.isVideo));
     setVideoDuration(draft.videoDuration || '');
     setCardCaption(draft.cardCaption || 'ছবি: সংগৃহীত');
+    setCardCategory(draft.cardCategory || '');
     setIsDraftsModalOpen(false);
     showSuccess(isBn ? 'খসড়া পোস্ট এডিটরে লোড করা হয়েছে!' : 'Draft loaded into editor!');
   };
@@ -515,6 +524,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       setPostId(null);
       setSlug('');
       setKicker('');
+      setCardCategory('');
       setExcerpt('');
       setMetaTitle('');
       setMetaDesc('');
@@ -613,6 +623,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       contentEn: compiledHtml,
       imageUrl: featuredImageUrl,
       cardCaption: cardCaption || 'ছবি: সংগৃহীত',
+      cardCategory: cardCategoryDisplay,
       author: author || 'জনগণ নিউজ ডেস্ক',
       dateBn: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }),
       dateEn: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
@@ -671,6 +682,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       contentEn: compiledHtml,
       imageUrl: featuredImageUrl,
       cardCaption: cardCaption || 'ছবি: সংগৃহীত',
+      cardCategory: cardCategoryDisplay,
       author: author || 'জনগণ নিউজ ডেস্ক',
       dateBn: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }),
       dateEn: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
@@ -941,91 +953,101 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       {/* ========================================================
           MAIN THREE-COLUMN LAYOUT: [TOOLBAR] [EDITOR] [SIDEBAR]
           ======================================================== */}
-      <div style={{ display: 'grid', gridTemplateColumns: `${isLeftToolbarOpen ? '220px' : '0px'} 1fr ${isRightSidebarOpen ? '360px' : '0px'}`, gap: 16, transition: 'all 0.25s ease' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `${isLeftToolbarOpen ? '200px' : '58px'} 1fr ${isRightSidebarOpen ? '360px' : '0px'}`, gap: 16, transition: 'all 0.22s ease' }}>
         {/* ----------------------------------------------------
-            LEFT COLUMN: BLOCK INSERT TOOLBAR
+            LEFT COLUMN: BLOCK INSERT TOOLBAR (Collapsible)
             ---------------------------------------------------- */}
-        {isLeftToolbarOpen && (
+        <div
+          className="admin-card"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            padding: isLeftToolbarOpen ? '14px 10px' : '12px 6px',
+            height: 'fit-content',
+            position: 'sticky',
+            top: 75,
+            alignItems: isLeftToolbarOpen ? 'stretch' : 'center',
+            transition: 'all 0.22s ease'
+          }}
+        >
+          {/* Toolbar Header & Collapse Toggle */}
           <div
-            className="admin-card"
             style={{
               display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-              padding: '16px 14px',
-              height: 'fit-content',
-              position: 'sticky',
-              top: 75
+              alignItems: 'center',
+              justifyContent: isLeftToolbarOpen ? 'space-between' : 'center',
+              paddingBottom: 8,
+              borderBottom: '1px solid var(--border-color)',
+              marginBottom: 4,
+              width: '100%'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid var(--border-color)' }}>
-              <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.6 }}>
-                {isBn ? 'ব্লক যুক্ত করুন' : 'Insert Elements'}
+            {isLeftToolbarOpen && (
+              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, paddingLeft: 4 }}>
+                {isBn ? 'ব্লক যুক্ত করুন' : 'Elements'}
               </span>
-            </div>
-
-            {/* Core News Blocks */}
-            <button type="button" onClick={() => addBlock('heading')} className="admin-btn-secondary" style={{ justifyContent: 'flex-start', gap: 10, padding: '9px 12px', fontSize: '0.86rem' }}>
-              <Heading size={16} color="var(--primary-red)" />
-              <span>{isBn ? 'শিরোনাম (Heading)' : 'Heading'}</span>
-            </button>
-
-            <button type="button" onClick={() => addBlock('image')} className="admin-btn-secondary" style={{ justifyContent: 'flex-start', gap: 10, padding: '9px 12px', fontSize: '0.86rem' }}>
-              <ImageIcon size={16} color="var(--primary-red)" />
-              <span>{isBn ? 'ছবি ও ক্যাপশন' : 'Image & Caption'}</span>
-            </button>
-
-            <button type="button" onClick={() => addBlock('paragraph')} className="admin-btn-secondary" style={{ justifyContent: 'flex-start', gap: 10, padding: '9px 12px', fontSize: '0.86rem' }}>
-              <Type size={16} color="var(--primary-red)" />
-              <span>{isBn ? 'অনুচ্ছেদ (Paragraph)' : 'Paragraph'}</span>
-            </button>
-
-            <button type="button" onClick={() => addBlock('blockquote')} className="admin-btn-secondary" style={{ justifyContent: 'flex-start', gap: 10, padding: '9px 12px', fontSize: '0.86rem' }}>
-              <Quote size={16} color="var(--primary-red)" />
-              <span>{isBn ? 'উদ্ধৃতি (Blockquote)' : 'Blockquote'}</span>
-            </button>
-
-            <button type="button" onClick={() => addBlock('list')} className="admin-btn-secondary" style={{ justifyContent: 'flex-start', gap: 10, padding: '9px 12px', fontSize: '0.86rem' }}>
-              <List size={16} color="var(--primary-red)" />
-              <span>{isBn ? 'তালিকা (Lists)' : 'Bullet / Number List'}</span>
-            </button>
-
-            <button type="button" onClick={() => addBlock('table')} className="admin-btn-secondary" style={{ justifyContent: 'flex-start', gap: 10, padding: '9px 12px', fontSize: '0.86rem' }}>
-              <TableIcon size={16} color="var(--primary-red)" />
-              <span>{isBn ? 'তথ্য টেবিল (Data Table)' : 'Data Table'}</span>
-            </button>
-
-            <button type="button" onClick={() => addBlock('code')} className="admin-btn-secondary" style={{ justifyContent: 'flex-start', gap: 10, padding: '9px 12px', fontSize: '0.86rem' }}>
-              <Code size={16} color="var(--primary-red)" />
-              <span>{isBn ? 'কোড ব্লক (Code Block)' : 'Code Block'}</span>
-            </button>
-
-            <button type="button" onClick={() => addBlock('divider')} className="admin-btn-secondary" style={{ justifyContent: 'flex-start', gap: 10, padding: '9px 12px', fontSize: '0.86rem' }}>
-              <Minus size={16} color="var(--primary-red)" />
-              <span>{isBn ? 'বিভাজক রেখা (Divider)' : 'Divider'}</span>
-            </button>
-
-            <button type="button" onClick={() => addBlock('video')} className="admin-btn-secondary" style={{ justifyContent: 'flex-start', gap: 10, padding: '9px 12px', fontSize: '0.86rem' }}>
-              <Video size={16} color="var(--primary-red)" />
-              <span>{isBn ? 'ভিডিও এম্বেড (Video)' : 'Video Embed'}</span>
-            </button>
-
-            <button type="button" onClick={() => addBlock('audio')} className="admin-btn-secondary" style={{ justifyContent: 'flex-start', gap: 10, padding: '9px 12px', fontSize: '0.86rem' }}>
-              <Music size={16} color="var(--primary-red)" />
-              <span>{isBn ? 'অডিও ক্লিপ (Audio)' : 'Audio Player'}</span>
-            </button>
-
-            <button type="button" onClick={() => addBlock('verse')} className="admin-btn-secondary" style={{ justifyContent: 'flex-start', gap: 10, padding: '9px 12px', fontSize: '0.86rem' }}>
-              <Feather size={16} color="var(--primary-red)" />
-              <span>{isBn ? 'কবিতা / ছন্দ (Verse)' : 'Verse / Poem'}</span>
-            </button>
-
-            <button type="button" onClick={() => addBlock('file')} className="admin-btn-secondary" style={{ justifyContent: 'flex-start', gap: 10, padding: '9px 12px', fontSize: '0.86rem' }}>
-              <FileDown size={16} color="var(--primary-red)" />
-              <span>{isBn ? 'ডাউনলোড ফাইল লিংক' : 'File Download'}</span>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsLeftToolbarOpen((prev) => !prev)}
+              className="admin-btn-secondary"
+              style={{
+                width: 28,
+                height: 28,
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 6
+              }}
+              title={isLeftToolbarOpen ? (isBn ? 'আইকন মোডে ছোট করুন' : 'Collapse to Icons') : (isBn ? 'টুলবার প্রসারিত করুন' : 'Expand Toolbar')}
+            >
+              {isLeftToolbarOpen ? <ChevronLeft size={15} /> : <ChevronRight size={15} />}
             </button>
           </div>
-        )}
+
+          {/* Block Buttons List (Clean Bengali Labels, Single Line Alignment) */}
+          {[
+            { type: 'heading', label: isBn ? 'শিরোনাম' : 'Heading', icon: Heading },
+            { type: 'image', label: isBn ? 'ছবি ও ক্যাপশন' : 'Image & Caption', icon: ImageIcon },
+            { type: 'paragraph', label: isBn ? 'অনুচ্ছেদ' : 'Paragraph', icon: Type },
+            { type: 'blockquote', label: isBn ? 'উদ্ধৃতি' : 'Blockquote', icon: Quote },
+            { type: 'list', label: isBn ? 'তালিকা' : 'List', icon: List },
+            { type: 'table', label: isBn ? 'তথ্য টেবিল' : 'Data Table', icon: TableIcon },
+            { type: 'code', label: isBn ? 'কোড ব্লক' : 'Code Block', icon: Code },
+            { type: 'divider', label: isBn ? 'বিভাজক রেখা' : 'Divider', icon: Minus },
+            { type: 'video', label: isBn ? 'ভিডিও এম্বেড' : 'Video Embed', icon: Video },
+            { type: 'audio', label: isBn ? 'অডিও ক্লিপ' : 'Audio Clip', icon: Music },
+            { type: 'verse', label: isBn ? 'কবিতা ও ছন্দ' : 'Verse', icon: Feather },
+            { type: 'file', label: isBn ? 'ডাউনলোড ফাইল' : 'File Download', icon: FileDown }
+          ].map((item) => {
+            const IconComp = item.icon;
+            return (
+              <button
+                key={item.type}
+                type="button"
+                onClick={() => addBlock(item.type)}
+                className="admin-btn-secondary"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: isLeftToolbarOpen ? 'flex-start' : 'center',
+                  gap: 10,
+                  padding: isLeftToolbarOpen ? '8px 10px' : '9px 0',
+                  width: '100%',
+                  fontSize: '0.84rem',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap'
+                }}
+                title={item.label}
+              >
+                <IconComp size={16} color="var(--primary-red)" style={{ flexShrink: 0 }} />
+                {isLeftToolbarOpen && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
+              </button>
+            );
+          })}
+        </div>
 
         {/* ----------------------------------------------------
             CENTER COLUMN: VISUAL BLOCK EDITOR
@@ -1596,7 +1618,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                   kicker={kicker}
                   imageUrl={featuredImageUrl}
                   caption={cardCaption}
-                  category={primaryCatName}
+                  category={cardCategoryDisplay}
                   dateBn={new Date(publishDate).toLocaleDateString('bn-BD', { day: '2-digit', month: 'long', year: 'numeric' })}
                 />
               </div>
@@ -1610,6 +1632,18 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                   placeholder={isBn ? 'যেমন: অর্থবছর ২০২৪-২৫ থেকে ২৫-২৬' : 'e.g. FY 2024-25 to 25-26'}
                   value={kicker}
                   onChange={(e) => setKicker(e.target.value)}
+                />
+              </div>
+
+              {/* Card Footer Category ({sub_group} | {category}) Input */}
+              <div className="admin-form-group" style={{ marginBottom: 10 }}>
+                <label className="admin-label">{isBn ? 'কার্ড ফুটার ক্যাটাগরি ({সাব-গ্রুপ} । {ক্যাটাগরি})' : 'Card Footer Category ({Sub-Group} | {Category})'}</label>
+                <input
+                  type="text"
+                  className="admin-input"
+                  value={cardCategory}
+                  onChange={(e) => setCardCategory(e.target.value)}
+                  placeholder={getCardCategoryLabel(selectedCategories[0], categoryMasterGroups, categories)}
                 />
               </div>
 
@@ -1973,18 +2007,20 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                   type="button"
                   onClick={() => setPreviewTab('card')}
                   className={previewTab === 'card' ? 'admin-btn-primary' : 'admin-btn-secondary'}
-                  style={{ padding: '5px 12px', fontSize: '0.82rem', fontWeight: 800 }}
+                  style={{ padding: '5px 12px', fontSize: '0.82rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
-                  ✨ {isBn ? 'সোশ্যাল ফটোকার্ড' : 'Social News Card'}
+                  <Sparkles size={14} />
+                  <span>{isBn ? 'সোশ্যাল ফটোকার্ড' : 'Social News Card'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setPreviewTab('article')}
                   className={previewTab === 'article' ? 'admin-btn-primary' : 'admin-btn-secondary'}
-                  style={{ padding: '5px 12px', fontSize: '0.82rem', fontWeight: 800 }}
+                  style={{ padding: '5px 12px', fontSize: '0.82rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
-                  📰 {isBn ? 'সম্পূর্ণ আর্টিকেল' : 'Full Article View'}
+                  <FileText size={14} />
+                  <span>{isBn ? 'সম্পূর্ণ আর্টিকেল' : 'Full Article View'}</span>
                 </button>
               </div>
 
@@ -2043,7 +2079,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                     kicker={kicker}
                     imageUrl={featuredImageUrl}
                     caption={cardCaption}
-                    category={primaryCatName}
+                    category={cardCategoryDisplay}
                     dateBn={new Date(publishDate).toLocaleDateString('bn-BD', { day: '2-digit', month: 'long', year: 'numeric' })}
                   />
                 </div>
@@ -2060,12 +2096,21 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                     {mainTitle || 'সংবাদের মূল শিরোনাম'}
                   </h1>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 14, borderBottom: '1px solid var(--border-color)', marginBottom: 20, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    <span>✍️ {author}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingBottom: 14, borderBottom: '1px solid var(--border-color)', marginBottom: 20, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      <User size={14} />
+                      <span>{author}</span>
+                    </span>
                     <span>•</span>
-                    <span>📅 {publishDate}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      <Calendar size={14} />
+                      <span>{publishDate}</span>
+                    </span>
                     <span>•</span>
-                    <span>⏱️ ~{readingTimeMinutes} min read</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      <Clock size={14} />
+                      <span>~{readingTimeMinutes} min read</span>
+                    </span>
                   </div>
 
                   {/* Render Compiled Blocks HTML */}
@@ -2087,6 +2132,54 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Preview Modal Footer */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '14px 20px',
+                borderTop: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-subtle, rgba(0,0,0,0.25))',
+                borderRadius: '0 0 12px 12px'
+              }}
+            >
+              <button
+                type="button"
+                className="admin-btn-secondary"
+                onClick={() => setIsPreviewModalOpen(false)}
+              >
+                <X size={15} />
+                <span>{isBn ? 'বন্ধ করুন' : 'Close'}</span>
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  type="button"
+                  className="admin-btn-secondary"
+                  onClick={() => {
+                    setIsPreviewModalOpen(false);
+                    handleManualSaveDraft();
+                  }}
+                >
+                  <Save size={15} />
+                  <span>{isBn ? 'খসড়া সেভ করুন' : 'Save Draft'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="admin-btn-success"
+                  onClick={() => {
+                    setIsPreviewModalOpen(false);
+                    handleSubmitPost();
+                  }}
+                >
+                  <Send size={15} />
+                  <span>{postId ? (isBn ? 'আপডেট জমা দিন' : 'Submit Update') : (isBn ? 'জমা দিন' : 'Submit Post')}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
