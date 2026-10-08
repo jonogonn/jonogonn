@@ -2,9 +2,10 @@
 /**
  * Janogon News - Media Library & Asset Archive API
  * 1. Direct Backblaze B2 Cloud Integration (queries b2_list_file_names)
- * 2. GET: Returns real images from Backblaze B2 bucket & MariaDB
- * 3. GET ?action=download_zip: Generates and streams ZIP archive from B2
- * 4. DELETE: Deletes file from Backblaze B2 & MariaDB
+ * 2. Generates Download Authorization Token for private/free Backblaze B2 buckets
+ * 3. GET: Returns real images from Backblaze B2 with valid download authorization tokens
+ * 4. GET ?action=download_zip: Generates and streams complete ZIP archive
+ * 5. DELETE: Deletes file from Backblaze B2 & MariaDB
  */
 
 require_once __DIR__ . '/db.php';
@@ -47,6 +48,40 @@ function b2Auth() {
 }
 
 // -------------------------------------------------------------
+// HELPER: GET B2 DOWNLOAD AUTHORIZATION TOKEN
+// -------------------------------------------------------------
+function getB2DownloadToken($auth, $validSeconds = 604800) {
+    if (!$auth || empty($auth['apiUrl']) || empty($auth['authorizationToken'])) {
+        return '';
+    }
+    $url = $auth['apiUrl'] . "/b2api/v2/b2_get_download_authorization";
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+        'bucketId' => B2_BUCKET_ID,
+        'fileNamePrefix' => '',
+        'validDurationInSeconds' => $validSeconds
+    ]));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Authorization: " . $auth['authorizationToken'],
+        "Content-Type: application/json"
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    $res = curl_exec($ch);
+    $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($http === 200 && $res) {
+        $data = json_decode($res, true);
+        return $data['authorizationToken'] ?? '';
+    }
+    return '';
+}
+
+// -------------------------------------------------------------
 // HELPER: FETCH FILES DIRECTLY FROM BACKBLAZE B2 BUCKET
 // -------------------------------------------------------------
 function getB2FilesList() {
@@ -58,6 +93,7 @@ function getB2FilesList() {
     $apiUrl = $auth['apiUrl'];
     $authToken = $auth['authorizationToken'];
     $downloadUrl = $auth['downloadUrl'] ?? "https://f005.backblazeb2.com";
+    $dlToken = getB2DownloadToken($auth, 604800); // 7 days token
 
     $listUrl = "$apiUrl/b2api/v2/b2_list_file_names";
     $ch = curl_init($listUrl);
@@ -92,10 +128,10 @@ function getB2FilesList() {
             $baseName = basename($fileName);
             $ext = strtolower(pathinfo($baseName, PATHINFO_EXTENSION) ?: 'webp');
 
-            if (defined('CDN_BASE_URL') && CDN_BASE_URL) {
-                $publicUrl = rtrim(CDN_BASE_URL, '/') . '/' . ltrim($fileName, '/');
-            } else {
-                $publicUrl = rtrim($downloadUrl, '/') . '/file/' . B2_BUCKET_NAME . '/' . ltrim($fileName, '/');
+            // Construct Direct B2 Download URL with Authorization Token
+            $publicUrl = rtrim($downloadUrl, '/') . '/file/' . B2_BUCKET_NAME . '/' . ltrim($fileName, '/');
+            if ($dlToken) {
+                $publicUrl .= '?Authorization=' . $dlToken;
             }
 
             $mediaList[] = [
@@ -125,7 +161,6 @@ if ($action === 'download_zip') {
     try {
         $mediaItems = getB2FilesList();
 
-        // If B2 list was empty, try MariaDB
         if (empty($mediaItems) && $pdo) {
             $stmt = $pdo->query("SELECT `id`, `original_name`, `storage_key`, `public_url`, `file_format` FROM `media_uploads` ORDER BY `id` DESC");
             $mediaItems = $stmt->fetchAll() ?: [];
@@ -161,7 +196,7 @@ if ($action === 'download_zip') {
                 continue;
             }
 
-            // 2. Fetch from B2 CDN URL
+            // 2. Fetch from B2 URL with token
             if ($url && filter_var($url, FILTER_VALIDATE_URL)) {
                 $ch = curl_init($url);
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -212,10 +247,8 @@ if ($action === 'download_zip') {
 // -------------------------------------------------------------
 if ($requestMethod === 'GET') {
     try {
-        // Direct Backblaze B2 Bucket files
         $mediaList = getB2FilesList();
 
-        // If B2 API was reachable and returned list (even 1 file or more)
         if (!empty($mediaList)) {
             echo json_encode([
                 'success' => true,
