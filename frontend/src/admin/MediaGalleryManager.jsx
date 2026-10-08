@@ -61,11 +61,14 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
   // Fetch Media List from API
   const fetchMediaList = async () => {
     setLoading(true);
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const endpoints = [
       '/api/media.php',
       'api/media.php',
-      'http://localhost/janogon/api/media.php'
+      './api/media.php'
     ];
+    if (origin) endpoints.unshift(`${origin}/api/media.php`);
+    const uniqueEndpoints = [...new Set(endpoints)];
 
     let fetched = false;
 
@@ -188,12 +191,14 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
     setIsDownloadingZip(true);
     setDownloadProgress(10);
 
-    // 1. Try Server-Side Direct Zip Stream (Fastest & natively creates uploads/ folder hierarchy)
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const serverEndpoints = [
       '/api/media.php?action=download_zip',
       'api/media.php?action=download_zip',
-      'http://localhost/janogon/api/media.php?action=download_zip'
+      './api/media.php?action=download_zip'
     ];
+    if (origin) serverEndpoints.unshift(`${origin}/api/media.php?action=download_zip`);
+    const uniqueServerEndpoints = [...new Set(serverEndpoints)];
 
     let serverSuccess = false;
     for (const ep of serverEndpoints) {

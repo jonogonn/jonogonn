@@ -3,17 +3,18 @@
  * Supports cPanel Apache PHP API, XAMPP, and Node Backend API seamlessly.
  */
 
-const API_ENDPOINTS = [
-  '/api/news.php',
-  'api/news.php',
-  'http://localhost/janogon/api/news.php',
-  'http://localhost:5000/api/news'
-];
+function getNewsEndpoints() {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const list = ['/api/news.php', 'api/news.php', './api/news.php'];
+  if (origin) list.unshift(`${origin}/api/news.php`);
+  return [...new Set(list)];
+}
 
 export async function saveArticleToMariaDb(articlePayload) {
   let lastError = null;
+  const endpoints = getNewsEndpoints();
 
-  for (const endpoint of API_ENDPOINTS) {
+  for (const endpoint of endpoints) {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -33,7 +34,6 @@ export async function saveArticleToMariaDb(articlePayload) {
       }
     } catch (err) {
       lastError = err;
-      // continue to next endpoint
     }
   }
 
@@ -42,7 +42,8 @@ export async function saveArticleToMariaDb(articlePayload) {
 }
 
 export async function deleteArticleFromMariaDb(postIdOrId) {
-  for (const endpoint of API_ENDPOINTS) {
+  const endpoints = getNewsEndpoints();
+  for (const endpoint of endpoints) {
     try {
       const url = `${endpoint}?id=${encodeURIComponent(postIdOrId)}`;
       const response = await fetch(url, {
@@ -59,7 +60,8 @@ export async function deleteArticleFromMariaDb(postIdOrId) {
 }
 
 export async function fetchArticlesFromMariaDb() {
-  for (const endpoint of API_ENDPOINTS) {
+  const endpoints = getNewsEndpoints();
+  for (const endpoint of endpoints) {
     try {
       const response = await fetch(endpoint, {
         method: 'GET',
