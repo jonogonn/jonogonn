@@ -72,7 +72,7 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
 
     let fetched = false;
 
-    for (const ep of endpoints) {
+    for (const ep of uniqueEndpoints) {
       try {
         const res = await fetch(ep, { headers: { 'Accept': 'application/json' } });
         if (res.ok) {
@@ -201,7 +201,7 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
     const uniqueServerEndpoints = [...new Set(serverEndpoints)];
 
     let serverSuccess = false;
-    for (const ep of serverEndpoints) {
+    for (const ep of uniqueServerEndpoints) {
       try {
         const checkRes = await fetch(ep, { method: 'HEAD' });
         if (checkRes.ok) {
@@ -313,7 +313,9 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
 
     if (confirmed) {
       try {
-        await fetch(`/api/media.php?id=${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+        const fileId = item.file_id || item.id || '';
+        const fileName = item.storage_key || item.original_name || '';
+        await fetch(`/api/media.php?id=${encodeURIComponent(item.id)}&file_id=${encodeURIComponent(fileId)}&file_name=${encodeURIComponent(fileName)}`, { method: 'DELETE' });
       } catch (e) {
         // continue
       }

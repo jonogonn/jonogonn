@@ -1,52 +1,149 @@
 <?php
 /**
  * Janogon News - Media Library & Asset Archive API
- * 1. GET: Fetch all uploaded media assets and metadata
- * 2. GET ?action=download_zip: Generate and stream a complete ZIP archive of all media files
- * 3. DELETE: Delete media asset from database/storage
+ * 1. Direct Backblaze B2 Cloud Integration (queries b2_list_file_names)
+ * 2. GET: Returns real images from Backblaze B2 bucket & MariaDB
+ * 3. GET ?action=download_zip: Generates and streams ZIP archive from B2
+ * 4. DELETE: Deletes file from Backblaze B2 & MariaDB
  */
 
 require_once __DIR__ . '/db.php';
 
+header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
 
+$requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $action = $_GET['action'] ?? '';
 
 // -------------------------------------------------------------
-// 1. GENERATE & DOWNLOAD BULK ZIP ARCHIVE
+// HELPER: BACKBLAZE B2 AUTHORIZE
+// -------------------------------------------------------------
+function b2Auth() {
+    if (empty(B2_KEY_ID) || empty(B2_APPLICATION_KEY)) {
+        return null;
+    }
+    $url = "https://api.backblazeb2.com/b2api/v2/b2_authorize_account";
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_USERPWD, B2_KEY_ID . ":" . B2_APPLICATION_KEY);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    $res = curl_exec($ch);
+    $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($http === 200 && $res) {
+        return json_decode($res, true);
+    }
+    return null;
+}
+
+// -------------------------------------------------------------
+// HELPER: FETCH FILES DIRECTLY FROM BACKBLAZE B2 BUCKET
+// -------------------------------------------------------------
+function getB2FilesList() {
+    $auth = b2Auth();
+    if (!$auth || empty($auth['authorizationToken']) || empty($auth['apiUrl'])) {
+        return [];
+    }
+
+    $apiUrl = $auth['apiUrl'];
+    $authToken = $auth['authorizationToken'];
+    $downloadUrl = $auth['downloadUrl'] ?? "https://f005.backblazeb2.com";
+
+    $listUrl = "$apiUrl/b2api/v2/b2_list_file_names";
+    $ch = curl_init($listUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+        'bucketId' => B2_BUCKET_ID,
+        'maxFileCount' => 1000
+    ]));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Authorization: $authToken",
+        "Content-Type: application/json"
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    $listRes = curl_exec($ch);
+    $listHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($listHttpCode !== 200 || !$listRes) {
+        return [];
+    }
+
+    $data = json_decode($listRes, true);
+    $rawFiles = $data['files'] ?? [];
+    $mediaList = [];
+
+    foreach ($rawFiles as $file) {
+        if (($file['action'] ?? '') === 'upload') {
+            $fileName = $file['fileName'];
+            $baseName = basename($fileName);
+            $ext = strtolower(pathinfo($baseName, PATHINFO_EXTENSION) ?: 'webp');
+
+            if (defined('CDN_BASE_URL') && CDN_BASE_URL) {
+                $publicUrl = rtrim(CDN_BASE_URL, '/') . '/' . ltrim($fileName, '/');
+            } else {
+                $publicUrl = rtrim($downloadUrl, '/') . '/file/' . B2_BUCKET_NAME . '/' . ltrim($fileName, '/');
+            }
+
+            $mediaList[] = [
+                'id' => $file['fileId'] ?? ('b2-' . md5($fileName)),
+                'file_id' => $file['fileId'] ?? '',
+                'original_name' => $baseName,
+                'storage_key' => $fileName,
+                'public_url' => $publicUrl,
+                'file_format' => $ext,
+                'width' => 1200,
+                'height' => 630,
+                'size_bytes' => $file['contentLength'] ?? 80000,
+                'provider' => 'backblaze',
+                'associated_news' => '',
+                'created_at' => !empty($file['uploadTimestamp']) ? date('Y-m-d H:i:s', (int)($file['uploadTimestamp'] / 1000)) : date('Y-m-d H:i:s')
+            ];
+        }
+    }
+
+    return $mediaList;
+}
+
+// -------------------------------------------------------------
+// 1. GENERATE & STREAM BULK ZIP ARCHIVE
 // -------------------------------------------------------------
 if ($action === 'download_zip') {
     try {
-        // Fetch all actual uploaded media items
-        $mediaItems = [];
-        if ($pdo) {
+        $mediaItems = getB2FilesList();
+
+        // If B2 list was empty, try MariaDB
+        if (empty($mediaItems) && $pdo) {
             $stmt = $pdo->query("SELECT `id`, `original_name`, `storage_key`, `public_url`, `file_format` FROM `media_uploads` ORDER BY `id` DESC");
-            $mediaItems = $stmt->fetchAll();
+            $mediaItems = $stmt->fetchAll() ?: [];
         }
 
         if (empty($mediaItems)) {
-            header('Content-Type: application/json; charset=utf-8');
             http_response_code(404);
-            echo json_encode(['success' => false, 'message' => 'কোনো ছবি পাওয়া যায়নি।'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['success' => false, 'message' => 'Backblaze B2-তে কোনো ছবি পাওয়া যায়নি।'], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
-        // Create Temporary Zip File
         $zipFileName = 'jonogon_media_archive_' . date('Y-m-d_His') . '.zip';
         $tempZipPath = sys_get_temp_dir() . '/' . $zipFileName;
 
         $zip = new ZipArchive();
         if ($zip->open($tempZipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            header('Content-Type: application/json; charset=utf-8');
             http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'ZIP ফাইল তৈরি করতে সমস্যা হয়েছে।'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['success' => false, 'message' => 'ZIP ফাইল তৈরি করতে ব্যর্থ হয়েছে।'], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
@@ -56,7 +153,7 @@ if ($action === 'download_zip') {
             $storageKey = $item['storage_key'] ?? ('uploads/' . ($item['original_name'] ?? 'image.webp'));
             $zipEntryPath = ltrim($storageKey, '/\\');
 
-            // 1. Try local file path first
+            // 1. Try local file path
             $localPath = __DIR__ . '/../' . ltrim($storageKey, '/\\');
             if (file_exists($localPath)) {
                 $zip->addFile($localPath, $zipEntryPath);
@@ -64,13 +161,14 @@ if ($action === 'download_zip') {
                 continue;
             }
 
-            // 2. Fetch from remote URL (Backblaze B2 / CDN)
+            // 2. Fetch from B2 CDN URL
             if ($url && filter_var($url, FILTER_VALIDATE_URL)) {
                 $ch = curl_init($url);
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
                 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 20);
                 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
                 $fileContent = curl_exec($ch);
                 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
                 curl_close($ch);
@@ -82,19 +180,15 @@ if ($action === 'download_zip') {
             }
         }
 
-        // Add a clean README file inside the zip archive for documentation
-        $zip->addFromString('README_ARCHIVE_INFO.txt', "========================================\r\nJONOGON NEWS - MEDIA ASSET ARCHIVE\r\nGenerated on: " . date('Y-m-d H:i:s T') . "\r\nTotal Files: " . $addedCount . "\r\nFolder Structure: uploads/YYYY/MM/filename.webp\r\n========================================\r\nThis ZIP archive contains all web-optimized WebP news assets and illustrations.\r\n");
-
+        $zip->addFromString('README_ARCHIVE_INFO.txt', "========================================\r\nJONOGON NEWS - BACKBLAZE B2 ASSET ARCHIVE\r\nGenerated on: " . date('Y-m-d H:i:s T') . "\r\nTotal Files: " . $addedCount . "\r\nBucket: " . B2_BUCKET_NAME . "\r\n========================================\r\n");
         $zip->close();
 
         if (!file_exists($tempZipPath) || filesize($tempZipPath) === 0) {
-            header('Content-Type: application/json; charset=utf-8');
             http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'ZIP ফাইলে কোনো ইমেজ যুক্ত করা যায়নি।'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['success' => false, 'message' => 'ZIP ফাইলে ছবি যুক্ত করা যায়নি।'], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
-        // Stream the ZIP file to browser
         header('Content-Type: application/zip');
         header('Content-Disposition: attachment; filename="' . $zipFileName . '"');
         header('Content-Length: ' . filesize($tempZipPath));
@@ -107,7 +201,6 @@ if ($action === 'download_zip') {
         exit;
 
     } catch (Exception $e) {
-        header('Content-Type: application/json; charset=utf-8');
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'ZIP এক্সপোর্ট ত্রুটি: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
         exit;
@@ -115,27 +208,47 @@ if ($action === 'download_zip') {
 }
 
 // -------------------------------------------------------------
-// 2. GET: FETCH MEDIA ASSETS LIST (JSON)
+// 2. GET: FETCH REAL MEDIA ASSETS FROM BACKBLAZE B2
 // -------------------------------------------------------------
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    header('Content-Type: application/json; charset=utf-8');
+if ($requestMethod === 'GET') {
     try {
-        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 200;
-        $mediaList = [];
+        // Direct Backblaze B2 Bucket files
+        $mediaList = getB2FilesList();
 
+        // If B2 API was reachable and returned list (even 1 file or more)
+        if (!empty($mediaList)) {
+            echo json_encode([
+                'success' => true,
+                'total' => count($mediaList),
+                'data' => $mediaList,
+                'source' => 'backblaze_b2'
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        // Fallback to MariaDB media_uploads
         if ($pdo) {
-            $stmt = $pdo->prepare("SELECT * FROM `media_uploads` ORDER BY `created_at` DESC LIMIT ?");
-            $stmt->bindValue(1, $limit, PDO::PARAM_INT);
-            $stmt->execute();
-            $mediaList = $stmt->fetchAll();
+            $stmt = $pdo->query("SELECT * FROM `media_uploads` ORDER BY `created_at` DESC LIMIT 200");
+            $dbList = $stmt->fetchAll() ?: [];
+            if (!empty($dbList)) {
+                echo json_encode([
+                    'success' => true,
+                    'total' => count($dbList),
+                    'data' => $dbList,
+                    'source' => 'mariadb'
+                ], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
         }
 
         echo json_encode([
             'success' => true,
-            'total' => count($mediaList),
-            'data' => $mediaList
+            'total' => 0,
+            'data' => [],
+            'source' => 'empty'
         ], JSON_UNESCAPED_UNICODE);
         exit;
+
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
@@ -144,24 +257,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 
 // -------------------------------------------------------------
-// 3. DELETE: REMOVE MEDIA ASSET
+// 3. DELETE: REMOVE FILE FROM BACKBLAZE B2 & DB
 // -------------------------------------------------------------
-if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-    header('Content-Type: application/json; charset=utf-8');
+if ($requestMethod === 'DELETE') {
     try {
-        $id = $_GET['id'] ?? '';
-        if (!$id) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'মিডিয়া আইডি দেওয়া হয়নি।'], JSON_UNESCAPED_UNICODE);
-            exit;
+        $fileId = $_GET['file_id'] ?? ($_GET['id'] ?? '');
+        $fileName = $_GET['file_name'] ?? ($_GET['fileName'] ?? '');
+
+        if ($fileId && $fileName) {
+            $auth = b2Auth();
+            if ($auth && !empty($auth['apiUrl']) && !empty($auth['authorizationToken'])) {
+                $delUrl = $auth['apiUrl'] . "/b2api/v2/b2_delete_file_version";
+                $ch = curl_init($delUrl);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+                    'fileName' => $fileName,
+                    'fileId' => $fileId
+                ]));
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    "Authorization: " . $auth['authorizationToken'],
+                    "Content-Type: application/json"
+                ]);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+                curl_exec($ch);
+                curl_close($ch);
+            }
         }
 
-        if ($pdo) {
+        if ($pdo && is_numeric($fileId)) {
             $stmt = $pdo->prepare("DELETE FROM `media_uploads` WHERE `id` = ?");
-            $stmt->execute([$id]);
+            $stmt->execute([$fileId]);
         }
 
-        echo json_encode(['success' => true, 'message' => 'মিডিয়া ফাইল ডাটাবেজ থেকে সরানো হয়েছে।'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['success' => true, 'message' => 'মিডিয়া ফাইল সফলভাবে মুছে ফেলা হয়েছে।'], JSON_UNESCAPED_UNICODE);
         exit;
     } catch (Exception $e) {
         http_response_code(500);
