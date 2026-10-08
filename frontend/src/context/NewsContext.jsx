@@ -123,21 +123,30 @@ export function NewsProvider({ children }) {
 
   // 4. Articles Data (Auto-heal broken URLs if any cached)
   const [articles, setArticles] = useState(() => {
-    const saved = localStorage.getItem('jonogon_articles');
-    const list = saved ? JSON.parse(saved) : initialNewsArticles;
-    return list.map((a) => {
-      if (a.imageUrl && a.imageUrl.includes('photo-1527018607619-a508a2be00be')) {
-        return { ...a, imageUrl: 'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=600&q=80' };
+    try {
+      const saved = localStorage.getItem('jonogon_articles');
+      if (saved) {
+        const list = JSON.parse(saved);
+        if (Array.isArray(list) && list.length > 0) {
+          return list.map((a) => {
+            if (a.imageUrl && a.imageUrl.includes('photo-1527018607619-a508a2be00be')) {
+              return { ...a, imageUrl: 'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=600&q=80' };
+            }
+            return a;
+          });
+        }
       }
-      return a;
-    });
+    } catch (e) {
+      console.warn('Error reading jonogon_articles', e);
+    }
+    return initialNewsArticles;
   });
 
   // 5. Category Master Groups (10 Master Groups with Sub-Groups & Category Items)
   const [categoryMasterGroups, setCategoryMasterGroups] = useState(() => {
-    const saved = localStorage.getItem('jonogon_master_groups');
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem('jonogon_master_groups');
+      if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const bdGroup = parsed.find((g) => g.id === 'bangladesh-governance') || parsed[0];
@@ -161,18 +170,18 @@ export function NewsProvider({ children }) {
           }
           return parsed;
         }
-      } catch (e) {
-        console.error('Error parsing master groups from storage', e);
       }
+    } catch (e) {
+      console.warn('Error parsing master groups from storage', e);
     }
     return initialCategoryMasterGroups;
   });
 
   // 5b. Flat Categories Data (All Categories synchronized with Master Groups)
   const [categories, setCategories] = useState(() => {
-    const saved = localStorage.getItem('jonogon_categories');
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem('jonogon_categories');
+      if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           if (!parsed.some((c) => c.id === 'probashi')) {
@@ -181,8 +190,8 @@ export function NewsProvider({ children }) {
           }
           return parsed;
         }
-      } catch (e) {}
-    }
+      }
+    } catch (e) {}
     return initialCategories;
   });
 
@@ -190,7 +199,7 @@ export function NewsProvider({ children }) {
   useEffect(() => {
     setCategoryMasterGroups((prevGroups) => {
       let needsUpdate = false;
-      const updated = prevGroups.map((grp) => {
+      const updated = (prevGroups || []).map((grp) => {
         if (grp.id === 'bangladesh-governance') {
           const hasProbashi = grp.subGroups?.some((sg) =>
             sg.items?.some((it) => it.id === 'probashi' || it.nameBn === 'প্রবাসী')
@@ -220,8 +229,8 @@ export function NewsProvider({ children }) {
     });
 
     setCategories((prev) => {
-      if (!prev.some((c) => c.id === 'probashi')) {
-        const updated = [...prev, { id: 'probashi', nameBn: 'প্রবাসী', nameEn: 'Expatriates', slug: 'probashi' }];
+      if (!(prev || []).some((c) => c.id === 'probashi')) {
+        const updated = [...(prev || []), { id: 'probashi', nameBn: 'প্রবাসী', nameEn: 'Expatriates', slug: 'probashi' }];
         localStorage.setItem('jonogon_categories', JSON.stringify(updated));
         return updated;
       }
@@ -231,32 +240,51 @@ export function NewsProvider({ children }) {
 
   // 6. Breaking News Ticker
   const [breakingNews, setBreakingNews] = useState(() => {
-    const saved = localStorage.getItem('jonogon_breaking');
-    return saved ? JSON.parse(saved) : initialBreakingNews;
+    try {
+      const saved = localStorage.getItem('jonogon_breaking');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return initialBreakingNews;
   });
 
   // 7. Podcasts Data
   const [podcasts, setPodcasts] = useState(() => {
-    const saved = localStorage.getItem('jonogon_podcasts');
-    const list = saved ? JSON.parse(saved) : initialPodcasts;
-    return list.map((p, idx) => {
-      if (!p.subjectId) {
-        const fallback = initialPodcasts[idx % initialPodcasts.length] || initialPodcasts[0];
-        return {
-          ...p,
-          subjectId: fallback?.subjectId || 'politics',
-          subjectBn: fallback?.subjectBn || 'রাজনীতি ও রাষ্ট্র',
-          subjectEn: fallback?.subjectEn || 'Politics & Governance'
-        };
+    try {
+      const saved = localStorage.getItem('jonogon_podcasts');
+      if (saved) {
+        const list = JSON.parse(saved);
+        if (Array.isArray(list) && list.length > 0) {
+          return list.map((p, idx) => {
+            if (!p.subjectId) {
+              const fallback = initialPodcasts[idx % initialPodcasts.length] || initialPodcasts[0];
+              return {
+                ...p,
+                subjectId: fallback?.subjectId || 'politics',
+                subjectBn: fallback?.subjectBn || 'রাজনীতি ও রাষ্ট্র',
+                subjectEn: fallback?.subjectEn || 'Politics & Governance'
+              };
+            }
+            return p;
+          });
+        }
       }
-      return p;
-    });
+    } catch (e) {}
+    return initialPodcasts;
   });
 
   // 7b. Emergency Services Data (BD Govt & Emergency Services)
   const [emergencyServices, setEmergencyServices] = useState(() => {
-    const saved = localStorage.getItem('jonogon_emergency_services');
-    return saved ? JSON.parse(saved) : initialEmergencyServices;
+    try {
+      const saved = localStorage.getItem('jonogon_emergency_services');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return initialEmergencyServices;
   });
 
   // 7c. Homepage Modular Sections Order & Visibility State (31 sections)

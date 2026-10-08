@@ -4,7 +4,7 @@
  */
 require_once __DIR__ . '/db.php';
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // Handle GET: Fetch news
 if ($method === 'GET') {

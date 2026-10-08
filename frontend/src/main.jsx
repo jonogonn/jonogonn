@@ -2,12 +2,15 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { NewsProvider } from './context/NewsContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <NewsProvider>
-      <App />
-    </NewsProvider>
+    <ErrorBoundary>
+      <NewsProvider>
+        <App />
+      </NewsProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );

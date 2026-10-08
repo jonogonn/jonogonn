@@ -1,11 +1,12 @@
 /**
  * Utility to sync news articles directly to MariaDB / MySQL database.
- * Supports XAMPP Apache PHP API and Node Backend API seamlessly.
+ * Supports cPanel Apache PHP API, XAMPP, and Node Backend API seamlessly.
  */
 
 const API_ENDPOINTS = [
-  'http://localhost/janogon/api/news.php',
   '/api/news.php',
+  'api/news.php',
+  'http://localhost/janogon/api/news.php',
   'http://localhost:5000/api/news'
 ];
 
@@ -55,4 +56,24 @@ export async function deleteArticleFromMariaDb(postIdOrId) {
     }
   }
   return false;
+}
+
+export async function fetchArticlesFromMariaDb() {
+  for (const endpoint of API_ENDPOINTS) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result && result.success && Array.isArray(result.data)) {
+          return result.data;
+        }
+      }
+    } catch (err) {
+      // continue
+    }
+  }
+  return null;
 }

@@ -57,7 +57,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { uploadImageToStorage } from '../supabase';
+import { uploadImageToStorage } from '../utils/imageUploader';
 import SocialNewsCardPreview from './SocialNewsCardPreview';
 import { getCardCategoryLabel } from '../utils/cardCategoryHelper';
 
@@ -375,25 +375,34 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
   // Image Upload helper for Block or Featured Image
   const handleBlockImageUpload = async (index, file) => {
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      showError(isBn ? 'ছবির সাইজ সর্বোচ্চ ৫ মেগাবাইট হতে পারবে।' : 'Image size must be less than 5MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      showError(isBn ? 'ছবির সাইজ সর্বোচ্চ ১০ মেগাবাইট হতে পারবে।' : 'Image size must be less than 10MB.');
       return;
     }
 
     try {
+      // 1. Show immediate preview via DataURL & set uploading state
       const reader = new FileReader();
-      reader.onload = async (e) => {
-        const base64 = e.target?.result;
-        updateBlock(index, { url: base64 });
-        const uploadedUrl = await uploadImageToStorage(file);
-        if (uploadedUrl) {
-          updateBlock(index, { url: uploadedUrl });
-        }
+      reader.onload = (e) => {
+        const previewUrl = e.target?.result;
+        updateBlock(index, { url: previewUrl, isUploading: true });
       };
       reader.readAsDataURL(file);
-      if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি লোড হয়েছে!' : 'Image loaded!');
+
+      if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি WebP রূপান্তর ও ক্লাউড আপলোড হচ্ছে...' : 'Converting to WebP & uploading to cloud...');
+
+      // 2. Upload to Backblaze B2 (cPanel / Direct Cloud)
+      const uploadedUrl = await uploadImageToStorage(file);
+      if (uploadedUrl) {
+        updateBlock(index, { url: uploadedUrl, isUploading: false });
+        if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি সফলভাবে .webp ফরম্যাটে ক্লাউডে সংরক্ষিত হয়েছে!' : 'Image uploaded to cloud as .webp!');
+      } else {
+        updateBlock(index, { isUploading: false });
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Upload failed:', err);
+      updateBlock(index, { isUploading: false });
+      showError(isBn ? 'ছবি আপলোড ব্যর্থ হয়েছে।' : 'Image upload failed.');
     }
   };
 
@@ -1172,8 +1181,29 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                             <img
                               src={block.url}
                               alt={block.caption || 'Preview'}
-                              style={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 6 }}
+                              style={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 6, opacity: block.isUploading ? 0.6 : 1 }}
                             />
+                            {block.isUploading && (
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: 0,
+                                  background: 'rgba(0,0,0,0.6)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderRadius: 6,
+                                  color: '#fff',
+                                  gap: 6
+                                }}
+                              >
+                                <div style={{ width: 22, height: 22, border: '3px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                                <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>
+                                  {isBn ? 'WebP রূপান্তর ও ক্লাউড আপলোড হচ্ছে...' : 'Converting to WebP & uploading...'}
+                                </div>
+                              </div>
+                            )}
                             <div style={{ marginTop: 8, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                               {isBn ? 'ছবি পরিবর্তন করতে ক্লিক করুন' : 'Click to change image'}
                             </div>

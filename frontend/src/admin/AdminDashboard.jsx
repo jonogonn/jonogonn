@@ -50,13 +50,14 @@ import {
   CheckSquare,
   Square
 } from 'lucide-react';
-import { configureSupabase, uploadImageToStorage } from '../supabase';
+import { uploadImageToStorage } from '../utils/imageUploader';
 import MainMenuManager from './MainMenuManager';
 import HomepageSectionManager from './HomepageSectionManager';
 import GlobalSettingsManager from './GlobalSettingsManager';
 import CreatePostManager from './CreatePostManager';
 import EditPostManager from './EditPostManager';
 import ApprovePostManager from './ApprovePostManager';
+import MediaGalleryManager from './MediaGalleryManager';
 import AdminLoginScreen from './AdminLoginScreen';
 import ConfirmModal from '../components/Modals/ConfirmModal';
 
@@ -500,6 +501,21 @@ export default function AdminDashboard() {
                 {pendingApprovalCount}
               </span>
             )}
+          </button>
+
+          {/* Media Gallery Tab */}
+          <button
+            type="button"
+            className={`admin-nav-item ${activeTab === 'gallery' ? 'active' : ''}`}
+            onClick={() => setActiveTab('gallery')}
+            title={isBn ? 'মিডিয়া গ্যালারি ও ক্লাউড অ্যাসেট' : 'Media Gallery & Assets'}
+            style={{
+              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+            }}
+          >
+            <ImageIcon size={18} />
+            {!isSidebarCollapsed && <span>{isBn ? 'গ্যালারি' : 'Gallery'}</span>}
           </button>
 
           {/* Main Menu & Categories */}
@@ -1306,6 +1322,11 @@ export default function AdminDashboard() {
               onNavigateToEdit={() => setActiveTab('edit-post')}
               onNavigateToCreate={() => setActiveTab('create-post')}
             />
+          )}
+
+          {/* TAB: MEDIA GALLERY & CLOUD ASSET MANAGER */}
+          {activeTab === 'gallery' && (
+            <MediaGalleryManager triggerSaveToast={triggerSaveToast} />
           )}
 
           {/* TAB 5: MAIN MENU & CATEGORIES */}
