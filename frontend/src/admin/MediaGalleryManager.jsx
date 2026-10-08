@@ -23,7 +23,12 @@ import {
   List as ListIcon,
   CheckSquare,
   Square,
-  FileDown
+  FileDown,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { uploadImageToStorage } from '../utils/imageUploader';
 
@@ -54,6 +59,30 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
   // Modal / Preview
   const [previewItem, setPreviewItem] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const handleOpenPreview = (item) => {
+    setPreviewItem(item);
+    setZoomScale(1);
+    setIsFullscreen(false);
+  };
+
+  const handleZoomIn = () => {
+    setZoomScale((prev) => Math.min(Number((prev + 0.25).toFixed(2)), 3.0));
+  };
+
+  const handleZoomOut = () => {
+    setZoomScale((prev) => Math.max(Number((prev - 0.25).toFixed(2)), 0.5));
+  };
+
+  const handleResetZoom = () => {
+    setZoomScale(1);
+  };
+
+  const toggleFullscreen = () => {
+    setIsFullscreen((prev) => !prev);
+  };
 
   // File Upload input ref
   const fileInputRef = useRef(null);
@@ -839,7 +868,7 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
       )}
 
       {/* -------------------------------------------------------------
-          5. IMAGE PREVIEW MODAL
+          5. SLEEK IMAGE PREVIEW MODAL WITH ZOOM & PAN CONTROLS
           ------------------------------------------------------------- */}
       {previewItem && (
         <div
@@ -847,103 +876,351 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            backdropFilter: 'blur(8px)',
-            zIndex: 9999,
+            backgroundColor: 'rgba(5, 8, 15, 0.85)',
+            backdropFilter: 'blur(12px)',
+            zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 16
+            padding: isFullscreen ? 0 : 20,
+            animation: 'fadeIn 0.2s ease-out'
           }}
-          onClick={() => setPreviewItem(null)}
+          onClick={() => {
+            setPreviewItem(null);
+            setIsFullscreen(false);
+          }}
         >
           <div
             className="admin-modal-box"
             style={{
               width: '100%',
-              maxWidth: 720,
-              backgroundColor: 'var(--bg-card, #1A1D24)',
-              borderRadius: 12,
-              border: '1px solid var(--border-color)',
+              maxWidth: isFullscreen ? '100vw' : '860px',
+              height: isFullscreen ? '100vh' : 'auto',
+              maxHeight: isFullscreen ? '100vh' : '90vh',
+              backgroundColor: 'var(--bg-card, #131722)',
+              borderRadius: isFullscreen ? 0 : 14,
+              border: isFullscreen ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
               overflow: 'hidden',
-              boxShadow: '0 25px 50px rgba(0,0,0,0.6)'
+              boxShadow: '0 25px 60px -15px rgba(0,0,0,0.8)',
+              display: 'flex',
+              flexDirection: 'column'
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'var(--bg-subtle)' }}>
-              <div style={{ fontWeight: 800, fontSize: '0.98rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <ImageIcon size={18} color="var(--primary-red)" />
-                <span>{previewItem.original_name || 'Image Preview'}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPreviewItem(null)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+            <div
+              style={{
+                padding: '14px 20px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: 'var(--bg-subtle, #181D29)'
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  color: 'var(--text-primary, #F3F4F6)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  minWidth: 0,
+                  flex: 1
+                }}
               >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Modal Image Body */}
-            <div style={{ padding: 20, textAlign: 'center', backgroundColor: '#0D1117' }}>
-              <img
-                src={previewItem.public_url}
-                alt={previewItem.original_name}
-                style={{ maxWidth: '100%', maxHeight: 420, objectFit: 'contain', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}
-              />
-            </div>
-
-            {/* Metadata & Actions */}
-            <div style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card)', borderTop: '1px solid var(--border-color)' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16, fontSize: '0.8rem' }}>
-                <div>
-                  <span style={{ color: 'var(--text-muted)', display: 'block' }}>{isBn ? 'স্টোরেজ পাথ:' : 'Storage Path:'}</span>
-                  <strong style={{ color: 'var(--text-primary)' }}>{previewItem.storage_key || 'uploads/...'}</strong>
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    backgroundColor: 'rgba(225, 29, 72, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}
+                >
+                  <ImageIcon size={18} color="var(--primary-red, #E11D48)" />
                 </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)', display: 'block' }}>{isBn ? 'ফরম্যাট ও সাইজ:' : 'Format & Size:'}</span>
-                  <strong style={{ color: 'var(--text-primary)' }}>{previewItem.file_format?.toUpperCase() || 'WEBP'} • {Math.round((previewItem.size_bytes || 80000) / 1024)} KB</strong>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)', display: 'block' }}>{isBn ? 'প্রোভাইডার:' : 'Cloud Storage:'}</span>
-                  <strong style={{ color: '#10B981' }}>Backblaze B2 (Bucket: jonogon.news)</strong>
-                </div>
+                <span
+                  style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={previewItem.original_name || 'image.webp'}
+                >
+                  {previewItem.original_name || 'image.webp'}
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                    color: '#10B981',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    flexShrink: 0
+                  }}
+                >
+                  {previewItem.file_format || 'WEBP'}
+                </span>
               </div>
 
-              {/* Bottom Action Buttons */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                 <button
                   type="button"
-                  className="admin-btn-secondary"
-                  onClick={() => setPreviewItem(null)}
+                  onClick={toggleFullscreen}
+                  style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 6,
+                    color: 'var(--text-primary, #E5E7EB)',
+                    cursor: 'pointer',
+                    padding: '6px 8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title={isFullscreen ? (isBn ? 'স্বাভাবিক ভিউ' : 'Exit Fullscreen') : (isBn ? 'ফুলস্ক্রিন' : 'Fullscreen')}
                 >
-                  <X size={15} />
-                  <span>{isBn ? 'বন্ধ করুন' : 'Close'}</span>
+                  {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
                 </button>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <button
-                    type="button"
-                    className="admin-btn-action"
-                    onClick={() => handleCopyLink(previewItem.public_url, previewItem.id)}
-                  >
-                    {copiedId === previewItem.id ? <Check size={15} color="#10B981" /> : <Copy size={15} />}
-                    <span>{isBn ? 'CDN লিংক কপি করুন' : 'Copy CDN Link'}</span>
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewItem(null);
+                    setIsFullscreen(false);
+                  }}
+                  style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 6,
+                    color: 'var(--text-muted, #9CA3AF)',
+                    cursor: 'pointer',
+                    padding: '6px 8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title={isBn ? 'বন্ধ করুন' : 'Close'}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
 
-                  <a
-                    href={previewItem.public_url}
-                    download={previewItem.original_name || 'image.webp'}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="admin-btn-primary"
-                    style={{ textDecoration: 'none' }}
-                  >
-                    <Download size={15} />
-                    <span>{isBn ? 'ছবিটি ডাউনলোড করুন' : 'Download Image'}</span>
-                  </a>
-                </div>
+            {/* Modal Image Body with Interactive Zoom Toolbar */}
+            <div
+              style={{
+                position: 'relative',
+                flex: 1,
+                minHeight: isFullscreen ? 'calc(100vh - 120px)' : '380px',
+                maxHeight: isFullscreen ? 'calc(100vh - 120px)' : '520px',
+                backgroundColor: '#090C12',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'auto',
+                padding: 24,
+                userSelect: 'none'
+              }}
+            >
+              {/* Floating Glassmorphic Zoom Control Bar */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: 16,
+                  zIndex: 20,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 12px',
+                  borderRadius: 30,
+                  backgroundColor: 'rgba(19, 23, 34, 0.9)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255, 255, 255, 0.14)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={handleZoomOut}
+                  disabled={zoomScale <= 0.5}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: zoomScale <= 0.5 ? 'rgba(255,255,255,0.3)' : '#F3F4F6',
+                    cursor: zoomScale <= 0.5 ? 'not-allowed' : 'pointer',
+                    padding: 5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    borderRadius: 4
+                  }}
+                  title={isBn ? 'জুম আউট (-)' : 'Zoom Out (-)'}
+                >
+                  <ZoomOut size={16} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleResetZoom}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: 'none',
+                    color: '#F3F4F6',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    padding: '3px 8px',
+                    borderRadius: 12,
+                    cursor: 'pointer',
+                    minWidth: 48,
+                    textAlign: 'center'
+                  }}
+                  title={isBn ? 'রিসেট জুম (১০০%)' : 'Reset Zoom (100%)'}
+                >
+                  {Math.round(zoomScale * 100)}%
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleZoomIn}
+                  disabled={zoomScale >= 3.0}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: zoomScale >= 3.0 ? 'rgba(255,255,255,0.3)' : '#F3F4F6',
+                    cursor: zoomScale >= 3.0 ? 'not-allowed' : 'pointer',
+                    padding: 5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    borderRadius: 4
+                  }}
+                  title={isBn ? 'জুম ইন (+)' : 'Zoom In (+)'}
+                >
+                  <ZoomIn size={16} />
+                </button>
+
+                <div style={{ width: 1, height: 16, backgroundColor: 'rgba(255,255,255,0.15)', margin: '0 2px' }} />
+
+                <button
+                  type="button"
+                  onClick={handleResetZoom}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#9CA3AF',
+                    cursor: 'pointer',
+                    padding: 5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    borderRadius: 4
+                  }}
+                  title={isBn ? 'মূল আকারে আনুন' : 'Reset'}
+                >
+                  <RotateCcw size={14} />
+                </button>
+              </div>
+
+              {/* Centered Scalable Image */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                  height: '100%'
+                }}
+              >
+                <img
+                  src={previewItem.public_url}
+                  alt={previewItem.original_name || 'image'}
+                  style={{
+                    maxWidth: isFullscreen ? '90%' : '100%',
+                    maxHeight: isFullscreen ? '75vh' : '420px',
+                    objectFit: 'contain',
+                    borderRadius: 8,
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.6)',
+                    transform: `scale(${zoomScale})`,
+                    transformOrigin: 'center center',
+                    transition: 'transform 0.2s cubic-bezier(0.2, 0, 0.2, 1)',
+                    cursor: zoomScale > 1 ? 'grab' : 'zoom-in'
+                  }}
+                  onClick={() => {
+                    if (zoomScale === 1) handleZoomIn();
+                    else if (zoomScale >= 2) handleResetZoom();
+                    else handleZoomIn();
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Modal Actions Footer (Without Metadata Text) */}
+            <div
+              style={{
+                padding: '14px 20px',
+                backgroundColor: 'var(--bg-card, #131722)',
+                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12
+              }}
+            >
+              <button
+                type="button"
+                className="admin-btn-secondary"
+                onClick={() => {
+                  setPreviewItem(null);
+                  setIsFullscreen(false);
+                }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  fontSize: '0.85rem'
+                }}
+              >
+                <X size={15} />
+                <span>{isBn ? 'বন্ধ করুন' : 'Close'}</span>
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  type="button"
+                  className="admin-btn-action"
+                  onClick={() => handleCopyLink(previewItem.public_url, previewItem.id)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 8,
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  {copiedId === previewItem.id ? <Check size={15} color="#10B981" /> : <Copy size={15} />}
+                  <span>{isBn ? 'CDN লিংক কপি করুন' : 'Copy CDN Link'}</span>
+                </button>
+
+                <a
+                  href={previewItem.public_url}
+                  download={previewItem.original_name || 'image.webp'}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="admin-btn-primary"
+                  style={{
+                    textDecoration: 'none',
+                    padding: '8px 16px',
+                    borderRadius: 8,
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  <Download size={15} />
+                  <span>{isBn ? 'ছবিটি ডাউনলোড করুন' : 'Download Image'}</span>
+                </a>
               </div>
             </div>
           </div>

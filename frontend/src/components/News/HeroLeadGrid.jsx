@@ -19,9 +19,13 @@ export default function HeroLeadGrid() {
 
   if (!articles || articles.length === 0) return null;
 
+  // Filter only published articles for public homepage
+  const publishedArticles = articles.filter((a) => a.status === 'published' || !a.status);
+  const activeArticleList = publishedArticles.length > 0 ? publishedArticles : articles;
+
   // 1. Highlighted News Pool (Admin marked or fallback to lead/recent)
-  const highlightedNews = articles.filter((a) => a.isHighlighted);
-  const sliderItems = highlightedNews.length > 0 ? highlightedNews : articles.slice(0, 6);
+  const highlightedNews = activeArticleList.filter((a) => a.isHighlighted);
+  const sliderItems = highlightedNews.length > 0 ? highlightedNews : activeArticleList.slice(0, 6);
 
   // Auto slide highlight carousel with animated progress bar
   useEffect(() => {
@@ -58,10 +62,10 @@ export default function HeroLeadGrid() {
   };
 
   // 2. Newly Posted Sub-lead News (Uncapped, sorted recent)
-  const newlyPostedNews = articles;
+  const newlyPostedNews = activeArticleList;
 
   // 3. Most Read Stories - Sorted by views descending
-  const mostReadList = [...articles].sort((a, b) => (b.views || 0) - (a.views || 0));
+  const mostReadList = [...activeArticleList].sort((a, b) => (b.views || 0) - (a.views || 0));
 
   // 3-Column dynamic ordering
   const defaultColOrder = ['leadSlider', 'newlyPosted', 'mostRead'];
@@ -78,12 +82,12 @@ export default function HeroLeadGrid() {
         key={currentSlide.id}
         className="hero-main-card hero-slide-card"
         onClick={() => openArticle(currentSlide)}
-        title={isBn ? currentSlide.titleBn : currentSlide.titleEn}
+        title={isBn ? currentSlide.titleBn || currentSlide.titleEn : currentSlide.titleEn || currentSlide.titleBn}
       >
         <div className="hero-main-image-wrap">
           <img
-            src={currentSlide.imageUrl || FALLBACK_NEWS_IMG}
-            alt={isBn ? currentSlide.titleBn : currentSlide.titleEn}
+            src={currentSlide.imageUrl && !currentSlide.imageUrl.startsWith('blob:') ? currentSlide.imageUrl : FALLBACK_NEWS_IMG}
+            alt=""
             className="hero-main-image hero-unique-slide-anim"
             loading="eager"
             onError={(e) => {
@@ -131,12 +135,12 @@ export default function HeroLeadGrid() {
         <div className="hero-main-info hero-content-slide-up">
           <div>
             <h1 className="hero-main-title">
-              {isBn ? currentSlide.titleBn : currentSlide.titleEn}
+              {isBn ? currentSlide.titleBn || currentSlide.titleEn : currentSlide.titleEn || currentSlide.titleBn}
             </h1>
 
-            {currentSlide.excerptBn && (
+            {(currentSlide.excerptBn || currentSlide.excerptEn) && (
               <p className="hero-main-excerpt">
-                {isBn ? currentSlide.excerptBn : currentSlide.excerptEn}
+                {isBn ? currentSlide.excerptBn || currentSlide.excerptEn : currentSlide.excerptEn || currentSlide.excerptBn}
               </p>
             )}
           </div>
@@ -145,7 +149,7 @@ export default function HeroLeadGrid() {
             <div className="hero-main-meta">
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Clock size={14} color="var(--primary-red)" />
-                {isBn ? currentSlide.dateBn : currentSlide.dateEn}
+                {isBn ? currentSlide.dateBn || currentSlide.dateEn : currentSlide.dateEn || currentSlide.dateBn}
               </span>
               <span>|</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -199,12 +203,12 @@ export default function HeroLeadGrid() {
               key={`sub1-${item.id}`}
               className="sub-lead-card"
               onClick={() => openArticle(item)}
-              title={isBn ? item.titleBn : item.titleEn}
+              title={isBn ? item.titleBn || item.titleEn : item.titleEn || item.titleBn}
             >
               <div className="sub-lead-img-wrap">
                 <img
-                  src={item.imageUrl || FALLBACK_NEWS_IMG}
-                  alt={isBn ? item.titleBn : item.titleEn}
+                  src={item.imageUrl && !item.imageUrl.startsWith('blob:') ? item.imageUrl : FALLBACK_NEWS_IMG}
+                  alt=""
                   className="sub-lead-img"
                   loading="lazy"
                   onError={(e) => {
@@ -215,13 +219,13 @@ export default function HeroLeadGrid() {
               </div>
               <div className="sub-lead-content">
                 <span className="sub-lead-badge">
-                  {isBn ? item.categoryBn || 'জাতীয়' : item.category || 'National'}
+                  {isBn ? item.categoryBn || item.category || 'জাতীয়' : item.categoryEn || item.category || 'National'}
                 </span>
                 <h2 className="sub-lead-title">
-                  {isBn ? item.titleBn : item.titleEn}
+                  {isBn ? item.titleBn || item.titleEn : item.titleEn || item.titleBn}
                 </h2>
                 <span className="sub-lead-date">
-                  {isBn ? item.dateBn : item.dateEn}
+                  {isBn ? item.dateBn || item.dateEn : item.dateEn || item.dateBn}
                 </span>
               </div>
             </article>
@@ -233,12 +237,12 @@ export default function HeroLeadGrid() {
               key={`sub2-${item.id}`}
               className="sub-lead-card"
               onClick={() => openArticle(item)}
-              title={isBn ? item.titleBn : item.titleEn}
+              title={isBn ? item.titleBn || item.titleEn : item.titleEn || item.titleBn}
             >
               <div className="sub-lead-img-wrap">
                 <img
-                  src={item.imageUrl || FALLBACK_NEWS_IMG}
-                  alt={isBn ? item.titleBn : item.titleEn}
+                  src={item.imageUrl && !item.imageUrl.startsWith('blob:') ? item.imageUrl : FALLBACK_NEWS_IMG}
+                  alt=""
                   className="sub-lead-img"
                   loading="lazy"
                   onError={(e) => {
@@ -249,13 +253,13 @@ export default function HeroLeadGrid() {
               </div>
               <div className="sub-lead-content">
                 <span className="sub-lead-badge">
-                  {isBn ? item.categoryBn || 'জাতীয়' : item.category || 'National'}
+                  {isBn ? item.categoryBn || item.category || 'জাতীয়' : item.categoryEn || item.category || 'National'}
                 </span>
                 <h2 className="sub-lead-title">
-                  {isBn ? item.titleBn : item.titleEn}
+                  {isBn ? item.titleBn || item.titleEn : item.titleEn || item.titleBn}
                 </h2>
                 <span className="sub-lead-date">
-                  {isBn ? item.dateBn : item.dateEn}
+                  {isBn ? item.dateBn || item.dateEn : item.dateEn || item.dateBn}
                 </span>
               </div>
             </article>
@@ -284,12 +288,12 @@ export default function HeroLeadGrid() {
                 key={`mr1-${art.id}`}
                 className="ranking-item ranking-thumb-layout"
                 onClick={() => openArticle(art)}
-                title={isBn ? art.titleBn : art.titleEn}
+                title={isBn ? art.titleBn || art.titleEn : art.titleEn || art.titleBn}
               >
                 <div className="ranking-thumb-wrap">
                   <img
-                    src={art.imageUrl || FALLBACK_NEWS_IMG}
-                    alt={isBn ? art.titleBn : art.titleEn}
+                    src={art.imageUrl && !art.imageUrl.startsWith('blob:') ? art.imageUrl : FALLBACK_NEWS_IMG}
+                    alt=""
                     className="ranking-thumb-img"
                     loading="lazy"
                     onError={(e) => {
@@ -300,13 +304,13 @@ export default function HeroLeadGrid() {
                 </div>
                 <div className="ranking-info">
                   <p className="ranking-title">
-                    {isBn ? art.titleBn : art.titleEn}
+                    {isBn ? art.titleBn || art.titleEn : art.titleEn || art.titleBn}
                   </p>
                   <div className="ranking-meta-row">
                     <span className="ranking-cat-tag">
-                      {isBn ? art.categoryBn || 'সংবাদ' : art.category || 'News'}
+                      {isBn ? art.categoryBn || art.category || 'সংবাদ' : art.categoryEn || art.category || 'News'}
                     </span>
-                    <span className="ranking-date">{isBn ? art.dateBn : art.dateEn}</span>
+                    <span className="ranking-date">{isBn ? art.dateBn || art.dateEn : art.dateEn || art.dateBn}</span>
                   </div>
                 </div>
               </div>
@@ -318,12 +322,12 @@ export default function HeroLeadGrid() {
                 key={`mr2-${art.id}`}
                 className="ranking-item ranking-thumb-layout"
                 onClick={() => openArticle(art)}
-                title={isBn ? art.titleBn : art.titleEn}
+                title={isBn ? art.titleBn || art.titleEn : art.titleEn || art.titleBn}
               >
                 <div className="ranking-thumb-wrap">
                   <img
-                    src={art.imageUrl || FALLBACK_NEWS_IMG}
-                    alt={isBn ? art.titleBn : art.titleEn}
+                    src={art.imageUrl && !art.imageUrl.startsWith('blob:') ? art.imageUrl : FALLBACK_NEWS_IMG}
+                    alt=""
                     className="ranking-thumb-img"
                     loading="lazy"
                     onError={(e) => {
@@ -334,13 +338,13 @@ export default function HeroLeadGrid() {
                 </div>
                 <div className="ranking-info">
                   <p className="ranking-title">
-                    {isBn ? art.titleBn : art.titleEn}
+                    {isBn ? art.titleBn || art.titleEn : art.titleEn || art.titleBn}
                   </p>
                   <div className="ranking-meta-row">
                     <span className="ranking-cat-tag">
-                      {isBn ? art.categoryBn || 'সংবাদ' : art.category || 'News'}
+                      {isBn ? art.categoryBn || art.category || 'সংবাদ' : art.categoryEn || art.category || 'News'}
                     </span>
-                    <span className="ranking-date">{isBn ? art.dateBn : art.dateEn}</span>
+                    <span className="ranking-date">{isBn ? art.dateBn || art.dateEn : art.dateEn || art.dateBn}</span>
                   </div>
                 </div>
               </div>

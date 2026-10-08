@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import {
   initialSiteSettings,
   initialCategories,
@@ -353,14 +353,50 @@ export function NewsProvider({ children }) {
     return defaultSectionColumnsOrder;
   });
 
-  // 8. Navigation & Routing View States
-  const [activePage, setActivePage] = useState('home'); // 'home' | 'article' | 'category' | 'about' | 'advertisement' | 'contact' | 'editorial' | 'privacy' | 'terms'
-  const [activeCategory, setActiveCategoryState] = useState('latest');
+  // 8. Navigation & Routing View States (Synchronous detection to eliminate flash on reload)
+  const getInitialRouteState = () => {
+    if (typeof window === 'undefined') {
+      return { page: 'home', isAdmin: false, category: 'latest', articleSlug: null };
+    }
+    const path = window.location.pathname || '';
+    const params = new URLSearchParams(window.location.search);
+    const newsParam = params.get('news') || params.get('article');
+    const catParam = params.get('cat') || params.get('category');
+
+    if (path === '/admin' || path === '/admin/' || path.startsWith('/admin')) {
+      return { page: 'admin', isAdmin: true, category: 'latest', articleSlug: null };
+    }
+    if (path.startsWith('/news/')) {
+      return { page: 'article', isAdmin: false, category: 'latest', articleSlug: decodeURIComponent(path.replace('/news/', '').trim()) };
+    }
+    if (newsParam) {
+      return { page: 'article', isAdmin: false, category: 'latest', articleSlug: newsParam };
+    }
+    if (path.startsWith('/category/')) {
+      return { page: 'category', isAdmin: false, category: decodeURIComponent(path.replace('/category/', '').trim()), articleSlug: null };
+    }
+    if (catParam) {
+      return { page: 'category', isAdmin: false, category: catParam, articleSlug: null };
+    }
+    if (path === '/about' || path === '/about/') return { page: 'about', isAdmin: false, category: 'latest', articleSlug: null };
+    if (path === '/contact' || path === '/contact/') return { page: 'contact', isAdmin: false, category: 'latest', articleSlug: null };
+    if (path === '/advertisement' || path === '/advertisement/') return { page: 'advertisement', isAdmin: false, category: 'latest', articleSlug: null };
+    if (path === '/editorial' || path === '/editorial/') return { page: 'editorial', isAdmin: false, category: 'latest', articleSlug: null };
+    if (path === '/privacy' || path === '/privacy/') return { page: 'privacy', isAdmin: false, category: 'latest', articleSlug: null };
+    if (path === '/terms' || path === '/terms/') return { page: 'terms', isAdmin: false, category: 'latest', articleSlug: null };
+    if (path === '/founder' || path === '/editor') return { page: 'founder', isAdmin: false, category: 'latest', articleSlug: null };
+
+    return { page: 'home', isAdmin: false, category: 'latest', articleSlug: null };
+  };
+
+  const initialRoute = useMemo(() => getInitialRouteState(), []);
+  const [activePage, setActivePage] = useState(initialRoute.page);
+  const [activeCategory, setActiveCategoryState] = useState(initialRoute.category);
   const [selectedPodcastSubject, setSelectedPodcastSubject] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentArticle, setCurrentArticle] = useState(null); // Full page article view
-  const [activePolicyModal, setActivePolicyModal] = useState(null); // Optional modal fallback
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [currentArticle, setCurrentArticle] = useState(null);
+  const [activePolicyModal, setActivePolicyModal] = useState(null);
+  const [isAdminOpen, setIsAdminOpen] = useState(initialRoute.isAdmin);
 
   // 9. Real-Time Location District & Google Weather State
   const [userDistrict, setUserDistrictState] = useState(() => {

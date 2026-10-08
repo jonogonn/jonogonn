@@ -12,11 +12,11 @@
  * @param {number} maxDimension Max width/height in px (default 1920)
  * @returns {Promise<File>}
  */
-export async function convertImageToWebp(file, quality = 0.85, maxDimension = 1920) {
+export async function convertImageToWebp(file, quality = 0.85, maxDimension = 1920, customSlug = '') {
   if (!file) return file;
 
   // If already WebP and small enough, keep as is
-  if (file.type === 'image/webp' && file.size < 1024 * 1024) {
+  if (file.type === 'image/webp' && file.size < 1024 * 1024 && !customSlug) {
     return file;
   }
 
@@ -54,8 +54,9 @@ export async function convertImageToWebp(file, quality = 0.85, maxDimension = 19
           canvas.toBlob(
             (blob) => {
               if (blob) {
-                const baseName = (file.name || 'image').replace(/\.[^/.]+$/, '');
-                const cleanName = baseName.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'news-img';
+                const baseRaw = customSlug || file.name || 'image';
+                const baseName = baseRaw.replace(/\.[^/.]+$/, '');
+                const cleanName = baseName.replace(/[^a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'news-img';
                 const webpFile = new File([blob], `${cleanName}.webp`, {
                   type: 'image/webp',
                   lastModified: Date.now()
@@ -83,16 +84,18 @@ export async function convertImageToWebp(file, quality = 0.85, maxDimension = 19
 /**
  * Upload an image file via the backend API to Backblaze B2 & cPanel MariaDB
  * @param {File} rawFile
- * @param {object} options
+ * @param {object} options { slug, newsSlug, associatedNews, caption, title }
  * @returns {Promise<string>} Permanent CDN WebP URL
  */
 export async function uploadImageToStorage(rawFile, options = {}) {
   if (!rawFile) return '';
 
+  const targetSlug = options.slug || options.newsSlug || options.associatedNews || '';
+
   // 1. Client-Side WebP Conversion
   let fileToUpload = rawFile;
   try {
-    fileToUpload = await convertImageToWebp(rawFile, 0.85, 1920);
+    fileToUpload = await convertImageToWebp(rawFile, 0.85, 1920, targetSlug);
   } catch (err) {
     console.warn('WebP conversion note:', err);
   }
@@ -112,8 +115,13 @@ export async function uploadImageToStorage(rawFile, options = {}) {
   const formData = new FormData();
   formData.append('image', fileToUpload);
   formData.append('file', fileToUpload);
+  if (targetSlug) {
+    formData.append('slug', targetSlug);
+    formData.append('news_slug', targetSlug);
+  }
   if (options.caption) formData.append('caption', options.caption);
   if (options.associatedNews) formData.append('associated_news', options.associatedNews);
+  if (options.title) formData.append('title', options.title);
 
   let lastError = null;
 

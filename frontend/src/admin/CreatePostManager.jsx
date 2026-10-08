@@ -392,7 +392,12 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি WebP রূপান্তর ও ক্লাউড আপলোড হচ্ছে...' : 'Converting to WebP & uploading to cloud...');
 
       // 2. Upload to Backblaze B2 (cPanel / Direct Cloud)
-      const uploadedUrl = await uploadImageToStorage(file);
+      const newsSlugForImg = slug || metaTitle || kicker || 'news';
+      const uploadedUrl = await uploadImageToStorage(file, {
+        slug: newsSlugForImg,
+        newsSlug: newsSlugForImg,
+        associatedNews: slug || metaTitle || kicker || ''
+      });
       if (uploadedUrl) {
         updateBlock(index, { url: uploadedUrl, isUploading: false });
         if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি সফলভাবে .webp ফরম্যাটে ক্লাউডে সংরক্ষিত হয়েছে!' : 'Image uploaded to cloud as .webp!');

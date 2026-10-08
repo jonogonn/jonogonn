@@ -2621,14 +2621,15 @@ ol {
 
 .sub-lead-card {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 8px;
+  border-radius: 6px;
+  padding: 8px 10px;
   cursor: pointer;
   transition: border-color var(--transition-fast), transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.3s ease;
   flex-shrink: 0;
+  align-items: center;
 }
 
 .sub-lead-card:hover {
@@ -2640,16 +2641,25 @@ ol {
 .sub-lead-img-wrap {
   width: 90px;
   height: 68px;
+  min-width: 90px;
+  min-height: 68px;
   flex-shrink: 0;
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
   background-color: var(--border-color);
+  position: relative;
+  display: block;
+  font-size: 0;
+  line-height: 0;
 }
 
 .sub-lead-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
+  font-size: 0;
+  line-height: 0;
   transition: transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
@@ -2660,29 +2670,36 @@ ol {
 .sub-lead-content {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 3px;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 
 .sub-lead-badge {
   font-size: 0.68rem;
   font-weight: 700;
   color: var(--primary-red);
-  margin-bottom: 2px;
+  display: block;
+  line-height: 1.1;
+  text-transform: capitalize;
 }
 
 .sub-lead-title {
   font-family: var(--font-headline);
-  font-size: 0.92rem;
+  font-size: 0.90rem;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.35;
   color: var(--text-main);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
   transition: color var(--transition-fast);
+  margin: 0;
 }
 
 .sub-lead-card:hover .sub-lead-title {
@@ -2692,6 +2709,8 @@ ol {
 .sub-lead-date {
   font-size: 0.72rem;
   color: var(--text-muted);
+  display: block;
+  line-height: 1.1;
 }
 
 /* ========================================================
@@ -2800,16 +2819,25 @@ ol {
 .ranking-thumb-wrap {
   width: 72px;
   height: 52px;
+  min-width: 72px;
+  min-height: 52px;
   flex-shrink: 0;
   border-radius: 4px;
   overflow: hidden;
   background-color: var(--border-color);
+  position: relative;
+  display: block;
+  font-size: 0;
+  line-height: 0;
 }
 
 .ranking-thumb-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
+  font-size: 0;
+  line-height: 0;
   transition: transform var(--transition-fast);
 }
 

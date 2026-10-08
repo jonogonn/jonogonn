@@ -100,11 +100,13 @@ if ($requestMethod === 'POST') {
         // Check if file is already WebP
         $isAlreadyWebp = ($mime === 'image/webp') || (strtolower(pathinfo($originalName, PATHINFO_EXTENSION)) === 'webp');
 
-        // 2. Prepare WebP filename and conversion
+        // 2. Prepare WebP filename and conversion (named according to news URL / slug)
         $timestamp = time();
         $rand = rand(1000, 9999);
-        $slugName = preg_replace('/[^a-zA-Z0-9_-]/', '', pathinfo($originalName, PATHINFO_FILENAME));
-        $slugName = substr($slugName ?: 'news', 0, 40);
+        $rawSlug = !empty($_POST['slug']) ? $_POST['slug'] : (!empty($_POST['news_slug']) ? $_POST['news_slug'] : (!empty($_POST['associated_news']) ? $_POST['associated_news'] : pathinfo($originalName, PATHINFO_FILENAME)));
+        $cleanSlug = preg_replace('/[^a-zA-Z0-9_-]/', '-', $rawSlug);
+        $cleanSlug = trim(preg_replace('/-+/', '-', $cleanSlug), '-');
+        $slugName = substr($cleanSlug ?: 'news', 0, 50);
         $webpFileName = $slugName . '-' . $timestamp . '-' . $rand . '.webp';
 
         $tempWebpPath = sys_get_temp_dir() . '/' . $webpFileName;

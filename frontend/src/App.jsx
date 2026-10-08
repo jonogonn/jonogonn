@@ -63,7 +63,13 @@ export default function App() {
   }, [activePage, isBn, settings]);
 
   // If Admin Dashboard View is toggled or URL route is /admin
-  if (isAdminOpen || activePage === 'admin') {
+  const isDirectAdminUrl =
+    typeof window !== 'undefined' &&
+    (window.location.pathname === '/admin' ||
+      window.location.pathname === '/admin/' ||
+      window.location.pathname.startsWith('/admin'));
+
+  if (isAdminOpen || activePage === 'admin' || isDirectAdminUrl) {
     return <AdminDashboard />;
   }
 
