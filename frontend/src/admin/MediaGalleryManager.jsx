@@ -226,12 +226,18 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
 
     // 2. Client-side JSZip Fallback (Packages all images with proper uploads/ paths)
     try {
-      let JSZip;
-      try {
-        const jszipModule = await import('jszip');
-        JSZip = jszipModule.default || jszipModule;
-      } catch (zipImportErr) {
-        // If jszip is still resolving, fallback to direct anchor
+      let JSZip = window.JSZip;
+      if (!JSZip) {
+        JSZip = await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+          script.onload = () => resolve(window.JSZip);
+          script.onerror = () => reject(new Error('Failed to load JSZip'));
+          document.head.appendChild(script);
+        });
+      }
+
+      if (!JSZip) {
         window.open(serverEndpoints[0], '_blank');
         setIsDownloadingZip(false);
         return;
