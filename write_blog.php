@@ -1297,7 +1297,7 @@ function addToBlogHTML($file, $title, $slug, $category, $date, $image, $readtime
          Fix4: sidebar scroll | Fix5: code copy button
          Fix6: autosave status + reading progress bar
          Fix7: youtube iframe + audio src handling
-         Fix8: claude-style sidebar (expanded/collapsed)
+         Fix8: collapsible icon sidebar (expanded/collapsed)
          Fix9a: table row/col delete icons
          Fix9b: list item delete icons
          ====================================================== */
@@ -1443,7 +1443,7 @@ function addToBlogHTML($file, $title, $slug, $category, $date, $image, $readtime
       .wb-modal-danger  { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.4); color: #f87171; }
       .wb-modal-danger:hover  { background: rgba(239,68,68,0.28); }
 
-      /* -- Fix 8: Claude-style sidebar — expanded vs collapsed */
+      /* -- Fix 8: Collapsible icon sidebar — expanded vs collapsed */
       /* The right sidebar has two states:
          Expanded  → full width, shows icon + label text
          Collapsed → icon-only strip (48 px wide), labels hidden
@@ -2175,7 +2175,7 @@ function addToBlogHTML($file, $title, $slug, $category, $date, $image, $readtime
          <button type="button" class="wb-drawer-close" id="wb-right-close" aria-label="Close Settings Drawer"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
-      <!-- #region SIDEBAR_ICON_STRIP (Fix 8: Claude-style collapsed icon bar) -->
+      <!-- #region SIDEBAR_ICON_STRIP (Fix 8: Collapsed icon bar) -->
       <div class="wb-sidebar-icon-strip">
          <div class="wb-sidebar-icon-pill" data-tip="Post Settings"><i class="fa-regular fa-gear"></i></div>
          <div class="wb-sidebar-icon-pill" data-tip="Categories"><i class="fa-regular fa-folder"></i></div>
@@ -5645,7 +5645,7 @@ window.currentPostId = (window.INITIAL_EDIT_POST && window.INITIAL_EDIT_POST.id)
                   openRightDrawer();
                }
             } else {
-               // Desktop Claude-Style Icon-Only Mode
+               // Desktop Icon-Only Collapsible Mode
                if (!main || !sidebar) return;
                var isIconOnly = sidebar.classList.toggle('wb-sidebar-icon-only');
                main.classList.toggle('wb-right-icon-only', isIconOnly);
