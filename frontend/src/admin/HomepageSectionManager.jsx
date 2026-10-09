@@ -22,7 +22,7 @@ import {
   FolderTree,
   Mail,
   MessageSquare,
-  Sparkles,
+  Sun,
   Globe,
   TrendingUp,
   GraduationCap,
@@ -58,7 +58,7 @@ const getSectionIconComponent = (sec) => {
   if (sec.masterGroupId === 'religion-society') return HeartHandshake;
   if (sec.masterGroupId === 'sports-health') return Trophy;
   if (sec.masterGroupId === 'entertainment') return Film;
-  if (sec.masterGroupId === 'lifestyle-culture') return Sparkles;
+  if (sec.masterGroupId === 'lifestyle-culture') return Sun;
   if (sec.masterGroupId === 'opinion-specials') return PenTool;
   return FolderTree;
 };
@@ -128,7 +128,7 @@ const THREE_COLUMN_CONFIGS = {
         nameEn: 'Live Weather & Social Follow',
         descBn: 'জেলা ভিত্তিক গুগল আবহাওয়া ও সোশ্যাল ফলোয়ার উইজেট',
         descEn: 'District-level Google live weather & social follower widget',
-        icon: Sparkles,
+        icon: Sun,
         accentColor: '#D97706'
       }
     }

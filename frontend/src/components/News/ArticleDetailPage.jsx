@@ -297,9 +297,12 @@ export default function ArticleDetailPage() {
             <div
               className="article-body-text"
               style={{ fontSize: `${fontSize}rem` }}
-            >
-              {isBn ? currentArticle.contentBn || currentArticle.excerptBn : currentArticle.contentEn || currentArticle.excerptEn}
-            </div>
+              dangerouslySetInnerHTML={{
+                __html: isBn
+                  ? currentArticle.contentBn || currentArticle.excerptBn || ''
+                  : currentArticle.contentEn || currentArticle.excerptEn || ''
+              }}
+            />
 
             {/* In-Article Mid Banner Ad */}
             <AdSenseSlot slotId="midContentBanner" customClass="ad-slot-970x90" />

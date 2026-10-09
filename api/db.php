@@ -25,43 +25,60 @@ $pass   = DB_PASS;
 $pdo = null;
 $dbError = null;
 
-try {
-    // 1. Direct connection to the database
-    $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
-    $pdo = new PDO($dsn, $user, $pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
-    ]);
-} catch (PDOException $e) {
-    $dbError = $e->getMessage();
-    // If database doesn't exist on local development, attempt creation
-    if (strpos($e->getMessage(), 'Unknown database') !== false || $e->getCode() == 1049) {
-        try {
-            $fallbackPdo = new PDO("mysql:host=$host;port=$port;charset=utf8mb4", $user, $pass);
-            $fallbackPdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-            $pdo = new PDO("mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4", $user, $pass, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
-            ]);
-            $dbError = null;
-        } catch (Exception $ex) {
-            $dbError = $ex->getMessage();
+function getDB() {
+    global $pdo;
+    return $pdo;
+}
+
+
+// List of credential sets to try (configured cPanel credentials first, then local XAMPP defaults)
+$credSets = [
+    ['user' => $user, 'pass' => $pass, 'dbname' => $dbname],
+    ['user' => 'root', 'pass' => '', 'dbname' => $dbname],
+    ['user' => 'root', 'pass' => '', 'dbname' => 'jonogon_db'],
+    ['user' => 'root', 'pass' => '', 'dbname' => 'jonogonn_news_db'],
+];
+
+foreach ($credSets as $c) {
+    try {
+        $dsn = "mysql:host=$host;port=$port;dbname={$c['dbname']};charset=utf8mb4";
+        $pdo = new PDO($dsn, $c['user'], $c['pass'], [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
+        ]);
+        $dbError = null;
+        break;
+    } catch (PDOException $e) {
+        $dbError = $e->getMessage();
+        // If database doesn't exist, attempt creation
+        if (strpos($e->getMessage(), 'Unknown database') !== false || $e->getCode() == 1049) {
+            try {
+                $fallbackPdo = new PDO("mysql:host=$host;port=$port;charset=utf8mb4", $c['user'], $c['pass']);
+                $fallbackPdo->exec("CREATE DATABASE IF NOT EXISTS `{$c['dbname']}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                $pdo = new PDO("mysql:host=$host;port=$port;dbname={$c['dbname']};charset=utf8mb4", $c['user'], $c['pass'], [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
+                ]);
+                $dbError = null;
+                break;
+            } catch (Exception $ex) {
+                $dbError = $ex->getMessage();
+            }
         }
     }
+}
 
-    // Only output fatal JSON and exit if db.php is called directly by the browser
-    if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'db.php') {
-        http_response_code(500);
-        echo json_encode([
-            'success' => false,
-            'error_type' => 'DB_CONNECTION_FAILED',
-            'message' => 'MariaDB ডাটাবেজে সংযোগ করা যায়নি: ' . ($dbError ?: $e->getMessage()),
-            'hint' => 'cPanel-এর api/config.php ফাইলে সঠিক DB_NAME, DB_USER এবং DB_PASS দিন।'
-        ], JSON_UNESCAPED_UNICODE);
-        exit;
-    }
+if (!$pdo && basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'db.php') {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error_type' => 'DB_CONNECTION_FAILED',
+        'message' => 'MariaDB ডাটাবেজে সংযোগ করা যায়নি: ' . $dbError,
+        'hint' => 'cPanel-এর api/config.php ফাইলে সঠিক DB_NAME, DB_USER এবং DB_PASS দিন।'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 // -------------------------------------------------------------

@@ -42,7 +42,7 @@ import {
   Unlink,
   Eraser,
   Sliders,
-  Sparkles,
+  Camera,
   HelpCircle,
   ExternalLink,
   Clock,
@@ -55,11 +55,52 @@ import {
   Lock,
   Share2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Zap
 } from 'lucide-react';
 import { uploadImageToStorage } from '../utils/imageUploader';
 import SocialNewsCardPreview from './SocialNewsCardPreview';
 import { getCardCategoryLabel } from '../utils/cardCategoryHelper';
+
+// Helper: Format any YouTube / Vimeo / web video URL to valid embed iframe URL
+export function formatVideoEmbedUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+
+  // YouTube watch?v=ID or &v=ID
+  if (trimmed.includes('youtube.com/watch')) {
+    const match = trimmed.match(/[?&]v=([^&#]+)/);
+    if (match && match[1]) {
+      return `https://www.youtube.com/embed/${match[1]}`;
+    }
+  }
+  // youtu.be/ID
+  if (trimmed.includes('youtu.be/')) {
+    const match = trimmed.match(/youtu\.be\/([^?&#]+)/);
+    if (match && match[1]) {
+      return `https://www.youtube.com/embed/${match[1]}`;
+    }
+  }
+  // youtube.com/shorts/ID
+  if (trimmed.includes('youtube.com/shorts/')) {
+    const match = trimmed.match(/youtube\.com\/shorts\/([^?&#]+)/);
+    if (match && match[1]) {
+      return `https://www.youtube.com/embed/${match[1]}`;
+    }
+  }
+  // youtube.com/embed/ID
+  if (trimmed.includes('youtube.com/embed/')) {
+    return trimmed;
+  }
+  // Vimeo
+  if (trimmed.includes('vimeo.com/')) {
+    const match = trimmed.match(/vimeo\.com\/(\d+)/);
+    if (match && match[1]) {
+      return `https://player.vimeo.com/video/${match[1]}`;
+    }
+  }
+  return trimmed;
+}
 
 export default function CreatePostManager({ initialPostId = null, triggerSaveToast, onSwitchToArticles }) {
   const {
@@ -70,6 +111,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
     updateArticle,
     categories,
     categoryMasterGroups,
+    refreshCategories,
     showAlert,
     showConfirm,
     showError,
@@ -77,6 +119,24 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
   } = useNews();
 
   const isBn = (adminLanguage || language) === 'bn';
+
+  // Ensure DB categories are synchronized on mount
+  useEffect(() => {
+    if (typeof refreshCategories === 'function') {
+      refreshCategories();
+    }
+  }, []);
+
+  // Custom Link Insert Modal State (Replacing browser alert/prompt with sleek custom UI)
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const [linkModalData, setLinkModalData] = useState({
+    url: '',
+    text: '',
+    blockIndex: null,
+    openInNewTab: true
+  });
+  const activeLinkRangeRef = useRef(null);
+  const activeLinkEditorRef = useRef(null);
 
   // Editor Layout State
   const [isLeftToolbarOpen, setIsLeftToolbarOpen] = useState(true);
@@ -188,8 +248,9 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState(null);
 
-  // New Category Input
+  // New Category Input & Search
   const [newCatInput, setNewCatInput] = useState('');
+  const [categorySearch, setCategorySearch] = useState('');
 
   // Helper: Derive main title from first heading block
   const mainTitle = blocks.find((b) => b.type === 'heading')?.content?.replace(/<[^>]*>?/gm, '').trim() || '';
@@ -375,45 +436,150 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
   // Image Upload helper for Block or Featured Image
   const handleBlockImageUpload = async (index, file) => {
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      showError(isBn ? 'ছবির সাইজ সর্বোচ্চ ১০ মেগাবাইট হতে পারবে।' : 'Image size must be less than 10MB.');
+    if (file.size > 15 * 1024 * 1024) {
+      showError(isBn ? 'ছবির সাইজ সর্বোচ্চ ১৫ মেগাবাইট হতে পারবে।' : 'Image size must be less than 15MB.');
       return;
     }
 
     try {
       // 1. Show immediate preview via DataURL & set uploading state
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const previewUrl = e.target?.result;
-        updateBlock(index, { url: previewUrl, isUploading: true });
+        updateBlock(index, { url: previewUrl, previewUrl: previewUrl, isUploading: true });
+
+        if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি WebP রূপান্তর ও ক্লাউড আপলোড হচ্ছে...' : 'Converting to WebP & uploading to cloud...');
+
+        // 2. Upload to Backblaze B2 & MariaDB
+        try {
+          const newsSlugForImg = slug || mainTitle || kicker || 'news';
+          const uploadedUrl = await uploadImageToStorage(file, {
+            slug: newsSlugForImg,
+            newsSlug: newsSlugForImg,
+            associatedNews: slug || mainTitle || kicker || ''
+          });
+          if (uploadedUrl) {
+            updateBlock(index, { url: uploadedUrl, previewUrl: previewUrl, isUploading: false });
+            if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি সফলভাবে .webp ফরম্যাটে ক্লাউডে সংরক্ষিত হয়েছে!' : 'Image uploaded to cloud as .webp!');
+          } else {
+            updateBlock(index, { isUploading: false });
+          }
+        } catch (uploadErr) {
+          console.error('Upload failed:', uploadErr);
+          updateBlock(index, { isUploading: false });
+        }
       };
       reader.readAsDataURL(file);
-
-      if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি WebP রূপান্তর ও ক্লাউড আপলোড হচ্ছে...' : 'Converting to WebP & uploading to cloud...');
-
-      // 2. Upload to Backblaze B2 (cPanel / Direct Cloud)
-      const newsSlugForImg = slug || metaTitle || kicker || 'news';
-      const uploadedUrl = await uploadImageToStorage(file, {
-        slug: newsSlugForImg,
-        newsSlug: newsSlugForImg,
-        associatedNews: slug || metaTitle || kicker || ''
-      });
-      if (uploadedUrl) {
-        updateBlock(index, { url: uploadedUrl, isUploading: false });
-        if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি সফলভাবে .webp ফরম্যাটে ক্লাউডে সংরক্ষিত হয়েছে!' : 'Image uploaded to cloud as .webp!');
-      } else {
-        updateBlock(index, { isUploading: false });
-      }
     } catch (err) {
-      console.error('Upload failed:', err);
+      console.error('File load error:', err);
       updateBlock(index, { isUploading: false });
       showError(isBn ? 'ছবি আপলোড ব্যর্থ হয়েছে।' : 'Image upload failed.');
     }
   };
 
-  // Execute Rich Text Command in Paragraph
-  const executeFormatCmd = (command, value = null) => {
+  // Execute Rich Text Command in Paragraph with Selection Preservation
+  const executeFormatCmd = (command, value = null, blockIndex = null, editorEl = null) => {
+    const el = editorEl || (blockIndex !== null ? document.getElementById(`editor-paragraph-${blocks[blockIndex]?.id}`) : null);
+    if (el) el.focus();
     document.execCommand(command, false, value);
+    if (el && blockIndex !== null) {
+      updateBlock(blockIndex, { content: el.innerHTML });
+    }
+  };
+
+  // Open Custom Link Insert Modal (Preserves editor focus & selection range)
+  const handleOpenLinkModal = (blockIndex, editorEl = null) => {
+    const el = editorEl || (blockIndex !== null ? document.getElementById(`editor-paragraph-${blocks[blockIndex]?.id}`) : null);
+    if (el) el.focus();
+
+    const selection = window.getSelection();
+    let savedRange = null;
+    let selectedText = '';
+    if (selection && selection.rangeCount > 0) {
+      savedRange = selection.getRangeAt(0).cloneRange();
+      selectedText = selection.toString() || '';
+    }
+
+    activeLinkRangeRef.current = savedRange;
+    activeLinkEditorRef.current = el;
+
+    setLinkModalData({
+      url: '',
+      text: selectedText,
+      blockIndex,
+      openInNewTab: true
+    });
+    setIsLinkModalOpen(true);
+  };
+
+  // Apply Link from Custom Modal with red color and underline
+  const handleApplyLinkModal = (e) => {
+    if (e) e.preventDefault();
+    if (!linkModalData.url || !linkModalData.url.trim()) {
+      showError(isBn ? 'অনুগ্রহ করে লিংকের URL লিখুন।' : 'Please enter a link URL.');
+      return;
+    }
+
+    const rawUrl = linkModalData.url.trim();
+    const formattedUrl = (
+      rawUrl.startsWith('http://') ||
+      rawUrl.startsWith('https://') ||
+      rawUrl.startsWith('mailto:') ||
+      rawUrl.startsWith('tel:')
+    ) ? rawUrl : `https://${rawUrl}`;
+
+    const el = activeLinkEditorRef.current || (linkModalData.blockIndex !== null ? document.getElementById(`editor-paragraph-${blocks[linkModalData.blockIndex]?.id}`) : null);
+    if (el) el.focus();
+
+    const selection = window.getSelection();
+    if (activeLinkRangeRef.current && selection) {
+      selection.removeAllRanges();
+      selection.addRange(activeLinkRangeRef.current);
+    }
+
+    const savedRange = activeLinkRangeRef.current;
+    const hasSelection = selection && !selection.isCollapsed && savedRange && !savedRange.collapsed;
+    const targetAttr = linkModalData.openInNewTab ? ' target="_blank" rel="noopener noreferrer"' : '';
+
+    if (hasSelection) {
+      const executed = document.execCommand('createLink', false, formattedUrl);
+      if (!executed && savedRange) {
+        const text = linkModalData.text || savedRange.toString() || formattedUrl;
+        const a = document.createElement('a');
+        a.href = formattedUrl;
+        if (linkModalData.openInNewTab) {
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+        }
+        a.textContent = text;
+        a.style.color = 'var(--primary-red)';
+        a.style.textDecoration = 'underline';
+        savedRange.deleteContents();
+        savedRange.insertNode(a);
+      }
+    } else {
+      const displayText = linkModalData.text?.trim() || formattedUrl;
+      const linkHtml = `<a href="${formattedUrl}"${targetAttr} style="color: var(--primary-red); text-decoration: underline; font-weight: 600;">${displayText}</a>&nbsp;`;
+      if (savedRange) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = linkHtml;
+        const frag = document.createDocumentFragment();
+        let node;
+        while ((node = tempDiv.firstChild)) {
+          frag.appendChild(node);
+        }
+        savedRange.insertNode(frag);
+      } else {
+        document.execCommand('insertHTML', false, linkHtml);
+      }
+    }
+
+    if (el && linkModalData.blockIndex !== null) {
+      updateBlock(linkModalData.blockIndex, { content: el.innerHTML });
+    }
+
+    setIsLinkModalOpen(false);
+    if (triggerSaveToast) triggerSaveToast(isBn ? 'লিংক সফলভাবে যুক্ত হয়েছে!' : 'Link added successfully!');
   };
 
   // Tag Manager
@@ -602,10 +768,12 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
             return b.url
               ? `<div class="post-file-download"><a href="${b.url}" target="_blank" rel="noopener noreferrer" class="post-download-btn">${b.label || 'Download File'}</a></div>`
               : '';
-          case 'video':
-            return b.url
-              ? `<div class="post-video-embed"><iframe src="${b.url}" title="Video player" frameborder="0" allowfullscreen></iframe></div>`
+          case 'video': {
+            const embedUrl = formatVideoEmbedUrl(b.url);
+            return embedUrl
+              ? `<div class="post-video-embed" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; margin: 16px 0; background-color: #000;"><iframe src="${embedUrl}" title="Video player" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`
               : '';
+          }
           default:
             return '';
         }
@@ -651,7 +819,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       metaTitle: metaTitle || mainTitle,
       metaDesc: metaDesc || excerpt,
       focusKeyword: focusKeyword || '',
-      status: 'review' // Strictly 'review' (জমা দেওয়া হয়েছে / পেন্ডিং)
+      status: 'draft' // Saved as draft in Edit Post tab until 'Request Approval'
     };
 
     if (postId) {
@@ -662,9 +830,9 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
 
     showSuccess(
       isBn
-        ? 'আপনার সংবাদটি পর্যালোচনার জন্য সফলভাবে জমা দেওয়া হয়েছে! এডমিন অনুমোদনের পর এটি প্রকাশিত হবে।'
-        : 'Your post has been submitted for review! It will be published after admin approval.',
-      isBn ? 'সফলভাবে জমা হয়েছে' : 'Submission Successful'
+        ? 'আপনার সংবাদটি সফলভাবে তৈরি ও সংরক্ষিত হয়েছে! "পোস্ট সম্পাদনা" (Edit Post) ট্যাবে গিয়ে এটি দেখতে ও অনুমোদনের জন্য পাঠাতে পারবেন।'
+        : 'Your post has been submitted and saved! You can review and request approval from the Edit Post tab.',
+      isBn ? 'সফলভাবে তৈরি হয়েছে' : 'Saved to Edit Post'
     );
 
     if (typeof onSwitchToArticles === 'function') {
@@ -967,9 +1135,21 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       {/* ========================================================
           MAIN THREE-COLUMN LAYOUT: [TOOLBAR] [EDITOR] [SIDEBAR]
           ======================================================== */}
-      <div style={{ display: 'grid', gridTemplateColumns: `${isLeftToolbarOpen ? '200px' : '58px'} 1fr ${isRightSidebarOpen ? '360px' : '0px'}`, gap: 16, transition: 'all 0.22s ease' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `${isLeftToolbarOpen ? '200px' : '58px'} 1fr ${isRightSidebarOpen ? '380px' : '0px'}`,
+          gap: 16,
+          height: 'calc(100vh - 145px)',
+          minHeight: 0,
+          maxHeight: 'calc(100vh - 145px)',
+          overflow: 'hidden',
+          alignItems: 'start',
+          transition: 'all 0.22s ease'
+        }}
+      >
         {/* ----------------------------------------------------
-            LEFT COLUMN: BLOCK INSERT TOOLBAR (Collapsible)
+            LEFT COLUMN: BLOCK INSERT TOOLBAR (Strictly hugs content height)
             ---------------------------------------------------- */}
         <div
           className="admin-card"
@@ -979,10 +1159,12 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
             gap: 6,
             padding: isLeftToolbarOpen ? '14px 10px' : '12px 6px',
             height: 'fit-content',
-            position: 'sticky',
-            top: 75,
+            maxHeight: '100%',
+            alignSelf: 'start',
+            overflowY: 'auto',
             alignItems: isLeftToolbarOpen ? 'stretch' : 'center',
-            transition: 'all 0.22s ease'
+            transition: 'all 0.22s ease',
+            margin: 0
           }}
         >
           {/* Toolbar Header & Collapse Toggle */}
@@ -1064,9 +1246,21 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
         </div>
 
         {/* ----------------------------------------------------
-            CENTER COLUMN: VISUAL BLOCK EDITOR
+            CENTER COLUMN: VISUAL BLOCK EDITOR (Smooth Independent Scroll)
             ---------------------------------------------------- */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+            height: '100%',
+            minHeight: 0,
+            maxHeight: '100%',
+            overflowY: 'auto',
+            paddingRight: 8,
+            paddingBottom: 60
+          }}
+        >
           {blocks.map((block, index) => {
             return (
               <div
@@ -1076,7 +1270,9 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                   padding: 0,
                   overflow: 'hidden',
                   border: '1px solid var(--border-color)',
-                  transition: 'border-color 0.15s ease'
+                  transition: 'border-color 0.15s ease',
+                  margin: 0,
+                  flexShrink: 0
                 }}
               >
                 {/* Block Header Controls */}
@@ -1181,10 +1377,15 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                           style={{ display: 'none' }}
                           onChange={(e) => handleBlockImageUpload(index, e.target.files?.[0])}
                         />
-                        {block.url ? (
+                        {(block.url || block.previewUrl) ? (
                           <div style={{ position: 'relative' }}>
                             <img
-                              src={block.url}
+                              src={block.url || block.previewUrl}
+                              onError={(e) => {
+                                if (block.previewUrl && e.currentTarget.src !== block.previewUrl) {
+                                  e.currentTarget.src = block.previewUrl;
+                                }
+                              }}
                               alt={block.caption || 'Preview'}
                               style={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 6, opacity: block.isUploading ? 0.6 : 1 }}
                             />
@@ -1217,7 +1418,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                             <Upload size={24} color="var(--primary-red)" />
                             <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{isBn ? 'ছবি আপলোড করতে ক্লিক করুন' : 'Click to upload image'}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>JPG, PNG, WebP (Max 5MB)</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>JPG, PNG, WebP (Max 15MB)</div>
                           </div>
                         )}
                       </div>
@@ -1248,89 +1449,14 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
 
                   {/* 3. PARAGRAPH BLOCK */}
                   {block.type === 'paragraph' && (
-                    <div>
-                      {/* Rich Format Toolbar */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          flexWrap: 'wrap',
-                          marginBottom: 8,
-                          padding: '6px 8px',
-                          borderRadius: 6,
-                          backgroundColor: 'var(--bg-subtle)',
-                          border: '1px solid var(--border-color)'
-                        }}
-                      >
-                        <button type="button" onClick={() => executeFormatCmd('bold')} className="admin-btn-secondary" style={{ padding: '4px 8px' }} title="Bold">
-                          <Bold size={14} />
-                        </button>
-                        <button type="button" onClick={() => executeFormatCmd('italic')} className="admin-btn-secondary" style={{ padding: '4px 8px' }} title="Italic">
-                          <Italic size={14} />
-                        </button>
-                        <button type="button" onClick={() => executeFormatCmd('underline')} className="admin-btn-secondary" style={{ padding: '4px 8px' }} title="Underline">
-                          <Underline size={14} />
-                        </button>
-                        <button type="button" onClick={() => executeFormatCmd('strikeThrough')} className="admin-btn-secondary" style={{ padding: '4px 8px' }} title="Strikethrough">
-                          <Strikethrough size={14} />
-                        </button>
-
-                        <div style={{ width: 1, height: 16, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
-
-                        <button type="button" onClick={() => executeFormatCmd('justifyLeft')} className="admin-btn-secondary" style={{ padding: '4px 8px' }} title="Align Left">
-                          <AlignLeft size={14} />
-                        </button>
-                        <button type="button" onClick={() => executeFormatCmd('justifyCenter')} className="admin-btn-secondary" style={{ padding: '4px 8px' }} title="Align Center">
-                          <AlignCenter size={14} />
-                        </button>
-                        <button type="button" onClick={() => executeFormatCmd('justifyRight')} className="admin-btn-secondary" style={{ padding: '4px 8px' }} title="Align Right">
-                          <AlignRight size={14} />
-                        </button>
-                        <button type="button" onClick={() => executeFormatCmd('justifyFull')} className="admin-btn-secondary" style={{ padding: '4px 8px' }} title="Justify">
-                          <AlignJustify size={14} />
-                        </button>
-
-                        <div style={{ width: 1, height: 16, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const url = prompt('Enter link URL:');
-                            if (url) executeFormatCmd('createLink', url);
-                          }}
-                          className="admin-btn-secondary"
-                          style={{ padding: '4px 8px' }}
-                          title="Insert Link"
-                        >
-                          <Link size={14} />
-                        </button>
-                        <button type="button" onClick={() => executeFormatCmd('unlink')} className="admin-btn-secondary" style={{ padding: '4px 8px' }} title="Remove Link">
-                          <Unlink size={14} />
-                        </button>
-                        <button type="button" onClick={() => executeFormatCmd('removeFormat')} className="admin-btn-secondary" style={{ padding: '4px 8px' }} title="Clear Format">
-                          <Eraser size={14} />
-                        </button>
-                      </div>
-
-                      <div
-                        contentEditable
-                        suppressContentEditableWarning
-                        style={{
-                          minHeight: 120,
-                          padding: '12px 14px',
-                          borderRadius: 6,
-                          border: '1px solid var(--border-color)',
-                          backgroundColor: 'var(--bg-card)',
-                          color: 'var(--text-main)',
-                          fontSize: '0.96rem',
-                          lineHeight: 1.8,
-                          outline: 'none'
-                        }}
-                        onBlur={(e) => updateBlock(index, { content: e.currentTarget.innerHTML })}
-                        dangerouslySetInnerHTML={{ __html: block.content || '' }}
-                      />
-                    </div>
+                    <ParagraphBlockEditor
+                      block={block}
+                      index={index}
+                      isBn={isBn}
+                      updateBlock={updateBlock}
+                      executeFormatCmd={executeFormatCmd}
+                      handleOpenLinkModal={handleOpenLinkModal}
+                    />
                   )}
 
                   {/* 4. BLOCKQUOTE BLOCK */}
@@ -1535,12 +1661,12 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                         onChange={(e) => updateBlock(index, { url: e.target.value })}
                       />
                       {block.url && (
-                        <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: 6 }}>
+                        <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: 8, backgroundColor: '#000' }}>
                           <iframe
-                            src={block.url.includes('watch?v=') ? block.url.replace('watch?v=', 'embed/') : block.url}
+                            src={formatVideoEmbedUrl(block.url)}
                             title="Video Preview"
-                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
-                            frameBorder="0"
+                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                             allowFullScreen
                           />
                         </div>
@@ -1612,7 +1738,8 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
               alignItems: 'center',
               justifyContent: 'center',
               gap: 8,
-              flexWrap: 'wrap'
+              flexWrap: 'wrap',
+              flexShrink: 0
             }}
           >
             <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-muted)' }}>
@@ -1629,15 +1756,27 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
         </div>
 
         {/* ----------------------------------------------------
-            RIGHT COLUMN: SETTINGS, SOCIAL CARD & METADATA SIDEBAR
+            RIGHT COLUMN: SETTINGS, SOCIAL CARD & METADATA SIDEBAR (Independent Scroll)
             ---------------------------------------------------- */}
         {isRightSidebarOpen && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: 'fit-content' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+              height: '100%',
+              minHeight: 0,
+              maxHeight: '100%',
+              overflowY: 'auto',
+              paddingRight: 6,
+              paddingBottom: 60
+            }}
+          >
             {/* Card 1: Live Auto-Generated Social News Card (Strictly View-Only) */}
-            <div className="admin-card" style={{ padding: '16px 18px', border: '2px solid var(--border-color)' }}>
+            <div className="admin-card" style={{ padding: '16px 18px', border: '2px solid var(--border-color)', margin: 0, flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <h3 style={{ fontFamily: 'var(--font-headline)', fontSize: '0.96rem', fontWeight: 800, margin: 0, color: 'var(--primary-red)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Sparkles size={16} />
+                  <Camera size={16} />
                   <span>{isBn ? 'অটো-জেনারেটেড সোশ্যাল ফটোকার্ড' : 'Auto-Generated News Card'}</span>
                 </h3>
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
@@ -1695,7 +1834,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
             </div>
 
             {/* Card 2: Submission & Status Settings */}
-            <div className="admin-card" style={{ padding: '16px 18px' }}>
+            <div className="admin-card" style={{ padding: '16px 18px', margin: 0, flexShrink: 0 }}>
               <h3 style={{ fontFamily: 'var(--font-headline)', fontSize: '0.95rem', fontWeight: 800, marginBottom: 12, color: 'var(--primary-red)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Send size={16} />
                 <span>{isBn ? 'পোস্ট জমা ও সময়সূচি' : 'Submission & Metadata'}</span>
@@ -1763,9 +1902,9 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
             </div>
 
             {/* Card 3: Special Highlights & Badges */}
-            <div className="admin-card" style={{ padding: '16px 18px' }}>
+            <div className="admin-card" style={{ padding: '16px 18px', margin: 0, flexShrink: 0 }}>
               <h3 style={{ fontFamily: 'var(--font-headline)', fontSize: '0.95rem', fontWeight: 800, marginBottom: 12, color: 'var(--primary-red)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Sparkles size={16} />
+                <Zap size={16} />
                 <span>{isBn ? 'বিশেষ ডিসপ্লে ফিচার' : 'Display Options'}</span>
               </h3>
 
@@ -1803,24 +1942,60 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
               </div>
             </div>
 
-            {/* Card 4: Categories */}
-            <div className="admin-card" style={{ padding: '16px 18px' }}>
-              <h3 style={{ fontFamily: 'var(--font-headline)', fontSize: '0.95rem', fontWeight: 800, marginBottom: 12, color: 'var(--primary-red)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Folder size={16} />
-                <span>{isBn ? 'ক্যাটাগরি নির্বাচন' : 'Categories'}</span>
-              </h3>
+            {/* Card 4: Categories from MariaDB */}
+            <div className="admin-card" style={{ padding: '16px 18px', margin: 0, flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <h3 style={{ fontFamily: 'var(--font-headline)', fontSize: '0.95rem', fontWeight: 800, margin: 0, color: 'var(--primary-red)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Folder size={16} />
+                  <span>{isBn ? 'ক্যাটাগরি নির্বাচন' : 'Categories'}</span>
+                </h3>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                  {categories.length} {isBn ? 'টি ক্যাটাগরি' : 'Categories'}
+                </span>
+              </div>
 
-              <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10, paddingRight: 4 }}>
-                {categories.map((cat) => (
-                  <label key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedCategories.includes(cat.id)}
-                      onChange={() => toggleCategory(cat.id)}
-                    />
-                    <span>{isBn ? cat.nameBn : cat.nameEn || cat.nameBn}</span>
-                  </label>
-                ))}
+              {/* Live search input for fast category discovery */}
+              <div style={{ position: 'relative', marginBottom: 8 }}>
+                <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  className="admin-input"
+                  style={{ paddingLeft: 26, fontSize: '0.78rem', height: 30 }}
+                  placeholder={isBn ? `ক্যাটাগরি খুঁজুন (${categories.length}টি)...` : 'Search categories...'}
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
+                />
+                {categorySearch && (
+                  <button
+                    type="button"
+                    onClick={() => setCategorySearch('')}
+                    style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Scrollable Categories List */}
+              <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10, paddingRight: 4 }}>
+                {categories
+                  .filter((cat) => {
+                    if (!categorySearch.trim()) return true;
+                    const q = categorySearch.toLowerCase().trim();
+                    const name = (cat.nameBn || cat.name || '').toLowerCase();
+                    const nameEn = (cat.nameEn || cat.slug || '').toLowerCase();
+                    return name.includes(q) || nameEn.includes(q);
+                  })
+                  .map((cat) => (
+                    <label key={cat.id || cat.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.84rem', cursor: 'pointer', userSelect: 'none' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedCategories.includes(cat.id || cat.slug)}
+                        onChange={() => toggleCategory(cat.id || cat.slug)}
+                      />
+                      <span>{isBn ? cat.nameBn || cat.name : cat.nameEn || cat.slug || cat.nameBn}</span>
+                    </label>
+                  ))}
               </div>
 
               <div style={{ display: 'flex', gap: 6 }}>
@@ -1839,7 +2014,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
             </div>
 
             {/* Card 5: Tags */}
-            <div className="admin-card" style={{ padding: '16px 18px' }}>
+            <div className="admin-card" style={{ padding: '16px 18px', margin: 0, flexShrink: 0 }}>
               <h3 style={{ fontFamily: 'var(--font-headline)', fontSize: '0.95rem', fontWeight: 800, marginBottom: 12, color: 'var(--primary-red)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Tags size={16} />
                 <span>{isBn ? 'ট্যাগ সমূহ (Tags)' : 'Tags'}</span>
@@ -1894,7 +2069,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
             </div>
 
             {/* Card 6: SEO & Meta Optimization */}
-            <div className="admin-card" style={{ padding: '16px 18px' }}>
+            <div className="admin-card" style={{ padding: '16px 18px', margin: 0, flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <h3 style={{ fontFamily: 'var(--font-headline)', fontSize: '0.95rem', fontWeight: 800, margin: 0, color: 'var(--primary-red)', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Search size={16} />
@@ -2044,7 +2219,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                   className={previewTab === 'card' ? 'admin-btn-primary' : 'admin-btn-secondary'}
                   style={{ padding: '5px 12px', fontSize: '0.82rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
-                  <Sparkles size={14} />
+                  <Camera size={14} />
                   <span>{isBn ? 'সোশ্যাল ফটোকার্ড' : 'Social News Card'}</span>
                 </button>
 
@@ -2219,6 +2394,328 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
           </div>
         </div>
       )}
+
+      {/* ========================================================
+          CUSTOM LINK INSERT MODAL (Sleek Glassmorphism UI)
+          ======================================================== */}
+      {isLinkModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.72)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            zIndex: 9999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16
+          }}
+          onClick={() => setIsLinkModalOpen(false)}
+        >
+          <div
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 12,
+              width: 460,
+              maxWidth: '95vw',
+              padding: '24px',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.45)',
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setIsLinkModalOpen(false)}
+              style={{
+                position: 'absolute',
+                top: 14,
+                right: 14,
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: 4,
+                display: 'flex'
+              }}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  backgroundColor: 'rgba(230, 0, 18, 0.12)',
+                  color: 'var(--primary-red)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}
+              >
+                <Link size={20} />
+              </div>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                  {isBn ? 'টেক্সটে লিংক যুক্ত করুন' : 'Insert Web Link'}
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                  {isBn ? 'ওয়েবসাইটের গন্তব্য ঠিকানা (URL) দিন' : 'Enter external or internal destination URL'}
+                </p>
+              </div>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleApplyLinkModal} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="admin-form-group" style={{ margin: 0 }}>
+                <label className="admin-label" style={{ fontSize: '0.84rem' }}>
+                  {isBn ? 'লিংক URL *' : 'Destination URL *'}
+                </label>
+                <input
+                  type="text"
+                  className="admin-input"
+                  placeholder="https://example.com"
+                  value={linkModalData.url}
+                  onChange={(e) => setLinkModalData({ ...linkModalData, url: e.target.value })}
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div className="admin-form-group" style={{ margin: 0 }}>
+                <label className="admin-label" style={{ fontSize: '0.84rem' }}>
+                  {isBn ? 'প্রদর্শনযোগ্য টেক্সট (ঐচ্ছিক)' : 'Display Text (Optional)'}
+                </label>
+                <input
+                  type="text"
+                  className="admin-input"
+                  placeholder={isBn ? 'যেমন: বিস্তারিত পড়ুন' : 'e.g. Read more'}
+                  value={linkModalData.text}
+                  onChange={(e) => setLinkModalData({ ...linkModalData, text: e.target.value })}
+                />
+              </div>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.84rem', cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={linkModalData.openInNewTab}
+                  onChange={(e) => setLinkModalData({ ...linkModalData, openInNewTab: e.target.checked })}
+                />
+                <span>{isBn ? 'নতুন ট্যাবে লিঙ্কটি খুলুন (Open in new tab)' : 'Open link in new tab'}</span>
+              </label>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  className="admin-btn-secondary"
+                  onClick={() => setIsLinkModalOpen(false)}
+                  style={{ padding: '8px 16px', fontSize: '0.86rem' }}
+                >
+                  {isBn ? 'বাতিল' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  className="admin-btn-primary"
+                  style={{ padding: '8px 20px', fontSize: '0.86rem', fontWeight: 800 }}
+                >
+                  <Check size={16} />
+                  <span>{isBn ? 'লিংক যোগ করুন' : 'Apply Link'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Dedicated Sub-component for Paragraph Block to preserve full browser native Undo/Redo (Ctrl+Z / Ctrl+Y)
+function ParagraphBlockEditor({ block, index, isBn, updateBlock, executeFormatCmd, handleOpenLinkModal }) {
+  const editorRef = useRef(null);
+  const isInternalChangeRef = useRef(false);
+
+  useEffect(() => {
+    if (editorRef.current) {
+      if (!isInternalChangeRef.current && editorRef.current.innerHTML !== (block.content || '')) {
+        editorRef.current.innerHTML = block.content || '';
+      }
+      isInternalChangeRef.current = false;
+    }
+  }, [block.id, block.content]);
+
+  return (
+    <div>
+      {/* Rich Format Toolbar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          flexWrap: 'wrap',
+          marginBottom: 8,
+          padding: '6px 8px',
+          borderRadius: 6,
+          backgroundColor: 'var(--bg-subtle)',
+          border: '1px solid var(--border-color)'
+        }}
+      >
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => executeFormatCmd('bold', null, index, editorRef.current)}
+          className="admin-btn-secondary"
+          style={{ padding: '4px 8px' }}
+          title="Bold (Ctrl+B)"
+        >
+          <Bold size={14} />
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => executeFormatCmd('italic', null, index, editorRef.current)}
+          className="admin-btn-secondary"
+          style={{ padding: '4px 8px' }}
+          title="Italic (Ctrl+I)"
+        >
+          <Italic size={14} />
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => executeFormatCmd('underline', null, index, editorRef.current)}
+          className="admin-btn-secondary"
+          style={{ padding: '4px 8px' }}
+          title="Underline (Ctrl+U)"
+        >
+          <Underline size={14} />
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => executeFormatCmd('strikeThrough', null, index, editorRef.current)}
+          className="admin-btn-secondary"
+          style={{ padding: '4px 8px' }}
+          title="Strikethrough"
+        >
+          <Strikethrough size={14} />
+        </button>
+
+        <div style={{ width: 1, height: 16, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
+
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => executeFormatCmd('justifyLeft', null, index, editorRef.current)}
+          className="admin-btn-secondary"
+          style={{ padding: '4px 8px' }}
+          title="Align Left"
+        >
+          <AlignLeft size={14} />
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => executeFormatCmd('justifyCenter', null, index, editorRef.current)}
+          className="admin-btn-secondary"
+          style={{ padding: '4px 8px' }}
+          title="Align Center"
+        >
+          <AlignCenter size={14} />
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => executeFormatCmd('justifyRight', null, index, editorRef.current)}
+          className="admin-btn-secondary"
+          style={{ padding: '4px 8px' }}
+          title="Align Right"
+        >
+          <AlignRight size={14} />
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => executeFormatCmd('justifyFull', null, index, editorRef.current)}
+          className="admin-btn-secondary"
+          style={{ padding: '4px 8px' }}
+          title="Justify"
+        >
+          <AlignJustify size={14} />
+        </button>
+
+        <div style={{ width: 1, height: 16, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
+
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => handleOpenLinkModal(index, editorRef.current)}
+          className="admin-btn-secondary"
+          style={{ padding: '4px 8px' }}
+          title="Insert Link"
+        >
+          <Link size={14} />
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => executeFormatCmd('unlink', null, index, editorRef.current)}
+          className="admin-btn-secondary"
+          style={{ padding: '4px 8px' }}
+          title="Remove Link"
+        >
+          <Unlink size={14} />
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => executeFormatCmd('removeFormat', null, index, editorRef.current)}
+          className="admin-btn-secondary"
+          style={{ padding: '4px 8px' }}
+          title="Clear Format"
+        >
+          <Eraser size={14} />
+        </button>
+      </div>
+
+      <div
+        ref={editorRef}
+        id={`editor-paragraph-${block.id}`}
+        contentEditable
+        suppressContentEditableWarning
+        style={{
+          minHeight: 120,
+          padding: '12px 14px',
+          borderRadius: 6,
+          border: '1px solid var(--border-color)',
+          backgroundColor: 'var(--bg-card)',
+          color: 'var(--text-main)',
+          fontSize: '0.96rem',
+          lineHeight: 1.8,
+          outline: 'none'
+        }}
+        onInput={(e) => {
+          isInternalChangeRef.current = true;
+          updateBlock(index, { content: e.currentTarget.innerHTML });
+        }}
+        onBlur={(e) => {
+          isInternalChangeRef.current = true;
+          updateBlock(index, { content: e.currentTarget.innerHTML });
+        }}
+      />
     </div>
   );
 }

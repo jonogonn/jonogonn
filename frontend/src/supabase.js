@@ -1,8 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Default Supabase project configuration (can be updated dynamically from Admin Dashboard)
-const defaultSupabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://xyzcompany.supabase.co';
-const defaultSupabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummykey';
+// Default Supabase project configuration (configured for project mxzsmulbandttegciiiy)
+const defaultSupabaseUrl =
+  import.meta.env.VITE_SUPABASE_URL ||
+  localStorage.getItem('jonogon_supabase_url') ||
+  'https://mxzsmulbandttegciiiy.supabase.co';
+
+const defaultSupabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  localStorage.getItem('jonogon_supabase_key') ||
+  'sb_publishable_Jc-AC8KtLHXR6Pg3mj45Mw_EIW9V_T2';
 
 // Initialize Supabase Client
 export let supabase = createClient(defaultSupabaseUrl, defaultSupabaseAnonKey);

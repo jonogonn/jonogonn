@@ -48,7 +48,10 @@ import {
   TrendingUp,
   MoreVertical,
   CheckSquare,
-  Square
+  Square,
+  User,
+  Users,
+  Camera
 } from 'lucide-react';
 import { uploadImageToStorage } from '../utils/imageUploader';
 import MainMenuManager from './MainMenuManager';
@@ -57,7 +60,13 @@ import GlobalSettingsManager from './GlobalSettingsManager';
 import CreatePostManager from './CreatePostManager';
 import EditPostManager from './EditPostManager';
 import ApprovePostManager from './ApprovePostManager';
+import PublishPostManager from './PublishPostManager';
+import SetupAccessManager from './SetupAccessManager';
 import MediaGalleryManager from './MediaGalleryManager';
+import DatabaseBackupManager from './DatabaseBackupManager';
+import UserProfileManager from './UserProfileManager';
+import NewsCardMakerManager from './NewsCardMakerManager';
+import AdminNotificationDropdown from './AdminNotificationDropdown';
 import AdminLoginScreen from './AdminLoginScreen';
 import ConfirmModal from '../components/Modals/ConfirmModal';
 
@@ -150,14 +159,22 @@ export default function AdminDashboard() {
     });
   };
 
-  // Active Tab State (Removed 'articles' and 'breaking' as requested)
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'create-post' | 'edit-post' | 'approve-post' | 'main-menu' | 'homepage-sections' | 'podcasts' | 'emergency' | 'settings' | 'ads' | 'database'
+  // Active Tab State
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'create-post' | 'edit-post' | 'approve-post' | 'publish-post' | 'gallery' | 'main-menu' | 'homepage-sections' | 'podcasts' | 'emergency' | 'settings' | 'ads' | 'database' | 'setup-access'
   const [saveToast, setSaveToast] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
-  // Counter for pending approval posts
+  // Counter for pending approval posts (Strictly pending_approval)
   const pendingApprovalCount = useMemo(() => {
     return (articles || []).filter(
-      (a) => a.status === 'pending_approval' || a.status === 'review' || a.status === 'submitted'
+      (a) => a.status === 'pending_approval'
+    ).length;
+  }, [articles]);
+
+  // Counter for editable posts & drafts
+  const editPostsCount = useMemo(() => {
+    return (articles || []).filter(
+      (a) => a.status === 'draft' || a.status === 'review' || a.status === 'revision_needed' || a.status === 'submitted'
     ).length;
   }, [articles]);
 
@@ -424,57 +441,92 @@ export default function AdminDashboard() {
             gap: 4
           }}
         >
-          {/* Dashboard Overview */}
+          {/* --- GROUP 1: CORE & EDITORIAL WORKFLOW --- */}
+          {!isSidebarCollapsed && (
+            <div
+              style={{
+                fontSize: '0.68rem',
+                fontWeight: 800,
+                letterSpacing: '0.8px',
+                textTransform: 'uppercase',
+                color: isLight ? '#94A3B8' : '#64748B',
+                padding: '10px 14px 4px 14px'
+              }}
+            >
+              {isBn ? 'মূল ও সম্পাদকীয়' : 'Editorial Workflow'}
+            </div>
+          )}
+
+          {/* 1. Dashboard & Analytics */}
           <button
             type="button"
             className={`admin-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
-            title={isBn ? 'ড্যাশবোর্ড ওভারভিউ' : 'Dashboard Overview'}
+            title={isBn ? 'ড্যাশবোর্ড ও অ্যানালিটিক্স' : 'Dashboard & Analytics'}
             style={{
               justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
               padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
             }}
           >
             <LayoutDashboard size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'ড্যাশবোর্ড' : 'Dashboard'}</span>}
+            {!isSidebarCollapsed && <span>{isBn ? 'ড্যাশবোর্ড ও অ্যানালিটিক্স' : 'Dashboard'}</span>}
           </button>
 
-          {/* Create Post */}
+          {/* 2. Create News Post */}
           <button
             type="button"
             className={`admin-nav-item ${activeTab === 'create-post' ? 'active' : ''}`}
             onClick={() => setActiveTab('create-post')}
-            title={isBn ? 'পোস্ট তৈরি করুন' : 'Create Post'}
+            title={isBn ? 'নতুন সংবাদ তৈরি করুন' : 'Write News Article'}
             style={{
               justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
               padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
             }}
           >
             <PenTool size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'পোস্ট তৈরি করুন' : 'Create Post'}</span>}
+            {!isSidebarCollapsed && <span>{isBn ? 'নতুন সংবাদ তৈরি' : 'Write Article'}</span>}
           </button>
 
-          {/* Edit Post */}
+          {/* 3. Drafts & Editorial */}
           <button
             type="button"
             className={`admin-nav-item ${activeTab === 'edit-post' ? 'active' : ''}`}
             onClick={() => setActiveTab('edit-post')}
-            title={isBn ? 'পোস্ট সম্পাদনা ও সাবমিশন' : 'Edit Post & Submissions'}
+            title={isBn ? 'খসড়া ও সম্পাদনা' : 'Drafts & Editorial'}
             style={{
               justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              padding: isSidebarCollapsed ? '10px 0' : '10px 14px',
+              position: 'relative'
             }}
           >
             <Edit size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'পোস্ট সম্পাদনা' : 'Edit Post'}</span>}
+            {!isSidebarCollapsed && <span>{isBn ? 'খসড়া ও সম্পাদনা' : 'Drafts & Edit'}</span>}
+            {editPostsCount > 0 && (
+              <span
+                style={{
+                  marginLeft: isSidebarCollapsed ? 0 : 'auto',
+                  position: isSidebarCollapsed ? 'absolute' : 'static',
+                  top: isSidebarCollapsed ? 4 : 'auto',
+                  right: isSidebarCollapsed ? 6 : 'auto',
+                  backgroundColor: '#3B82F6',
+                  color: '#FFFFFF',
+                  fontSize: '0.7rem',
+                  fontWeight: 800,
+                  padding: '1px 6px',
+                  borderRadius: 10
+                }}
+              >
+                {editPostsCount}
+              </span>
+            )}
           </button>
 
-          {/* Approve Post */}
+          {/* 4. Approve News */}
           <button
             type="button"
             className={`admin-nav-item ${activeTab === 'approve-post' ? 'active' : ''}`}
             onClick={() => setActiveTab('approve-post')}
-            title={isBn ? 'পোস্ট অনুমোদন ও প্রকাশনা' : 'Approve Post & Publish'}
+            title={isBn ? 'সংবাদ অনুমোদন ও প্রকাশনা' : 'Approve & Publish'}
             style={{
               justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
               padding: isSidebarCollapsed ? '10px 0' : '10px 14px',
@@ -482,7 +534,7 @@ export default function AdminDashboard() {
             }}
           >
             <ShieldCheck size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'পোস্ট অনুমোদন' : 'Approve Post'}</span>}
+            {!isSidebarCollapsed && <span>{isBn ? 'সংবাদ অনুমোদন' : 'Approve News'}</span>}
             {pendingApprovalCount > 0 && (
               <span
                 style={{
@@ -503,124 +555,232 @@ export default function AdminDashboard() {
             )}
           </button>
 
-          {/* Media Gallery Tab */}
+          {/* 5. Published News Archive */}
+          <button
+            type="button"
+            className={`admin-nav-item ${activeTab === 'publish-post' ? 'active' : ''}`}
+            onClick={() => setActiveTab('publish-post')}
+            title={isBn ? 'সকল প্রকাশিত সংবাদ ও আর্কাইভ' : 'All Published News'}
+            style={{
+              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+            }}
+          >
+            <Globe size={18} />
+            {!isSidebarCollapsed && <span>{isBn ? 'সকল প্রকাশিত সংবাদ' : 'Published News'}</span>}
+          </button>
+
+          {/* --- GROUP 2: MEDIA & LAYOUT --- */}
+          {!isSidebarCollapsed && (
+            <div
+              style={{
+                fontSize: '0.68rem',
+                fontWeight: 800,
+                letterSpacing: '0.8px',
+                textTransform: 'uppercase',
+                color: isLight ? '#94A3B8' : '#64748B',
+                padding: '14px 14px 4px 14px'
+              }}
+            >
+              {isBn ? 'মিডিয়া ও বিন্যাস' : 'Media & Layout'}
+            </div>
+          )}
+
+          {/* 6. Media Gallery */}
           <button
             type="button"
             className={`admin-nav-item ${activeTab === 'gallery' ? 'active' : ''}`}
             onClick={() => setActiveTab('gallery')}
-            title={isBn ? 'মিডিয়া গ্যালারি ও ক্লাউড অ্যাসেট' : 'Media Gallery & Assets'}
+            title={isBn ? 'মিডিয়া ও ফটো গ্যালারি' : 'Media Gallery'}
             style={{
               justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
               padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
             }}
           >
             <ImageIcon size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'গ্যালারি' : 'Gallery'}</span>}
+            {!isSidebarCollapsed && <span>{isBn ? 'মিডিয়া ও ফটো গ্যালারি' : 'Media Gallery'}</span>}
           </button>
 
-          {/* Main Menu & Categories */}
+          {/* 6b. News Card Maker (Dedicated Tab) */}
           <button
             type="button"
-            className={`admin-nav-item ${activeTab === 'main-menu' || activeTab === 'categories' ? 'active' : ''}`}
-            onClick={() => setActiveTab('main-menu')}
-            title={isBn ? 'মেইন মেনু ও ক্যাটাগরি' : 'Main Menu & Categories'}
+            className={`admin-nav-item ${activeTab === 'news-card-maker' || activeTab === 'card-maker' ? 'active' : ''}`}
+            onClick={() => setActiveTab('news-card-maker')}
+            title={isBn ? 'সোশ্যাল কার্ড জেনারেটর' : 'News Card Maker'}
             style={{
               justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
               padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
             }}
           >
-            <Menu size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'মেইন মেনু' : 'Main Menu'}</span>}
+            <Camera size={18} />
+            {!isSidebarCollapsed && <span>{isBn ? 'নিউজ কার্ড মেকার' : 'News Card Maker'}</span>}
           </button>
 
-          {/* Homepage Sections */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'homepage-sections' ? 'active' : ''}`}
-            onClick={() => setActiveTab('homepage-sections')}
-            title={isBn ? 'হোমপেজ সেকশন পরিচালনা' : 'Homepage Sections'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <Layers size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'হোমপেজ সেকশন' : 'Homepage Sections'}</span>}
-          </button>
-
-          {/* Podcasts */}
+          {/* 7. Podcasts & Multimedia */}
           <button
             type="button"
             className={`admin-nav-item ${activeTab === 'podcasts' ? 'active' : ''}`}
             onClick={() => setActiveTab('podcasts')}
-            title={isBn ? 'পডকাস্ট পর্বসমূহ' : 'Podcasts'}
+            title={isBn ? 'পডকাস্ট ও ভিডিও অনুষ্ঠান' : 'Podcasts & Shows'}
             style={{
               justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
               padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
             }}
           >
             <Mic size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'পডকাস্ট' : 'Podcasts'}</span>}
+            {!isSidebarCollapsed && <span>{isBn ? 'পডকাস্ট ও ভিডিও' : 'Podcasts'}</span>}
           </button>
 
-          {/* Emergency Services */}
+          {/* 8. Main Menu & Categories */}
+          <button
+            type="button"
+            className={`admin-nav-item ${activeTab === 'main-menu' || activeTab === 'categories' ? 'active' : ''}`}
+            onClick={() => setActiveTab('main-menu')}
+            title={isBn ? 'মেনু ও ক্যাটাগরি' : 'Menu & Categories'}
+            style={{
+              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+            }}
+          >
+            <Menu size={18} />
+            {!isSidebarCollapsed && <span>{isBn ? 'মেনু ও ক্যাটাগরি' : 'Menu & Categories'}</span>}
+          </button>
+
+          {/* 9. Homepage Layout Blocks */}
+          <button
+            type="button"
+            className={`admin-nav-item ${activeTab === 'homepage-sections' ? 'active' : ''}`}
+            onClick={() => setActiveTab('homepage-sections')}
+            title={isBn ? 'হোমপেজ লেআউট ও সেকশন' : 'Homepage Layout'}
+            style={{
+              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+            }}
+          >
+            <Layers size={18} />
+            {!isSidebarCollapsed && <span>{isBn ? 'হোমপেজ লেআউট' : 'Homepage Layout'}</span>}
+          </button>
+
+          {/* --- GROUP 3: SERVICES & ADS --- */}
+          {!isSidebarCollapsed && (
+            <div
+              style={{
+                fontSize: '0.68rem',
+                fontWeight: 800,
+                letterSpacing: '0.8px',
+                textTransform: 'uppercase',
+                color: isLight ? '#94A3B8' : '#64748B',
+                padding: '14px 14px 4px 14px'
+              }}
+            >
+              {isBn ? 'সেবা ও বিজ্ঞাপন' : 'Services & Ads'}
+            </div>
+          )}
+
+          {/* 10. Emergency Helplines */}
           <button
             type="button"
             className={`admin-nav-item ${activeTab === 'emergency' ? 'active' : ''}`}
             onClick={() => setActiveTab('emergency')}
-            title={isBn ? 'জরুরি সেবা' : 'Emergency Services'}
+            title={isBn ? 'জরুরি সেবা হেল্পলাইন' : 'Emergency Helplines'}
             style={{
               justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
               padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
             }}
           >
             <LifeBuoy size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'জরুরি সেবা' : 'Emergency Services'}</span>}
+            {!isSidebarCollapsed && <span>{isBn ? 'জরুরি সেবা হেল্পলাইন' : 'Emergency'}</span>}
           </button>
 
-          {/* Global Settings */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-            title={isBn ? 'সাইট সেটিংস ও ব্র্যান্ডিং' : 'Site Settings'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <Sliders size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'সাইট সেটিংস' : 'Site Settings'}</span>}
-          </button>
-
-          {/* Google AdSense */}
+          {/* 11. Google AdSense & Ads */}
           <button
             type="button"
             className={`admin-nav-item ${activeTab === 'ads' ? 'active' : ''}`}
             onClick={() => setActiveTab('ads')}
-            title={isBn ? 'বিজ্ঞাপন স্লট' : 'Google AdSense'}
+            title={isBn ? 'বিজ্ঞাপন ও মনিটাইজেশন' : 'AdSense & Ads'}
             style={{
               justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
               padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
             }}
           >
             <DollarSign size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'বিজ্ঞাপন' : 'Google AdSense'}</span>}
+            {!isSidebarCollapsed && <span>{isBn ? 'বিজ্ঞাপন ও মনিটাইজেশন' : 'AdSense & Ads'}</span>}
           </button>
 
-          {/* Database & Backup */}
+          {/* --- GROUP 4: SYSTEM & ACCESS CONTROL --- */}
+          {!isSidebarCollapsed && (
+            <div
+              style={{
+                fontSize: '0.68rem',
+                fontWeight: 800,
+                letterSpacing: '0.8px',
+                textTransform: 'uppercase',
+                color: isLight ? '#94A3B8' : '#64748B',
+                padding: '14px 14px 4px 14px'
+              }}
+            >
+              {isBn ? 'সিস্টেম ও সিকিউরিটি' : 'System & Security'}
+            </div>
+          )}
+
+          {/* 12. Setup Access & Permissions */}
+          <button
+            type="button"
+            className={`admin-nav-item ${activeTab === 'setup-access' ? 'active' : ''}`}
+            onClick={() => setActiveTab('setup-access')}
+            title={isBn ? 'টিম ও এক্সেস কন্ট্রোল' : 'Setup Access & Roles'}
+            style={{
+              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+            }}
+          >
+            <Users size={18} />
+            {!isSidebarCollapsed && <span>{isBn ? 'টিম ও এক্সেস কন্ট্রোল' : 'Setup Access'}</span>}
+          </button>
+
+          {/* 13. Site Settings & SEO */}
+          <button
+            type="button"
+            className={`admin-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+            title={isBn ? 'সাইট ও ব্র্যান্ডিং সেটিংস' : 'Site & SEO Settings'}
+            style={{
+              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+            }}
+          >
+            <Sliders size={18} />
+            {!isSidebarCollapsed && <span>{isBn ? 'সাইট ও ব্র্যান্ডিং সেটিংস' : 'Site Settings'}</span>}
+          </button>
+
+          {/* 14. Database & Supabase Cloud Backup */}
           <button
             type="button"
             className={`admin-nav-item ${activeTab === 'database' ? 'active' : ''}`}
             onClick={() => setActiveTab('database')}
-            title={isBn ? 'ডাটাবেজ ও ব্যাকআপ' : 'Database & Backup'}
+            title={isBn ? 'ডাটাবেজ ও ক্লাউড ব্যাকআপ' : 'Database & Backup'}
             style={{
               justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
               padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
             }}
           >
             <Database size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'ডাটাবেজ ও ব্যাকআপ' : 'Database & Backup'}</span>}
+            {!isSidebarCollapsed && <span>{isBn ? 'ডাটাবেজ ও ক্লাউড ব্যাকআপ' : 'Database & Cloud'}</span>}
+          </button>
+
+          {/* 15. My Profile & Password Settings (Requirement 2) */}
+          <button
+            type="button"
+            className={`admin-nav-item ${activeTab === 'my-profile' ? 'active' : ''}`}
+            onClick={() => setActiveTab('my-profile')}
+            title={isBn ? 'প্রোফাইল ও পাসওয়ার্ড পরিবর্তন' : 'My Profile & Security'}
+            style={{
+              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+            }}
+          >
+            <User size={18} />
+            {!isSidebarCollapsed && <span>{isBn ? 'প্রোফাইল ও পাসওয়ার্ড' : 'My Profile'}</span>}
           </button>
         </nav>
 
@@ -633,15 +793,21 @@ export default function AdminDashboard() {
             flexShrink: 0
           }}
         >
-          {/* User Profile Card */}
+          {/* User Profile Card - Clickable to open Profile tab */}
           <div
+            onClick={() => setActiveTab('my-profile')}
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: isSidebarCollapsed ? 'center' : 'space-between',
               gap: 10,
-              marginBottom: isSidebarCollapsed ? 10 : 12
+              marginBottom: isSidebarCollapsed ? 10 : 12,
+              cursor: 'pointer',
+              padding: '4px',
+              borderRadius: 8,
+              transition: 'background-color 0.15s ease'
             }}
+            title={isBn ? 'প্রোফাইল সেটিংস ও পাসওয়ার্ড পরিবর্তন' : 'Profile Settings'}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <img
@@ -658,10 +824,10 @@ export default function AdminDashboard() {
               {!isSidebarCollapsed && (
                 <div>
                   <div style={{ fontWeight: 800, fontSize: '0.86rem', color: isLight ? '#0F172A' : '#FFFFFF', lineHeight: 1.2 }}>
-                    আরিফ রহমান
+                    {isBn ? 'মোঃ বিপ্লব হোসেন' : 'Md. Biplob Hossain'}
                   </div>
                   <div style={{ fontSize: '0.7rem', color: isLight ? '#64748B' : '#9CA3AF' }}>
-                    অ্যাডমিন
+                    {isBn ? 'প্রধান সম্পাদক ও প্রকাশক' : 'Super Admin & Editor'}
                   </div>
                 </div>
               )}
@@ -850,46 +1016,69 @@ export default function AdminDashboard() {
               {isLight ? <Moon size={16} /> : <Sun size={16} color="#FFB800" />}
             </button>
 
-            {/* Notification Bell */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('approve-post')}
-              style={{
-                position: 'relative',
-                width: 38,
-                height: 38,
-                borderRadius: 6,
-                backgroundColor: isLight ? '#F1F5F9' : 'rgba(255, 255, 255, 0.05)',
-                border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.12)',
-                color: isLight ? '#0F172A' : '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer'
-              }}
-              title={isBn ? `${pendingApprovalCount || 5}টি নতুন নোটিফিকেশন` : 'Notifications'}
-            >
-              <Bell size={17} />
-              <span
+            {/* Notification Bell with Facebook-style Popup (Requirement 2) */}
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setIsNotificationOpen((prev) => !prev)}
                 style={{
-                  position: 'absolute',
-                  top: 6,
-                  right: 6,
-                  width: 15,
-                  height: 15,
-                  borderRadius: '50%',
-                  backgroundColor: '#E50914',
-                  color: '#FFFFFF',
-                  fontSize: '0.62rem',
-                  fontWeight: 900,
+                  position: 'relative',
+                  width: 38,
+                  height: 38,
+                  borderRadius: 6,
+                  backgroundColor: isNotificationOpen
+                    ? 'rgba(229, 9, 20, 0.15)'
+                    : isLight
+                    ? '#F1F5F9'
+                    : 'rgba(255, 255, 255, 0.05)',
+                  border: isNotificationOpen
+                    ? '1px solid var(--primary-red)'
+                    : isLight
+                    ? '1px solid #E2E8F0'
+                    : '1px solid rgba(255, 255, 255, 0.12)',
+                  color: isNotificationOpen ? 'var(--primary-red)' : isLight ? '#0F172A' : '#FFFFFF',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
                 }}
+                title={isBn ? `${pendingApprovalCount || 3}টি নতুন নোটিফিকেশন` : 'Notifications'}
               >
-                {pendingApprovalCount || 5}
-              </span>
-            </button>
+                <Bell size={17} />
+                {pendingApprovalCount > 0 && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: 6,
+                      right: 6,
+                      width: 15,
+                      height: 15,
+                      borderRadius: '50%',
+                      backgroundColor: '#E50914',
+                      color: '#FFFFFF',
+                      fontSize: '0.62rem',
+                      fontWeight: 900,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    {pendingApprovalCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Facebook-style Notification Popup */}
+              <AdminNotificationDropdown
+                isOpen={isNotificationOpen}
+                onClose={() => setIsNotificationOpen(false)}
+                articles={articles}
+                pendingCount={pendingApprovalCount}
+                onNavigateTab={(tab) => setActiveTab(tab)}
+                isBn={isBn}
+              />
+            </div>
           </div>
         </header>
 
@@ -1324,6 +1513,15 @@ export default function AdminDashboard() {
             />
           )}
 
+          {/* TAB: PUBLISH POST - ALL DB & PUBLISHED POSTS (Requirement 1) */}
+          {activeTab === 'publish-post' && (
+            <PublishPostManager
+              triggerSaveToast={triggerSaveToast}
+              onNavigateToCreate={() => setActiveTab('create-post')}
+              onNavigateToEdit={() => setActiveTab('edit-post')}
+            />
+          )}
+
           {/* TAB: MEDIA GALLERY & CLOUD ASSET MANAGER */}
           {activeTab === 'gallery' && (
             <MediaGalleryManager triggerSaveToast={triggerSaveToast} />
@@ -1684,60 +1882,24 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* TAB 11: DATABASE & BACKUP */}
+          {/* TAB 11: DATABASE & CLOUD EXPORTS (Requirement 1) */}
           {activeTab === 'database' && (
-            <div>
-              <div className="admin-card">
-                <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, marginBottom: 8 }}>
-                  {isBn ? 'Supabase ক্লাউড ডাটাবেজ ইন্টিগ্রেশন' : 'Supabase Cloud Database'}
-                </h1>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 20 }}>
-                  কানেক্ট করুন Supabase PostgreSQL এবং ক্লাউড স্টোরেজ।
-                </p>
+            <DatabaseBackupManager triggerSaveToast={triggerSaveToast} />
+          )}
 
-                <form onSubmit={handleConfigureSupabase}>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Project URL</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      placeholder="https://your-project.supabase.co"
-                      value={sbUrl}
-                      onChange={(e) => setSbUrl(e.target.value)}
-                    />
-                  </div>
+          {/* TAB: NEWS CARD MAKER STUDIO (Dedicated Tab - No Protection, Full Download & B2 Upload) */}
+          {(activeTab === 'news-card-maker' || activeTab === 'card-maker') && (
+            <NewsCardMakerManager triggerSaveToast={triggerSaveToast} />
+          )}
 
-                  <div className="admin-form-group">
-                    <label className="admin-label">Public Anon Key</label>
-                    <input
-                      type="password"
-                      className="admin-input"
-                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
-                      value={sbKey}
-                      onChange={(e) => setSbKey(e.target.value)}
-                    />
-                  </div>
+          {/* TAB: MY PROFILE & PASSWORD SETTINGS (Requirement 2) */}
+          {activeTab === 'my-profile' && (
+            <UserProfileManager triggerSaveToast={triggerSaveToast} />
+          )}
 
-                  <button type="submit" className="admin-btn-primary">
-                    <Database size={18} />
-                    <span>কানেক্ট ও টেস্ট করুন</span>
-                  </button>
-                </form>
-              </div>
-
-              <div className="admin-card">
-                <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.3rem', marginBottom: 8 }}>
-                  {isBn ? 'সম্পূর্ণ পোর্টাল ব্যাকআপ ডাউনলোড (JSON)' : 'Full Portal JSON Backup'}
-                </h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: 16 }}>
-                  সকল সংবাদ, ক্যাটাগরি, সেটিংস এবং মিডিয়া মেটাডাটার একটি পূর্ণ ব্যাকআপ ফাইল সংরক্ষণ করুন।
-                </p>
-                <button type="button" className="admin-btn-secondary" onClick={handleExportBackup}>
-                  <Download size={18} />
-                  <span>ব্যাকআপ ফাইল ডাউনলোড করুন (.json)</span>
-                </button>
-              </div>
-            </div>
+          {/* TAB: SETUP ACCESS & ROLE PERMISSIONS (Requirement 3) */}
+          {activeTab === 'setup-access' && (
+            <SetupAccessManager triggerSaveToast={triggerSaveToast} />
           )}
         </div>
       </main>

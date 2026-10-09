@@ -127,11 +127,25 @@ if ($requestMethod === 'POST') {
         $finalFileName = ($finalFormat === 'webp') ? $webpFileName : ($slugName . '-' . $timestamp . '-' . $rand . '.' . $finalFormat);
         $finalSize = file_exists($finalUploadPath) ? filesize($finalUploadPath) : $sizeBytes;
 
-        // 3. Upload to Backblaze B2 (if configured) or Local Storage
+        // 3. Upload to Backblaze B2 (if configured) AND always save local copy
         $b2Configured = !empty(B2_KEY_ID) && !empty(B2_APPLICATION_KEY) && !empty(B2_BUCKET_ID);
         $publicUrl = '';
         $storageKey = 'uploads/' . date('Y/m') . '/' . $finalFileName;
         $provider = 'local';
+
+        // Always save a local copy in uploads/ directory for instant backup & local preview
+        $uploadDir = __DIR__ . '/../uploads/' . date('Y/m') . '/';
+        if (!is_dir($uploadDir)) {
+            @mkdir($uploadDir, 0755, true);
+        }
+        $localDest = $uploadDir . $finalFileName;
+        @copy($finalUploadPath, $localDest);
+
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $scriptPath = dirname(dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+        $scriptPath = rtrim($scriptPath, '/\\');
+        $localUrl = $protocol . $host . $scriptPath . '/uploads/' . date('Y/m') . '/' . $finalFileName;
 
         if ($b2Configured) {
             $contentType = ($finalFormat === 'webp') ? 'image/webp' : ($mime ?: 'image/jpeg');
@@ -144,19 +158,7 @@ if ($requestMethod === 'POST') {
 
         // Fallback to local storage if Backblaze failed or not configured
         if (!$publicUrl) {
-            $uploadDir = __DIR__ . '/../uploads/' . date('Y/m') . '/';
-            if (!is_dir($uploadDir)) {
-                @mkdir($uploadDir, 0755, true);
-            }
-            $localDest = $uploadDir . $finalFileName;
-            @copy($finalUploadPath, $localDest);
-
-            // Build relative / full URL
-            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
-            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-            $scriptPath = dirname(dirname($_SERVER['SCRIPT_NAME'] ?? ''));
-            $scriptPath = rtrim($scriptPath, '/\\');
-            $publicUrl = $protocol . $host . $scriptPath . '/uploads/' . date('Y/m') . '/' . $finalFileName;
+            $publicUrl = $localUrl;
             $provider = 'local_server';
         }
 
@@ -311,13 +313,15 @@ function uploadToBackblazeB2($filePath, $fileName, $contentType = 'image/webp') 
     $fileData = file_get_contents($filePath);
     $sha1 = sha1($fileData);
 
+    $b2FileName = implode('/', array_map('rawurlencode', explode('/', str_replace('\\', '/', $fileName))));
+
     $ch = curl_init($uploadUrl);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $fileData);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "Authorization: $uploadAuthToken",
-        "X-Bz-File-Name: " . rawurlencode($fileName),
+        "X-Bz-File-Name: " . $b2FileName,
         "Content-Type: $contentType",
         "Content-Length: " . strlen($fileData),
         "X-Bz-Content-Sha1: $sha1"

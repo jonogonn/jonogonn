@@ -15,7 +15,8 @@ export async function generateSocialCardJpg({
   lineHeight = 1.18,
   colorMode = 'dual',
   manualLineBreak = '',
-  fileName = 'jonogon-social-card.jpg'
+  fileName = 'jonogon-social-card.jpg',
+  returnBlob = false
 }) {
   return new Promise(async (resolve, reject) => {
     try {
@@ -109,7 +110,7 @@ export async function generateSocialCardJpg({
         // Font family string
         const fontSans = '"Anek Bangla", "Hind Siliguri", "Noto Sans Bengali", sans-serif';
 
-        // 4. Draw Date inside Golden Pill (Dead-Center: X=512, Y=180)
+        // 4. Draw Date inside Golden Pill
         const dateText = dateBn || new Date().toLocaleDateString('bn-BD', {
           day: '2-digit',
           month: 'long',
@@ -211,21 +212,22 @@ export async function generateSocialCardJpg({
           ctx.fillText(line1, 512, 848);
         }
 
-        // 7. Draw Dynamic Category in Bottom Red Bar ({sub_group} । {category})
-        ctx.fillStyle = '#E50914';
-        ctx.fillRect(298, 978, 442, 46);
-
+        // 7. Draw Dynamic Category in Bottom Bar ({sub_group} । {category})
         ctx.font = `800 18px ${fontSans}`;
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(category || 'সারাদেশ । বাংলাদেশ', 519, 1001);
 
-        // 8. Convert to JPEG Blob and Download
+        // 8. Convert to JPEG Blob and Download / Return
         canvas.toBlob(
           (blob) => {
             if (!blob) {
               reject(new Error('Canvas export failed'));
+              return;
+            }
+            if (returnBlob) {
+              resolve(blob);
               return;
             }
             const url = URL.createObjectURL(blob);
@@ -247,3 +249,5 @@ export async function generateSocialCardJpg({
     }
   });
 }
+
+export default generateSocialCardJpg;

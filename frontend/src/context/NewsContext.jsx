@@ -15,7 +15,8 @@ import {
 import { supabase, configureSupabase } from '../supabase';
 import { fetchLiveGoogleWeather, getDefaultWeather } from '../services/weatherService';
 import AppDialogModal from '../components/Modals/AppDialogModal';
-import { saveArticleToMariaDb, deleteArticleFromMariaDb } from '../utils/mariaDbSync';
+import UploadProgressModal from '../components/Modals/UploadProgressModal';
+import { saveArticleToMariaDb, deleteArticleFromMariaDb, fetchArticlesFromMariaDb } from '../utils/mariaDbSync';
 
 const NewsContext = createContext();
 
@@ -177,17 +178,13 @@ export function NewsProvider({ children }) {
     return initialCategoryMasterGroups;
   });
 
-  // 5b. Flat Categories Data (All Categories synchronized with Master Groups)
+  // 5b. Flat Categories Data (All 132 Categories synchronized with DB & Master Groups)
   const [categories, setCategories] = useState(() => {
     try {
       const saved = localStorage.getItem('jonogon_categories');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          if (!parsed.some((c) => c.id === 'probashi')) {
-            parsed.push({ id: 'probashi', nameBn: 'প্রবাসী', nameEn: 'Expatriates', slug: 'probashi' });
-            localStorage.setItem('jonogon_categories', JSON.stringify(parsed));
-          }
+        if (Array.isArray(parsed) && parsed.length >= 100) {
           return parsed;
         }
       }
@@ -195,8 +192,122 @@ export function NewsProvider({ children }) {
     return initialCategories;
   });
 
-  // Ensure Probashi & Expatriates sync in state on startup
+  // Global Upload Progress Modal State
+  const [uploadProgress, setUploadProgress] = useState({
+    isOpen: false,
+    progress: 0,
+    statusText: '',
+    fileName: '',
+    isError: false
+  });
+
+  const showUploadProgress = (statusText = 'ছবি WebP রূপান্তর ও ক্লাউড আপলোড হচ্ছে...', progress = 25, fileName = '') => {
+    setUploadProgress({
+      isOpen: true,
+      progress,
+      statusText,
+      fileName,
+      isError: false
+    });
+  };
+
+  const updateUploadProgress = (progress, statusText = '') => {
+    setUploadProgress((prev) => ({
+      ...prev,
+      progress,
+      statusText: statusText || prev.statusText
+    }));
+  };
+
+  const closeUploadProgress = (delay = 600) => {
+    setUploadProgress((prev) => ({ ...prev, progress: 100, statusText: 'সফলভাবে আপলোড সম্পন্ন হয়েছে!' }));
+    setTimeout(() => {
+      setUploadProgress((prev) => ({ ...prev, isOpen: false }));
+    }, delay);
+  };
+
+  // Listen to site-wide upload events from imageUploader
   useEffect(() => {
+    const handleStart = (e) => {
+      const { fileName, statusText } = e.detail || {};
+      showUploadProgress(statusText || 'ছবি প্রসেসিং হচ্ছে...', 15, fileName || '');
+    };
+    const handleProgress = (e) => {
+      const { progress, statusText } = e.detail || {};
+      updateUploadProgress(progress || 50, statusText);
+    };
+    const handleComplete = (e) => {
+      const { statusText } = e.detail || {};
+      setUploadProgress((prev) => ({ ...prev, progress: 100, statusText: statusText || 'আপলোড সফল হয়েছে!' }));
+      setTimeout(() => {
+        setUploadProgress((prev) => ({ ...prev, isOpen: false }));
+      }, 700);
+    };
+    const handleError = (e) => {
+      const { message } = e.detail || {};
+      setUploadProgress((prev) => ({ ...prev, isError: true, statusText: message || 'আপলোড ব্যর্থ হয়েছে' }));
+      setTimeout(() => {
+        setUploadProgress((prev) => ({ ...prev, isOpen: false }));
+      }, 2000);
+    };
+
+    window.addEventListener('site_upload_start', handleStart);
+    window.addEventListener('site_upload_progress', handleProgress);
+    window.addEventListener('site_upload_complete', handleComplete);
+    window.addEventListener('site_upload_error', handleError);
+
+    return () => {
+      window.removeEventListener('site_upload_start', handleStart);
+      window.removeEventListener('site_upload_progress', handleProgress);
+      window.removeEventListener('site_upload_complete', handleComplete);
+      window.removeEventListener('site_upload_error', handleError);
+    };
+  }, []);
+
+  // Fetch live categories from MariaDB / API
+  const refreshCategories = async () => {
+    try {
+      const endpoints = ['/api/categories.php', 'api/categories.php', './api/categories.php'];
+      if (typeof window !== 'undefined' && window.location.origin) {
+        endpoints.unshift(`${window.location.origin}/api/categories.php`);
+      }
+      for (const ep of endpoints) {
+        try {
+          const res = await fetch(ep, { headers: { Accept: 'application/json' } });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
+              const formatted = data.data.map((cat) => ({
+                id: cat.slug || String(cat.id),
+                nameBn: cat.name_bn || cat.name,
+                nameEn: cat.name_en || cat.slug,
+                slug: cat.slug
+              }));
+              setCategories(formatted);
+              localStorage.setItem('jonogon_categories', JSON.stringify(formatted));
+              return;
+            }
+          }
+        } catch (e) {}
+      }
+    } catch (e) {}
+  };
+
+  const refreshArticles = async () => {
+    try {
+      const dbPosts = await fetchArticlesFromMariaDb();
+      if (Array.isArray(dbPosts) && dbPosts.length > 0) {
+        setArticles(dbPosts);
+        localStorage.setItem('jonogon_articles', JSON.stringify(dbPosts));
+      }
+    } catch (e) {}
+  };
+
+  // Ensure Probashi & Expatriates sync in state on startup + fetch categories & articles from DB
+  useEffect(() => {
+    refreshCategories();
+    refreshArticles();
+
     setCategoryMasterGroups((prevGroups) => {
       let needsUpdate = false;
       const updated = (prevGroups || []).map((grp) => {
@@ -1441,11 +1552,19 @@ export function NewsProvider({ children }) {
         showError,
         showSuccess,
         showWarning,
-        closeDialog
+        closeDialog,
+
+        // Global Upload Progress Modal System
+        uploadProgress,
+        showUploadProgress,
+        updateUploadProgress,
+        closeUploadProgress,
+        refreshCategories
       }}
     >
       {children}
       <AppDialogModal />
+      <UploadProgressModal />
     </NewsContext.Provider>
   );
 }

@@ -11,7 +11,6 @@ import {
   Save,
   Eye,
   RotateCcw,
-  Sparkles,
   Zap,
   Gift,
   ExternalLink,

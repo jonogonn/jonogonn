@@ -296,7 +296,7 @@ export default function SocialNewsCardPreview({
           draggable={false}
         />
 
-        {/* Layer 3: Dynamic Date Badge inside Golden Top Pill (Dead-Center Aligned) */}
+        {/* Layer 3: Dynamic Date Badge inside Golden Top Pill */}
         <div
           style={{
             position: 'absolute',
@@ -306,16 +306,12 @@ export default function SocialNewsCardPreview({
             width: '25.5%',
             height: '2.73%',
             zIndex: 3,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
             color: '#FFFFFF',
-            fontSize: 'clamp(9px, 1.85cqw, 19px)',
+            fontSize: 'clamp(9px, 1.8cqw, 18px)',
             fontWeight: 800,
             letterSpacing: 0.3,
-            lineHeight: 1,
             whiteSpace: 'nowrap',
-            textShadow: '0 1px 2px rgba(0,0,0,0.45)',
+            textShadow: '0 1px 2px rgba(0,0,0,0.4)',
             pointerEvents: 'none',
             fontFamily: 'var(--font-headline, "Anek Bangla", "Hind Siliguri", sans-serif)'
           }}
@@ -426,7 +422,7 @@ export default function SocialNewsCardPreview({
           )}
         </div>
 
-        {/* Layer 6: Dynamic Category in Bottom Red Bar ({sub_group} । {category}) */}
+        {/* Layer 6: Dynamic Category in Bottom Bar */}
         <div
           style={{
             position: 'absolute',
@@ -434,16 +430,13 @@ export default function SocialNewsCardPreview({
             left: '29.2%',
             width: '43.2%',
             height: '4.5%',
+            transform: 'translateX(-50%)',
             zIndex: 3,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#E50914',
             color: '#FFFFFF',
-            fontSize: 'clamp(9.5px, 1.75cqw, 18px)',
+            fontSize: 'clamp(9px, 1.7cqw, 17px)',
             fontWeight: 800,
             whiteSpace: 'nowrap',
-            letterSpacing: 0.5,
+            letterSpacing: 0.4,
             pointerEvents: 'none',
             fontFamily: 'var(--font-headline, "Anek Bangla", "Hind Siliguri", sans-serif)',
             textShadow: '0 1px 2px rgba(0,0,0,0.35)'

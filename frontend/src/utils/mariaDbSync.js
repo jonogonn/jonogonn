@@ -1,12 +1,27 @@
 /**
- * Utility to sync news articles directly to MariaDB / MySQL database.
- * Supports cPanel Apache PHP API, XAMPP, and Node Backend API seamlessly.
+ * Utility to sync news articles and admin modules directly to MariaDB / MySQL database.
+ * Compatible with cPanel Hosting, Local XAMPP, and Cloud Production Servers.
  */
 
 function getNewsEndpoints() {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const list = ['/api/news.php', 'api/news.php', './api/news.php'];
+  const list = [
+    '/api/news.php',
+    'api/news.php',
+    './api/news.php'
+  ];
   if (origin) list.unshift(`${origin}/api/news.php`);
+  return [...new Set(list)];
+}
+
+function getSyncEndpoints() {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const list = [
+    '/api/admin_sync.php',
+    'api/admin_sync.php',
+    './api/admin_sync.php'
+  ];
+  if (origin) list.unshift(`${origin}/api/admin_sync.php`);
   return [...new Set(list)];
 }
 
@@ -28,7 +43,7 @@ export async function saveArticleToMariaDb(articlePayload) {
       if (response.ok) {
         const result = await response.json();
         if (result && result.success) {
-          console.log(`✅ Synced to MariaDB via ${endpoint}:`, result);
+          console.log(`✅ Synced article to MariaDB via ${endpoint}:`, result);
           return { success: true, result, endpoint };
         }
       }
@@ -70,6 +85,53 @@ export async function fetchArticlesFromMariaDb() {
       if (response.ok) {
         const result = await response.json();
         if (result && result.success && Array.isArray(result.data)) {
+          return result.data;
+        }
+      }
+    } catch (err) {
+      // continue
+    }
+  }
+  return null;
+}
+
+export async function syncModuleToMariaDb(module, data) {
+  const endpoints = getSyncEndpoints();
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ module, data })
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result && result.success) {
+          console.log(`✅ Synced module '${module}' to MariaDB:`, result);
+          return { success: true, result };
+        }
+      }
+    } catch (err) {
+      // continue
+    }
+  }
+  return { success: false };
+}
+
+export async function fetchModuleFromMariaDb(type = 'all') {
+  const endpoints = getSyncEndpoints();
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(`${endpoint}?type=${encodeURIComponent(type)}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result && result.success && result.data) {
           return result.data;
         }
       }

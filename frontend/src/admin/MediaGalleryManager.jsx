@@ -14,7 +14,8 @@ import {
   FolderArchive,
   ExternalLink,
   Layers,
-  Sparkles,
+  Zap,
+  Camera,
   Calendar,
   HardDrive,
   FileCheck,
@@ -54,34 +55,49 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFormat, setSelectedFormat] = useState('all'); // 'all' | 'webp' | 'jpg' | 'png'
+  const [galleryCategory, setGalleryCategory] = useState('all'); // 'all' | 'news' | 'uploaded'
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
 
   // Modal / Preview
   const [previewItem, setPreviewItem] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
   const [zoomScale, setZoomScale] = useState(1);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Esc key listener for lightbox modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && previewItem) {
+        setPreviewItem(null);
+        setZoomScale(1);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewItem]);
 
   const handleOpenPreview = (item) => {
     setPreviewItem(item);
     setZoomScale(1);
-    setIsFullscreen(false);
   };
 
-  const handleZoomIn = () => {
-    setZoomScale((prev) => Math.min(Number((prev + 0.25).toFixed(2)), 3.0));
+  const handleZoomIn = (e) => {
+    if (e) e.stopPropagation();
+    setZoomScale((prev) => Math.min(Number((prev + 0.35).toFixed(2)), 3.5));
   };
 
-  const handleZoomOut = () => {
-    setZoomScale((prev) => Math.max(Number((prev - 0.25).toFixed(2)), 0.5));
+  const handleZoomOut = (e) => {
+    if (e) e.stopPropagation();
+    setZoomScale((prev) => Math.max(Number((prev - 0.35).toFixed(2)), 0.5));
   };
 
-  const handleResetZoom = () => {
+  const handleResetZoom = (e) => {
+    if (e) e.stopPropagation();
     setZoomScale(1);
   };
 
-  const toggleFullscreen = () => {
-    setIsFullscreen((prev) => !prev);
+  const handleToggleZoom = (e) => {
+    e.stopPropagation();
+    setZoomScale((prev) => (prev === 1 ? 1.75 : prev > 1 ? 1 : 1.75));
   };
 
   // File Upload input ref
@@ -128,9 +144,54 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
     fetchMediaList();
   }, [articles]);
 
+  // Category Counts (Task 5: All Image, News Image, Uploaded Image, News Card)
+  const categoryCounts = useMemo(() => {
+    const all = mediaList.length;
+    const cards = mediaList.filter(
+      (m) =>
+        (m.original_name && /card/i.test(m.original_name)) ||
+        (m.storage_key && /card/i.test(m.storage_key)) ||
+        (m.file_name && /card/i.test(m.file_name)) ||
+        (m.associated_news && /card/i.test(m.associated_news))
+    ).length;
+    const news = mediaList.filter(
+      (m) =>
+        !((m.original_name && /card/i.test(m.original_name)) || (m.storage_key && /card/i.test(m.storage_key))) &&
+        (Boolean(m.associated_news && m.associated_news !== 'general gallery') ||
+          (m.storage_key && m.storage_key.includes('/news/')))
+    ).length;
+    const uploaded = mediaList.filter(
+      (m) =>
+        !((m.original_name && /card/i.test(m.original_name)) || (m.storage_key && /card/i.test(m.storage_key))) &&
+        (!m.associated_news || m.associated_news === 'general gallery')
+    ).length;
+    return { all, news, uploaded, cards };
+  }, [mediaList]);
+
   // Filtered List
   const filteredMedia = useMemo(() => {
     return mediaList.filter((item) => {
+      const isCard =
+        (item.original_name && /card/i.test(item.original_name)) ||
+        (item.storage_key && /card/i.test(item.storage_key)) ||
+        (item.file_name && /card/i.test(item.file_name)) ||
+        (item.associated_news && /card/i.test(item.associated_news));
+
+      // 0. Category Tab Filter
+      if (galleryCategory === 'news_card') {
+        if (!isCard) return false;
+      } else if (galleryCategory === 'news') {
+        if (isCard) return false;
+        const isNews =
+          Boolean(item.associated_news && item.associated_news !== 'general gallery') ||
+          (item.storage_key && item.storage_key.includes('/news/'));
+        if (!isNews) return false;
+      } else if (galleryCategory === 'uploaded') {
+        if (isCard) return false;
+        const isUploaded = !item.associated_news || item.associated_news === 'general gallery';
+        if (!isUploaded) return false;
+      }
+
       // 1. Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -148,7 +209,7 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
 
       return true;
     });
-  }, [mediaList, searchQuery, selectedFormat]);
+  }, [mediaList, galleryCategory, searchQuery, selectedFormat]);
 
   // Overall Stats
   const stats = useMemo(() => {
@@ -487,7 +548,7 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
 
         <div className="admin-card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14, margin: 0 }}>
           <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(16,185,129,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
-            <Sparkles size={22} />
+            <Zap size={22} />
           </div>
           <div>
             <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>{isBn ? 'WebP অপ্টিমাইজেশন রেট' : 'WebP Compression Rate'}</div>
@@ -504,6 +565,66 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
             <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>Backblaze B2</div>
           </div>
         </div>
+      </div>
+
+      {/* -------------------------------------------------------------
+          2b. 3 CATEGORY TABS: "All Image", "News Image", "Uploaded Image"
+          ------------------------------------------------------------- */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexWrap: 'wrap',
+          padding: '4px 0'
+        }}
+      >
+        {[
+          { key: 'all', label: isBn ? 'সকল ছবি (All Image)' : 'All Image', count: categoryCounts.all, icon: Layers },
+          { key: 'news', label: isBn ? 'সংবাদের ছবি (News Image)' : 'News Image', count: categoryCounts.news, icon: FileCheck },
+          { key: 'uploaded', label: isBn ? 'আপলোড করা ছবি (Uploaded Image)' : 'Uploaded Image', count: categoryCounts.uploaded, icon: Upload },
+          { key: 'news_card', label: isBn ? 'নিউজ কার্ড (News Card)' : 'News Card', count: categoryCounts.cards, icon: Camera }
+        ].map((tab) => {
+          const isActive = galleryCategory === tab.key;
+          const TabIcon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setGalleryCategory(tab.key)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '9px 18px',
+                borderRadius: 24,
+                border: isActive ? '1px solid var(--primary-red)' : '1px solid var(--border-color)',
+                backgroundColor: isActive ? 'var(--primary-red)' : 'var(--bg-card)',
+                color: isActive ? '#FFFFFF' : 'var(--text-primary)',
+                fontSize: '0.88rem',
+                fontWeight: isActive ? 800 : 600,
+                cursor: 'pointer',
+                transition: 'all 0.18s ease',
+                boxShadow: isActive ? '0 4px 14px rgba(225, 29, 72, 0.25)' : 'none'
+              }}
+            >
+              <TabIcon size={16} color={isActive ? '#FFFFFF' : 'var(--primary-red)'} />
+              <span>{tab.label}</span>
+              <span
+                style={{
+                  fontSize: '0.74rem',
+                  fontWeight: 800,
+                  padding: '2px 7px',
+                  borderRadius: 12,
+                  backgroundColor: isActive ? 'rgba(255, 255, 255, 0.25)' : 'var(--bg-subtle)',
+                  color: isActive ? '#FFFFFF' : 'var(--text-muted)'
+                }}
+              >
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* -------------------------------------------------------------
@@ -868,361 +989,306 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
       )}
 
       {/* -------------------------------------------------------------
-          5. SLEEK IMAGE PREVIEW MODAL WITH ZOOM & PAN CONTROLS
+          5. SLEEK DARK LIGHTBOX MODAL (MATCHING REFERENCE UI)
           ------------------------------------------------------------- */}
       {previewItem && (
         <div
-          className="admin-modal-overlay"
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(5, 8, 15, 0.85)',
-            backdropFilter: 'blur(12px)',
-            zIndex: 99999,
+            backgroundColor: 'rgba(6, 10, 18, 0.94)',
+            backdropFilter: 'blur(16px)',
+            zIndex: 999999,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: isFullscreen ? 0 : 20,
-            animation: 'fadeIn 0.2s ease-out'
+            animation: 'fadeIn 0.2s ease-out',
+            padding: '16px'
           }}
           onClick={() => {
             setPreviewItem(null);
-            setIsFullscreen(false);
+            setZoomScale(1);
           }}
         >
+          {/* TOP BAR: FLOATING PILL BADGE & ACTION BUTTONS */}
           <div
-            className="admin-modal-box"
             style={{
-              width: '100%',
-              maxWidth: isFullscreen ? '100vw' : '860px',
-              height: isFullscreen ? '100vh' : 'auto',
-              maxHeight: isFullscreen ? '100vh' : '90vh',
-              backgroundColor: 'var(--bg-card, #131722)',
-              borderRadius: isFullscreen ? 0 : 14,
-              border: isFullscreen ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
-              overflow: 'hidden',
-              boxShadow: '0 25px 60px -15px rgba(0,0,0,0.8)',
+              position: 'absolute',
+              top: 20,
+              left: 24,
+              right: 24,
               display: 'flex',
-              flexDirection: 'column'
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              zIndex: 10,
+              pointerEvents: 'none'
             }}
-            onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
+            {/* Top-Left Pill Badge with Filename */}
             <div
               style={{
-                padding: '14px 20px',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
-                backgroundColor: 'var(--bg-subtle, #181D29)'
+                gap: 10,
+                padding: '8px 18px',
+                borderRadius: 30,
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(255, 255, 255, 0.14)',
+                color: '#FFFFFF',
+                fontSize: '0.86rem',
+                fontWeight: 600,
+                maxWidth: '50vw',
+                pointerEvents: 'auto',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.5)'
               }}
+              onClick={(e) => e.stopPropagation()}
             >
               <div
                 style={{
-                  fontWeight: 700,
-                  fontSize: '0.95rem',
-                  color: 'var(--text-primary, #F3F4F6)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  minWidth: 0,
-                  flex: 1
-                }}
-              >
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 8,
-                    backgroundColor: 'rgba(225, 29, 72, 0.15)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}
-                >
-                  <ImageIcon size={18} color="var(--primary-red, #E11D48)" />
-                </div>
-                <span
-                  style={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}
-                  title={previewItem.original_name || 'image.webp'}
-                >
-                  {previewItem.original_name || 'image.webp'}
-                </span>
-                <span
-                  style={{
-                    fontSize: '0.72rem',
-                    padding: '2px 8px',
-                    borderRadius: 4,
-                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                    color: '#10B981',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    flexShrink: 0
-                  }}
-                >
-                  {previewItem.file_format || 'WEBP'}
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                <button
-                  type="button"
-                  onClick={toggleFullscreen}
-                  style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 6,
-                    color: 'var(--text-primary, #E5E7EB)',
-                    cursor: 'pointer',
-                    padding: '6px 8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.15s ease'
-                  }}
-                  title={isFullscreen ? (isBn ? 'স্বাভাবিক ভিউ' : 'Exit Fullscreen') : (isBn ? 'ফুলস্ক্রিন' : 'Fullscreen')}
-                >
-                  {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPreviewItem(null);
-                    setIsFullscreen(false);
-                  }}
-                  style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 6,
-                    color: 'var(--text-muted, #9CA3AF)',
-                    cursor: 'pointer',
-                    padding: '6px 8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.15s ease'
-                  }}
-                  title={isBn ? 'বন্ধ করুন' : 'Close'}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Image Body with Interactive Zoom Toolbar */}
-            <div
-              style={{
-                position: 'relative',
-                flex: 1,
-                minHeight: isFullscreen ? 'calc(100vh - 120px)' : '380px',
-                maxHeight: isFullscreen ? 'calc(100vh - 120px)' : '520px',
-                backgroundColor: '#090C12',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'auto',
-                padding: 24,
-                userSelect: 'none'
-              }}
-            >
-              {/* Floating Glassmorphic Zoom Control Bar */}
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: 16,
-                  zIndex: 20,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '6px 12px',
-                  borderRadius: 30,
-                  backgroundColor: 'rgba(19, 23, 34, 0.9)',
-                  backdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(255, 255, 255, 0.14)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={handleZoomOut}
-                  disabled={zoomScale <= 0.5}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: zoomScale <= 0.5 ? 'rgba(255,255,255,0.3)' : '#F3F4F6',
-                    cursor: zoomScale <= 0.5 ? 'not-allowed' : 'pointer',
-                    padding: 5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    borderRadius: 4
-                  }}
-                  title={isBn ? 'জুম আউট (-)' : 'Zoom Out (-)'}
-                >
-                  <ZoomOut size={16} />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleResetZoom}
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    border: 'none',
-                    color: '#F3F4F6',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    padding: '3px 8px',
-                    borderRadius: 12,
-                    cursor: 'pointer',
-                    minWidth: 48,
-                    textAlign: 'center'
-                  }}
-                  title={isBn ? 'রিসেট জুম (১০০%)' : 'Reset Zoom (100%)'}
-                >
-                  {Math.round(zoomScale * 100)}%
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleZoomIn}
-                  disabled={zoomScale >= 3.0}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: zoomScale >= 3.0 ? 'rgba(255,255,255,0.3)' : '#F3F4F6',
-                    cursor: zoomScale >= 3.0 ? 'not-allowed' : 'pointer',
-                    padding: 5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    borderRadius: 4
-                  }}
-                  title={isBn ? 'জুম ইন (+)' : 'Zoom In (+)'}
-                >
-                  <ZoomIn size={16} />
-                </button>
-
-                <div style={{ width: 1, height: 16, backgroundColor: 'rgba(255,255,255,0.15)', margin: '0 2px' }} />
-
-                <button
-                  type="button"
-                  onClick={handleResetZoom}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#9CA3AF',
-                    cursor: 'pointer',
-                    padding: 5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    borderRadius: 4
-                  }}
-                  title={isBn ? 'মূল আকারে আনুন' : 'Reset'}
-                >
-                  <RotateCcw size={14} />
-                </button>
-              </div>
-
-              {/* Centered Scalable Image */}
-              <div
-                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 6,
+                  backgroundColor: 'rgba(225, 29, 72, 0.2)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: '100%',
-                  height: '100%'
+                  flexShrink: 0
                 }}
               >
-                <img
-                  src={previewItem.public_url}
-                  alt={previewItem.original_name || 'image'}
-                  style={{
-                    maxWidth: isFullscreen ? '90%' : '100%',
-                    maxHeight: isFullscreen ? '75vh' : '420px',
-                    objectFit: 'contain',
-                    borderRadius: 8,
-                    boxShadow: '0 8px 30px rgba(0,0,0,0.6)',
-                    transform: `scale(${zoomScale})`,
-                    transformOrigin: 'center center',
-                    transition: 'transform 0.2s cubic-bezier(0.2, 0, 0.2, 1)',
-                    cursor: zoomScale > 1 ? 'grab' : 'zoom-in'
-                  }}
-                  onClick={() => {
-                    if (zoomScale === 1) handleZoomIn();
-                    else if (zoomScale >= 2) handleResetZoom();
-                    else handleZoomIn();
-                  }}
-                />
+                <ImageIcon size={14} color="#E11D48" />
               </div>
+              <span
+                style={{
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  color: '#FFFFFF',
+                  fontWeight: 700
+                }}
+                title={previewItem.original_name || 'image.webp'}
+              >
+                {previewItem.original_name || previewItem.storage_key || 'image.webp'}
+              </span>
+              <span
+                style={{
+                  fontSize: '0.7rem',
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                  color: '#10B981',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  flexShrink: 0
+                }}
+              >
+                {previewItem.file_format || 'WEBP'}
+              </span>
             </div>
 
-            {/* Modal Actions Footer (Without Metadata Text) */}
+            {/* Top-Right Circular Action Buttons */}
             <div
               style={{
-                padding: '14px 20px',
-                backgroundColor: 'var(--bg-card, #131722)',
-                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12
+                gap: 10,
+                pointerEvents: 'auto'
               }}
+              onClick={(e) => e.stopPropagation()}
             >
+              {/* Zoom Out Button */}
               <button
                 type="button"
-                className="admin-btn-secondary"
-                onClick={() => {
-                  setPreviewItem(null);
-                  setIsFullscreen(false);
-                }}
+                onClick={handleZoomOut}
+                disabled={zoomScale <= 0.5}
                 style={{
-                  padding: '8px 16px',
-                  borderRadius: 8,
-                  fontSize: '0.85rem'
+                  width: 38,
+                  height: 38,
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: zoomScale <= 0.5 ? 'rgba(255,255,255,0.3)' : '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: zoomScale <= 0.5 ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease'
                 }}
+                title={isBn ? 'জুম আউট (-)' : 'Zoom Out (-)'}
               >
-                <X size={15} />
-                <span>{isBn ? 'বন্ধ করুন' : 'Close'}</span>
+                <ZoomOut size={17} />
               </button>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <button
-                  type="button"
-                  className="admin-btn-action"
-                  onClick={() => handleCopyLink(previewItem.public_url, previewItem.id)}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: 8,
-                    fontSize: '0.85rem'
-                  }}
-                >
-                  {copiedId === previewItem.id ? <Check size={15} color="#10B981" /> : <Copy size={15} />}
-                  <span>{isBn ? 'CDN লিংক কপি করুন' : 'Copy CDN Link'}</span>
-                </button>
+              {/* Reset Zoom / Current Scale Badge */}
+              <button
+                type="button"
+                onClick={handleResetZoom}
+                style={{
+                  height: 38,
+                  padding: '0 14px',
+                  borderRadius: 20,
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: '#FFFFFF',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+                title={isBn ? '১০০% জুম রিসেট' : 'Reset Zoom'}
+              >
+                {Math.round(zoomScale * 100)}%
+              </button>
 
-                <a
-                  href={previewItem.public_url}
-                  download={previewItem.original_name || 'image.webp'}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="admin-btn-primary"
-                  style={{
-                    textDecoration: 'none',
-                    padding: '8px 16px',
-                    borderRadius: 8,
-                    fontSize: '0.85rem'
-                  }}
-                >
-                  <Download size={15} />
-                  <span>{isBn ? 'ছবিটি ডাউনলোড করুন' : 'Download Image'}</span>
-                </a>
-              </div>
+              {/* Zoom In Button */}
+              <button
+                type="button"
+                onClick={handleZoomIn}
+                disabled={zoomScale >= 3.5}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: zoomScale >= 3.5 ? 'rgba(255,255,255,0.3)' : '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: zoomScale >= 3.5 ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title={isBn ? 'জুম ইন (+)' : 'Zoom In (+)'}
+              >
+                <ZoomIn size={17} />
+              </button>
+
+              {/* Copy CDN Link Button */}
+              <button
+                type="button"
+                onClick={() => handleCopyLink(previewItem.public_url, previewItem.id)}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: copiedId === previewItem.id ? '#10B981' : '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title={isBn ? 'CDN লিংক কপি করুন' : 'Copy CDN Link'}
+              >
+                {copiedId === previewItem.id ? <Check size={17} color="#10B981" /> : <Copy size={17} />}
+              </button>
+
+              {/* Download Image Button */}
+              <a
+                href={previewItem.public_url}
+                download={previewItem.original_name || 'image.webp'}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textDecoration: 'none',
+                  transition: 'all 0.15s ease'
+                }}
+                title={isBn ? 'ছবিটি ডাউনলোড করুন' : 'Download Image'}
+              >
+                <Download size={17} />
+              </a>
+
+              {/* RED CIRCULAR CLOSE BUTTON */}
+              <button
+                type="button"
+                onClick={() => {
+                  setPreviewItem(null);
+                  setZoomScale(1);
+                }}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: '50%',
+                  backgroundColor: '#EF4444',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)',
+                  transition: 'all 0.15s ease'
+                }}
+                title={isBn ? 'বন্ধ করুন (Esc)' : 'Close (Esc)'}
+              >
+                <X size={20} />
+              </button>
             </div>
+          </div>
+
+          {/* CENTER: SCALABLE FOCUSED IMAGE */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              height: 'calc(100vh - 120px)',
+              overflow: 'hidden',
+              userSelect: 'none',
+              cursor: zoomScale > 1 ? 'grab' : 'zoom-in'
+            }}
+            onClick={handleToggleZoom}
+          >
+            <img
+              src={previewItem.public_url}
+              alt={previewItem.original_name || 'Preview'}
+              style={{
+                maxWidth: '85vw',
+                maxHeight: '76vh',
+                objectFit: 'contain',
+                borderRadius: 14,
+                boxShadow: '0 25px 70px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.12)',
+                transform: `scale(${zoomScale})`,
+                transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
+              }}
+            />
+          </div>
+
+          {/* BOTTOM SUBTITLE: "Click outside or press Esc to close • Click image to zoom" */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 22,
+              fontSize: '0.8rem',
+              color: 'rgba(255, 255, 255, 0.65)',
+              letterSpacing: '0.3px',
+              userSelect: 'none',
+              pointerEvents: 'none'
+            }}
+          >
+            {isBn
+              ? 'বাইরে ক্লিক করুন অথবা Esc চাপুন বন্ধ করতে • জুম করতে ছবিতে ক্লিক করুন'
+              : 'Click outside or press Esc to close • Click image to zoom'}
           </div>
         </div>
       )}

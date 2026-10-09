@@ -19,17 +19,18 @@ import {
   X,
   FileCheck,
   FileText,
-  Sparkles,
   Smartphone,
   Monitor,
   Check,
   Share2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Upload
 } from 'lucide-react';
 import SocialNewsCardPreview from './SocialNewsCardPreview';
 import { generateSocialCardJpg } from '../utils/generateSocialCardJpg';
 import { getCardCategoryLabel } from '../utils/cardCategoryHelper';
 import { saveArticleToMariaDb } from '../utils/mariaDbSync';
+import { uploadImageToStorage } from '../utils/imageUploader';
 
 export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit, onNavigateToCreate }) {
   const {
@@ -85,7 +86,7 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
       // 3. Tab Filter
       const s = art.status || 'published';
       if (activeTab === 'pending') {
-        return s === 'pending_approval' || s === 'review' || s === 'submitted';
+        return s === 'pending_approval';
       }
       if (activeTab === 'published') {
         return s === 'published' || !art.status;
@@ -106,7 +107,7 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
 
     articles.forEach((a) => {
       const s = a.status || 'published';
-      if (s === 'pending_approval' || s === 'review' || s === 'submitted') pending++;
+      if (s === 'pending_approval') pending++;
       else if (s === 'published' || !a.status) published++;
       else if (s === 'revision_needed') revision++;
     });
@@ -225,6 +226,75 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
       showError(isBn ? 'পোস্টার জেনারেট করতে সমস্যা হয়েছে।' : 'Failed to generate poster JPG.');
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  // 3b. Upload Social Card .JPG / WebP Directly to Backblaze B2 & MariaDB
+  const [uploadingCardId, setUploadingCardId] = useState(null);
+
+  const handleUploadCardToB2 = async (article) => {
+    try {
+      setUploadingCardId(article.id);
+      const cleanSlug = (article.slug || article.titleBn || 'news')
+        .toLowerCase()
+        .replace(/[^\w\u0980-\u09FF\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .slice(0, 50);
+
+      const cardCat = article.cardCategory || getCardCategoryLabel(article.category || (article.categories && article.categories[0]), categoryMasterGroups, categories);
+
+      // 1. Generate Social Card Blob via HTML5 Canvas
+      const cardBlob = await generateSocialCardJpg({
+        title: article.titleBn || article.titleEn,
+        kicker: article.kicker || '',
+        imageUrl: article.imageUrl,
+        caption: article.cardCaption || 'ছবি: সংগৃহীত',
+        category: cardCat,
+        dateBn: article.dateBn,
+        titleFontSize: 48,
+        kickerFontSize: 26,
+        lineHeight: 1.18,
+        colorMode: 'dual',
+        fileName: `jonogon-card-${cleanSlug}.jpg`,
+        returnBlob: true
+      });
+
+      if (!cardBlob) {
+        throw new Error('Failed to generate card image blob');
+      }
+
+      const cardFile = new File([cardBlob], `jonogon-card-${cleanSlug}.jpg`, {
+        type: 'image/jpeg',
+        lastModified: Date.now()
+      });
+
+      // 2. Upload via backend API directly to Backblaze B2 & MariaDB
+      const uploadedUrl = await uploadImageToStorage(cardFile, {
+        slug: `card-${cleanSlug}`,
+        newsSlug: article.slug,
+        associatedNews: article.titleBn || article.titleEn,
+        title: `সোশ্যাল ফটোকার্ড: ${article.titleBn || article.titleEn}`,
+        caption: article.cardCaption || 'ছবি: সংগৃহীত'
+      });
+
+      if (uploadedUrl) {
+        showSuccess(
+          isBn
+            ? 'সোশ্যাল ফটোকার্ডটি সফলভাবে Backblaze B2 ক্লাউডে আপলোড ও ডাটাবেজে সংরক্ষণ করা হয়েছে!'
+            : 'Social news card uploaded to Backblaze B2 cloud successfully!',
+          isBn ? 'ক্লাউড আপলোড সম্পন্ন' : 'Upload Complete'
+        );
+        if (triggerSaveToast) {
+          triggerSaveToast(isBn ? 'ফটোকার্ড Backblaze B2 তে আপলোড সম্পন্ন!' : 'Card uploaded to Backblaze B2!');
+        }
+      } else {
+        throw new Error('Upload returned empty response');
+      }
+    } catch (err) {
+      console.error('Error uploading card to B2:', err);
+      showError(isBn ? 'Backblaze B2 তে ফটোকার্ড আপলোড করতে সমস্যা হয়েছে।' : 'Failed to upload card to Backblaze B2.');
+    } finally {
+      setUploadingCardId(null);
     }
   };
 
@@ -549,7 +619,7 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {filteredArticles.map((art) => {
             const isApproved = art.status === 'published' || !art.status;
-            const isPending = art.status === 'pending_approval' || art.status === 'review' || art.status === 'submitted';
+            const isPending = art.status === 'pending_approval';
             const isRevision = art.status === 'revision_needed';
 
             return (
@@ -697,7 +767,7 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
                     </button>
                   )}
 
-                  {/* 3. Download Official HD Social Poster .JPG Button (Always available in Approve Post tab) */}
+                  {/* 3. Download Official HD Social Poster .JPG Button */}
                   <button
                     type="button"
                     className="admin-btn-action"
@@ -708,6 +778,28 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
                   >
                     <Download size={14} />
                     <span>{downloadingId === art.id ? (isBn ? 'তৈরি হচ্ছে...' : 'Generating...') : (isBn ? 'ফটোকার্ড .JPG' : 'Card .JPG')}</span>
+                  </button>
+
+                  {/* 3b. Upload to Backblaze B2 Button (Task 4) */}
+                  <button
+                    type="button"
+                    className="admin-btn-action"
+                    style={{
+                      fontSize: '0.78rem',
+                      padding: '6px 12px',
+                      backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                      color: '#60A5FA',
+                      border: '1px solid rgba(59, 130, 246, 0.28)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5
+                    }}
+                    disabled={uploadingCardId === art.id}
+                    onClick={() => handleUploadCardToB2(art)}
+                    title={isBn ? 'ফটোকার্ডটি Backblaze B2 ক্লাউডে আপলোড করুন' : 'Upload Card to Backblaze B2'}
+                  >
+                    <Upload size={14} />
+                    <span>{uploadingCardId === art.id ? (isBn ? 'আপলোড হচ্ছে...' : 'Uploading...') : (isBn ? 'Upload' : 'Upload')}</span>
                   </button>
 
                   {/* 4. Send for Revision Button */}

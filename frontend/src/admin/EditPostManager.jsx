@@ -13,7 +13,6 @@ import {
   AlertTriangle,
   Lock,
   ArrowRight,
-  Sparkles,
   Layers,
   Calendar,
   User,

@@ -132,9 +132,12 @@ export default function ArticleModal() {
           <div
             className="article-content-text"
             style={{ fontSize: `${fontSize}rem` }}
-          >
-            {isBn ? selectedArticle.contentBn || selectedArticle.excerptBn : selectedArticle.contentEn || selectedArticle.excerptEn}
-          </div>
+            dangerouslySetInnerHTML={{
+              __html: isBn
+                ? selectedArticle.contentBn || selectedArticle.excerptBn || ''
+                : selectedArticle.contentEn || selectedArticle.excerptEn || ''
+            }}
+          />
 
           {/* Related Articles Section */}
           <div style={{ marginTop: 36, paddingTop: 20, borderTop: '2px solid var(--border-color)' }}>

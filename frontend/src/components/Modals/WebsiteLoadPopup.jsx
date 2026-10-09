@@ -5,7 +5,6 @@ import {
   Megaphone,
   Zap,
   Gift,
-  Sparkles,
   ExternalLink,
   Bell,
   Clock,
@@ -126,7 +125,7 @@ export default function WebsiteLoadPopup({ isPreview = false, previewData = null
         };
       case 'welcome':
         return {
-          icon: <Sparkles size={16} />,
+          icon: <Bell size={16} />,
           labelBn: 'স্বাগতম বার্তা',
           labelEn: 'Welcome Notice',
           bg: '#16A34A',
