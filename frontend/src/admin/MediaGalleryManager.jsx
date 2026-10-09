@@ -801,6 +801,12 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
                     src={item.public_url || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=400&q=80'}
                     alt={item.original_name || 'Media'}
                     loading="lazy"
+                    onError={(e) => {
+                      if (!e.currentTarget.dataset.retried && item.public_url) {
+                        e.currentTarget.dataset.retried = 'true';
+                        e.currentTarget.src = `/api/media.php?action=proxy_image&url=${encodeURIComponent(item.public_url)}`;
+                      }
+                    }}
                     style={{
                       position: 'absolute',
                       top: 0,
@@ -933,7 +939,17 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
                   <tr key={item.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <td style={{ padding: '10px 16px' }}>
                       <div style={{ width: 54, height: 40, borderRadius: 4, overflow: 'hidden', backgroundColor: '#1E222B' }}>
-                        <img src={item.public_url} alt="thumb" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img
+                          src={item.public_url}
+                          alt="thumb"
+                          onError={(e) => {
+                            if (!e.currentTarget.dataset.retried && item.public_url) {
+                              e.currentTarget.dataset.retried = 'true';
+                              e.currentTarget.src = `/api/media.php?action=proxy_image&url=${encodeURIComponent(item.public_url)}`;
+                            }
+                          }}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
                       </div>
                     </td>
                     <td style={{ padding: '10px 16px' }}>
@@ -1266,6 +1282,12 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
             <img
               src={previewItem.public_url}
               alt={previewItem.original_name || 'Preview'}
+              onError={(e) => {
+                if (!e.currentTarget.dataset.retried && previewItem.public_url) {
+                  e.currentTarget.dataset.retried = 'true';
+                  e.currentTarget.src = `/api/media.php?action=proxy_image&url=${encodeURIComponent(previewItem.public_url)}`;
+                }
+              }}
               style={{
                 maxWidth: '85vw',
                 maxHeight: '76vh',

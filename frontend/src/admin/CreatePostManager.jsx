@@ -3384,6 +3384,12 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
                               src={itemUrl}
                               alt={itemName}
                               loading="lazy"
+                              onError={(e) => {
+                                if (!e.currentTarget.dataset.retried && itemUrl) {
+                                  e.currentTarget.dataset.retried = 'true';
+                                  e.currentTarget.src = `/api/media.php?action=proxy_image&url=${encodeURIComponent(itemUrl)}`;
+                                }
+                              }}
                               style={{
                                 position: 'absolute',
                                 inset: 0,

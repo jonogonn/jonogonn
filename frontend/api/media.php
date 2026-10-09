@@ -279,33 +279,10 @@ if ($action === 'download_zip') {
 // -------------------------------------------------------------
 if ($requestMethod === 'GET') {
     try {
-        $mediaList = getB2FilesList();
+        $forceRefresh = !empty($_GET['refresh']) || !empty($_GET['sync_b2']);
 
-        // 1. Sync B2 files into media_gallery in MariaDB if connected
-        if ($pdo && !empty($mediaList)) {
-            $mStmt = $pdo->prepare("
-                INSERT INTO `media_gallery` (`file_name`, `storage_key`, `public_url`, `file_type`, `file_size`, `dimensions`)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE `public_url` = VALUES(`public_url`)
-            ");
-            foreach ($mediaList as $f) {
-                $chk = $pdo->prepare("SELECT id FROM `media_gallery` WHERE `storage_key` = ?");
-                $chk->execute([$f['storage_key']]);
-                if (!$chk->fetch()) {
-                    $mStmt->execute([
-                        $f['original_name'],
-                        $f['storage_key'],
-                        $f['public_url'],
-                        'image/' . ($f['file_format'] ?? 'webp'),
-                        $f['size_bytes'] ?? 0,
-                        ($f['width'] ?? 1200) . 'x' . ($f['height'] ?? 630)
-                    ]);
-                }
-            }
-        }
-
-        // 2. Fetch and return from MariaDB `media_gallery` table
-        if ($pdo) {
+        // 1. Instant response from MariaDB media_gallery cache (takes <2ms)
+        if ($pdo && !$forceRefresh) {
             $stmt = $pdo->query("SELECT * FROM `media_gallery` ORDER BY `id` DESC LIMIT 500");
             $galleryRows = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
             if (!empty($galleryRows)) {
@@ -332,6 +309,32 @@ if ($requestMethod === 'GET') {
                     'source' => 'mariadb_gallery'
                 ], JSON_UNESCAPED_UNICODE);
                 exit;
+            }
+        }
+
+        // 2. Fetch directly from Backblaze B2 (when DB is empty or forceRefresh requested)
+        $mediaList = getB2FilesList();
+
+        // Sync B2 files into media_gallery in MariaDB
+        if ($pdo && !empty($mediaList)) {
+            $mStmt = $pdo->prepare("
+                INSERT INTO `media_gallery` (`file_name`, `storage_key`, `public_url`, `file_type`, `file_size`, `dimensions`)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE `public_url` = VALUES(`public_url`)
+            ");
+            foreach ($mediaList as $f) {
+                $chk = $pdo->prepare("SELECT id FROM `media_gallery` WHERE `storage_key` = ?");
+                $chk->execute([$f['storage_key']]);
+                if (!$chk->fetch()) {
+                    $mStmt->execute([
+                        $f['original_name'],
+                        $f['storage_key'],
+                        $f['public_url'],
+                        'image/' . ($f['file_format'] ?? 'webp'),
+                        $f['size_bytes'] ?? 0,
+                        ($f['width'] ?? 1200) . 'x' . ($f['height'] ?? 630)
+                    ]);
+                }
             }
         }
 
