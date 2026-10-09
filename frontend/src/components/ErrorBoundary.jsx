@@ -17,13 +17,25 @@ export class ErrorBoundary extends React.Component {
 
   handleReset = () => {
     try {
+      localStorage.removeItem('jonogon_articles');
+      localStorage.removeItem('jonogon_editor_drafts');
+      localStorage.removeItem('jonogon_complaints');
       localStorage.clear();
       sessionStorage.clear();
     } catch (e) {}
-    window.location.href = '/';
+    window.location.reload();
   };
 
   handleReload = () => {
+    try {
+      if (
+        this.state.error?.message?.toLowerCase().includes('quota') ||
+        this.state.error?.name === 'QuotaExceededError'
+      ) {
+        localStorage.removeItem('jonogon_articles');
+        localStorage.removeItem('jonogon_editor_drafts');
+      }
+    } catch (e) {}
     window.location.reload();
   };
 

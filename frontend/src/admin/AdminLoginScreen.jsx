@@ -23,12 +23,14 @@ export default function AdminLoginScreen({ onLoginSuccess, isBn = true }) {
         (cleanUser === 'admin' || cleanUser === 'admin@jonogon.news' || cleanUser === 'jonogon') &&
         (cleanPass === 'jonogon2026' || cleanPass === 'admin1234' || cleanPass === 'admin')
       ) {
-        if (rememberMe) {
-          localStorage.setItem('jonogon_admin_logged_in', 'true');
-          localStorage.setItem('jonogon_admin_user', cleanUser);
-        } else {
-          sessionStorage.setItem('jonogon_admin_logged_in', 'true');
-        }
+        try {
+          if (rememberMe) {
+            localStorage.setItem('jonogon_admin_logged_in', 'true');
+            localStorage.setItem('jonogon_admin_user', cleanUser);
+          } else {
+            sessionStorage.setItem('jonogon_admin_logged_in', 'true');
+          }
+        } catch (e) {}
         onLoginSuccess();
       } else {
         setIsLoading(false);

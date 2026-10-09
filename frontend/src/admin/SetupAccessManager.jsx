@@ -292,7 +292,9 @@ export default function SetupAccessManager({ triggerSaveToast }) {
           allowed_tabs: Array.isArray(d.allowed_tabs) ? d.allowed_tabs : []
         }));
         setMembers(formatted);
-        localStorage.setItem('jonogon_access_members', JSON.stringify(formatted));
+        try {
+          localStorage.setItem('jonogon_access_members', JSON.stringify(formatted));
+        } catch (e) {}
         setSupabaseConnected(true);
       } else {
         // Supabase table is empty: seed default members to Supabase!

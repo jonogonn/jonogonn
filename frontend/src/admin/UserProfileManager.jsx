@@ -183,11 +183,13 @@ export default function UserProfileManager({ triggerSaveToast }) {
       }
 
       // 3. Update localStorage
-      localStorage.setItem('jonogon_admin_name', profileForm.name);
-      localStorage.setItem('jonogon_admin_username', profileForm.username);
-      localStorage.setItem('jonogon_admin_email', profileForm.email);
-      localStorage.setItem('jonogon_admin_phone', profileForm.phone);
-      localStorage.setItem('jonogon_admin_avatar', profileForm.avatar);
+      try {
+        localStorage.setItem('jonogon_admin_name', profileForm.name);
+        localStorage.setItem('jonogon_admin_username', profileForm.username);
+        localStorage.setItem('jonogon_admin_email', profileForm.email);
+        localStorage.setItem('jonogon_admin_phone', profileForm.phone);
+        localStorage.setItem('jonogon_admin_avatar', profileForm.avatar);
+      } catch (e) {}
 
       showSuccess(
         isBn

@@ -95,7 +95,9 @@ export default function ComplaintBoxSection() {
       createdAt: new Date().toISOString(),
       status: 'pending'
     };
-    localStorage.setItem('jonogon_complaints', JSON.stringify([newComplaint, ...existing]));
+    try {
+      localStorage.setItem('jonogon_complaints', JSON.stringify([newComplaint, ...existing]));
+    } catch (e) {}
 
     setIsSubmitted(true);
   };

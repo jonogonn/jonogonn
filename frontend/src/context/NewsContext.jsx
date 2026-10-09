@@ -17,6 +17,7 @@ import { fetchLiveGoogleWeather, getDefaultWeather } from '../services/weatherSe
 import AppDialogModal from '../components/Modals/AppDialogModal';
 import UploadProgressModal from '../components/Modals/UploadProgressModal';
 import { saveArticleToMariaDb, deleteArticleFromMariaDb, fetchArticlesFromMariaDb } from '../utils/mariaDbSync';
+import { safeSetLocalStorage, safeGetLocalStorage, safeRemoveLocalStorage } from '../utils/safeStorage';
 
 const NewsContext = createContext();
 
@@ -81,30 +82,30 @@ export function NewsProvider({ children }) {
 
   // 1. Public Website Language State (Bangla Default)
   const [language, setLanguage] = useState(() => {
-    return localStorage.getItem('jonogon_lang') || 'bn';
+    return safeGetLocalStorage('jonogon_lang', 'bn') || 'bn';
   });
 
   // 1b. Admin Panel Language State (Independent from public website)
   const [adminLanguage, setAdminLanguage] = useState(() => {
-    return localStorage.getItem('jonogon_admin_lang') || 'bn';
+    return safeGetLocalStorage('jonogon_admin_lang', 'bn') || 'bn';
   });
 
   // 2. Public Website Theme State (Light / Dark)
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('jonogon_theme') || 'light';
+    return safeGetLocalStorage('jonogon_theme', 'light') || 'light';
   });
 
   // 2b. Admin Panel Theme State (Independent from public website)
   const [adminTheme, setAdminTheme] = useState(() => {
-    return localStorage.getItem('jonogon_admin_theme') || 'dark';
+    return safeGetLocalStorage('jonogon_admin_theme', 'dark') || 'dark';
   });
 
   // 3. Site Branding & Settings
   const [settings, setSettings] = useState(() => {
-    const saved = localStorage.getItem('jonogon_settings');
-    if (saved) {
+    const saved = safeGetLocalStorage('jonogon_settings');
+    if (saved && typeof saved === 'object') {
       try {
-        const parsed = JSON.parse(saved);
+        const parsed = saved;
         if (
           !parsed.sloganBn ||
           parsed.sloganBn === 'সত্যের সাথে, জনতার পাশে' ||
@@ -112,7 +113,7 @@ export function NewsProvider({ children }) {
         ) {
           parsed.sloganBn = 'জনতার কণ্ঠস্বর';
           parsed.sloganEn = 'Voice of the People';
-          localStorage.setItem('jonogon_settings', JSON.stringify(parsed));
+          safeSetLocalStorage('jonogon_settings', parsed);
         }
         return { ...initialSiteSettings, ...parsed };
       } catch (e) {
@@ -125,17 +126,14 @@ export function NewsProvider({ children }) {
   // 4. Articles Data (Auto-heal broken URLs if any cached)
   const [articles, setArticles] = useState(() => {
     try {
-      const saved = localStorage.getItem('jonogon_articles');
-      if (saved) {
-        const list = JSON.parse(saved);
-        if (Array.isArray(list) && list.length > 0) {
-          return list.map((a) => {
-            if (a.imageUrl && a.imageUrl.includes('photo-1527018607619-a508a2be00be')) {
-              return { ...a, imageUrl: 'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=600&q=80' };
-            }
-            return a;
-          });
-        }
+      const saved = safeGetLocalStorage('jonogon_articles');
+      if (saved && Array.isArray(saved) && saved.length > 0) {
+        return saved.map((a) => {
+          if (a.imageUrl && a.imageUrl.includes('photo-1527018607619-a508a2be00be')) {
+            return { ...a, imageUrl: 'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=600&q=80' };
+          }
+          return a;
+        });
       }
     } catch (e) {
       console.warn('Error reading jonogon_articles', e);
@@ -146,31 +144,29 @@ export function NewsProvider({ children }) {
   // 5. Category Master Groups (10 Master Groups with Sub-Groups & Category Items)
   const [categoryMasterGroups, setCategoryMasterGroups] = useState(() => {
     try {
-      const saved = localStorage.getItem('jonogon_master_groups');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const bdGroup = parsed.find((g) => g.id === 'bangladesh-governance') || parsed[0];
-          if (bdGroup && Array.isArray(bdGroup.subGroups) && bdGroup.subGroups.length > 0) {
-            const hasProbashi = bdGroup.subGroups.some((sg) =>
-              (sg.items || []).some((it) => it.id === 'probashi' || it.nameBn === 'প্রবাসী')
-            );
-            if (!hasProbashi) {
-              const targetSub = bdGroup.subGroups[0];
-              if (targetSub && Array.isArray(targetSub.items)) {
-                const bIdx = targetSub.items.findIndex((it) => it.id === 'bangladesh');
-                const probashiItem = { id: 'probashi', nameBn: 'প্রবাসী', nameEn: 'Expatriates' };
-                if (bIdx >= 0) {
-                  targetSub.items.splice(bIdx + 1, 0, probashiItem);
-                } else {
-                  targetSub.items.push(probashiItem);
-                }
-                localStorage.setItem('jonogon_master_groups', JSON.stringify(parsed));
+      const saved = safeGetLocalStorage('jonogon_master_groups');
+      if (saved && Array.isArray(saved) && saved.length > 0) {
+        const parsed = saved;
+        const bdGroup = parsed.find((g) => g.id === 'bangladesh-governance') || parsed[0];
+        if (bdGroup && Array.isArray(bdGroup.subGroups) && bdGroup.subGroups.length > 0) {
+          const hasProbashi = bdGroup.subGroups.some((sg) =>
+            (sg.items || []).some((it) => it.id === 'probashi' || it.nameBn === 'প্রবাসী')
+          );
+          if (!hasProbashi) {
+            const targetSub = bdGroup.subGroups[0];
+            if (targetSub && Array.isArray(targetSub.items)) {
+              const bIdx = targetSub.items.findIndex((it) => it.id === 'bangladesh');
+              const probashiItem = { id: 'probashi', nameBn: 'প্রবাসী', nameEn: 'Expatriates' };
+              if (bIdx >= 0) {
+                targetSub.items.splice(bIdx + 1, 0, probashiItem);
+              } else {
+                targetSub.items.push(probashiItem);
               }
+              safeSetLocalStorage('jonogon_master_groups', parsed);
             }
           }
-          return parsed;
         }
+        return parsed;
       }
     } catch (e) {
       console.warn('Error parsing master groups from storage', e);
@@ -181,12 +177,9 @@ export function NewsProvider({ children }) {
   // 5b. Flat Categories Data (All 132 Categories synchronized with DB & Master Groups)
   const [categories, setCategories] = useState(() => {
     try {
-      const saved = localStorage.getItem('jonogon_categories');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length >= 100) {
-          return parsed;
-        }
+      const saved = safeGetLocalStorage('jonogon_categories');
+      if (saved && Array.isArray(saved) && saved.length >= 100) {
+        return saved;
       }
     } catch (e) {}
     return initialCategories;
@@ -284,7 +277,7 @@ export function NewsProvider({ children }) {
                 slug: cat.slug
               }));
               setCategories(formatted);
-              localStorage.setItem('jonogon_categories', JSON.stringify(formatted));
+              safeSetLocalStorage('jonogon_categories', formatted);
               return;
             }
           }
@@ -298,7 +291,7 @@ export function NewsProvider({ children }) {
       const dbPosts = await fetchArticlesFromMariaDb();
       if (Array.isArray(dbPosts) && dbPosts.length > 0) {
         setArticles(dbPosts);
-        localStorage.setItem('jonogon_articles', JSON.stringify(dbPosts));
+        safeSetLocalStorage('jonogon_articles', dbPosts);
       }
     } catch (e) {}
   };
@@ -333,7 +326,7 @@ export function NewsProvider({ children }) {
         return grp;
       });
       if (needsUpdate) {
-        localStorage.setItem('jonogon_master_groups', JSON.stringify(updated));
+        safeSetLocalStorage('jonogon_master_groups', updated);
         return updated;
       }
       return prevGroups;
@@ -342,7 +335,7 @@ export function NewsProvider({ children }) {
     setCategories((prev) => {
       if (!(prev || []).some((c) => c.id === 'probashi')) {
         const updated = [...(prev || []), { id: 'probashi', nameBn: 'প্রবাসী', nameEn: 'Expatriates', slug: 'probashi' }];
-        localStorage.setItem('jonogon_categories', JSON.stringify(updated));
+        safeSetLocalStorage('jonogon_categories', updated);
         return updated;
       }
       return prev;
@@ -352,11 +345,8 @@ export function NewsProvider({ children }) {
   // 6. Breaking News Ticker
   const [breakingNews, setBreakingNews] = useState(() => {
     try {
-      const saved = localStorage.getItem('jonogon_breaking');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
+      const saved = safeGetLocalStorage('jonogon_breaking');
+      if (saved && Array.isArray(saved) && saved.length > 0) return saved;
     } catch (e) {}
     return initialBreakingNews;
   });
@@ -364,23 +354,20 @@ export function NewsProvider({ children }) {
   // 7. Podcasts Data
   const [podcasts, setPodcasts] = useState(() => {
     try {
-      const saved = localStorage.getItem('jonogon_podcasts');
-      if (saved) {
-        const list = JSON.parse(saved);
-        if (Array.isArray(list) && list.length > 0) {
-          return list.map((p, idx) => {
-            if (!p.subjectId) {
-              const fallback = initialPodcasts[idx % initialPodcasts.length] || initialPodcasts[0];
-              return {
-                ...p,
-                subjectId: fallback?.subjectId || 'politics',
-                subjectBn: fallback?.subjectBn || 'রাজনীতি ও রাষ্ট্র',
-                subjectEn: fallback?.subjectEn || 'Politics & Governance'
-              };
-            }
-            return p;
-          });
-        }
+      const saved = safeGetLocalStorage('jonogon_podcasts');
+      if (saved && Array.isArray(saved) && saved.length > 0) {
+        return saved.map((p, idx) => {
+          if (!p.subjectId) {
+            const fallback = initialPodcasts[idx % initialPodcasts.length] || initialPodcasts[0];
+            return {
+              ...p,
+              subjectId: fallback?.subjectId || 'politics',
+              subjectBn: fallback?.subjectBn || 'রাজনীতি ও রাষ্ট্র',
+              subjectEn: fallback?.subjectEn || 'Politics & Governance'
+            };
+          }
+          return p;
+        });
       }
     } catch (e) {}
     return initialPodcasts;
@@ -389,48 +376,42 @@ export function NewsProvider({ children }) {
   // 7b. Emergency Services Data (BD Govt & Emergency Services)
   const [emergencyServices, setEmergencyServices] = useState(() => {
     try {
-      const saved = localStorage.getItem('jonogon_emergency_services');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
+      const saved = safeGetLocalStorage('jonogon_emergency_services');
+      if (saved && Array.isArray(saved) && saved.length > 0) return saved;
     } catch (e) {}
     return initialEmergencyServices;
   });
 
   // 7c. Homepage Modular Sections Order & Visibility State (31 sections)
   const [homepageSections, setHomepageSections] = useState(() => {
-    const saved = localStorage.getItem('jonogon_homepage_sections');
-    if (saved) {
+    const saved = safeGetLocalStorage('jonogon_homepage_sections');
+    if (saved && Array.isArray(saved) && saved.length > 0) {
       try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const cleanList = [];
-          // Keep valid saved sections matched with default metadata
-          parsed.forEach((savedSec) => {
-            const def = defaultHomepageSections.find((d) => d.id === savedSec.id);
-            if (def) {
-              cleanList.push({ ...def, ...savedSec });
-            }
-          });
-
-          // Append any missing default sections
-          defaultHomepageSections.forEach((def) => {
-            if (!cleanList.some((m) => m.id === def.id)) {
-              cleanList.push(def);
-            }
-          });
-
-          if (cleanList.length === defaultHomepageSections.length) {
-            localStorage.setItem('jonogon_homepage_sections', JSON.stringify(cleanList));
-            return cleanList;
+        const cleanList = [];
+        // Keep valid saved sections matched with default metadata
+        saved.forEach((savedSec) => {
+          const def = defaultHomepageSections.find((d) => d.id === savedSec.id);
+          if (def) {
+            cleanList.push({ ...def, ...savedSec });
           }
+        });
+
+        // Append any missing default sections
+        defaultHomepageSections.forEach((def) => {
+          if (!cleanList.some((m) => m.id === def.id)) {
+            cleanList.push(def);
+          }
+        });
+
+        if (cleanList.length === defaultHomepageSections.length) {
+          safeSetLocalStorage('jonogon_homepage_sections', cleanList);
+          return cleanList;
         }
       } catch (e) {
         console.error('Error parsing homepage sections', e);
       }
     }
-    localStorage.setItem('jonogon_homepage_sections', JSON.stringify(defaultHomepageSections));
+    safeSetLocalStorage('jonogon_homepage_sections', defaultHomepageSections);
     return defaultHomepageSections;
   });
 
@@ -452,14 +433,9 @@ export function NewsProvider({ children }) {
   };
 
   const [sectionColumnsOrder, setSectionColumnsOrder] = useState(() => {
-    const saved = localStorage.getItem('jonogon_section_columns');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return { ...defaultSectionColumnsOrder, ...parsed };
-      } catch (e) {
-        console.error('Error parsing section columns order', e);
-      }
+    const saved = safeGetLocalStorage('jonogon_section_columns');
+    if (saved && typeof saved === 'object') {
+      return { ...defaultSectionColumnsOrder, ...saved };
     }
     return defaultSectionColumnsOrder;
   });
@@ -511,7 +487,7 @@ export function NewsProvider({ children }) {
 
   // 9. Real-Time Location District & Google Weather State
   const [userDistrict, setUserDistrictState] = useState(() => {
-    return localStorage.getItem('jonogon_user_district') || 'dhaka';
+    return safeGetLocalStorage('jonogon_user_district', 'dhaka') || 'dhaka';
   });
 
   const [liveWeather, setLiveWeather] = useState(() => {
@@ -522,7 +498,7 @@ export function NewsProvider({ children }) {
 
   const setUserDistrict = (districtId) => {
     setUserDistrictState(districtId);
-    localStorage.setItem('jonogon_user_district', districtId);
+    safeSetLocalStorage('jonogon_user_district', districtId);
   };
 
   const refreshWeather = async (districtId = userDistrict) => {
@@ -763,7 +739,7 @@ export function NewsProvider({ children }) {
 
   // Sync Public Language
   useEffect(() => {
-    localStorage.setItem('jonogon_lang', language);
+    safeSetLocalStorage('jonogon_lang', language);
     const isCurrentlyAdmin = window.location.pathname.startsWith('/admin') || isAdminOpen || activePage === 'admin';
     if (!isCurrentlyAdmin) {
       document.documentElement.lang = language;
@@ -772,7 +748,7 @@ export function NewsProvider({ children }) {
 
   // Sync Admin Language
   useEffect(() => {
-    localStorage.setItem('jonogon_admin_lang', adminLanguage);
+    safeSetLocalStorage('jonogon_admin_lang', adminLanguage);
     const isCurrentlyAdmin = window.location.pathname.startsWith('/admin') || isAdminOpen || activePage === 'admin';
     if (isCurrentlyAdmin) {
       document.documentElement.lang = adminLanguage;
@@ -781,7 +757,7 @@ export function NewsProvider({ children }) {
 
   // Sync Public Theme & CSS Custom Properties
   useEffect(() => {
-    localStorage.setItem('jonogon_theme', theme);
+    safeSetLocalStorage('jonogon_theme', theme);
     const isCurrentlyAdmin = window.location.pathname.startsWith('/admin') || isAdminOpen || activePage === 'admin';
     if (!isCurrentlyAdmin) {
       document.documentElement.setAttribute('data-theme', theme);
@@ -790,7 +766,7 @@ export function NewsProvider({ children }) {
 
   // Sync Admin Theme
   useEffect(() => {
-    localStorage.setItem('jonogon_admin_theme', adminTheme);
+    safeSetLocalStorage('jonogon_admin_theme', adminTheme);
     const isCurrentlyAdmin = window.location.pathname.startsWith('/admin') || isAdminOpen || activePage === 'admin';
     if (isCurrentlyAdmin) {
       document.documentElement.setAttribute('data-theme', adminTheme);
@@ -799,7 +775,7 @@ export function NewsProvider({ children }) {
 
   // Apply Dynamic Brand Colors & Fonts from Admin Settings
   useEffect(() => {
-    localStorage.setItem('jonogon_settings', JSON.stringify(settings));
+    safeSetLocalStorage('jonogon_settings', settings);
     const root = document.documentElement;
     if (settings.primaryRed) root.style.setProperty('--primary-red', settings.primaryRed);
     if (settings.darkRed) root.style.setProperty('--dark-red', settings.darkRed);
@@ -813,35 +789,35 @@ export function NewsProvider({ children }) {
 
   // Persist Articles, Categories, Master Groups, Breaking News & Podcasts
   useEffect(() => {
-    localStorage.setItem('jonogon_articles', JSON.stringify(articles));
+    safeSetLocalStorage('jonogon_articles', articles);
   }, [articles]);
 
   useEffect(() => {
-    localStorage.setItem('jonogon_master_groups', JSON.stringify(categoryMasterGroups));
+    safeSetLocalStorage('jonogon_master_groups', categoryMasterGroups);
   }, [categoryMasterGroups]);
 
   useEffect(() => {
-    localStorage.setItem('jonogon_categories', JSON.stringify(categories));
+    safeSetLocalStorage('jonogon_categories', categories);
   }, [categories]);
 
   useEffect(() => {
-    localStorage.setItem('jonogon_breaking', JSON.stringify(breakingNews));
+    safeSetLocalStorage('jonogon_breaking', breakingNews);
   }, [breakingNews]);
 
   useEffect(() => {
-    localStorage.setItem('jonogon_podcasts', JSON.stringify(podcasts));
+    safeSetLocalStorage('jonogon_podcasts', podcasts);
   }, [podcasts]);
 
   useEffect(() => {
-    localStorage.setItem('jonogon_emergency_services', JSON.stringify(emergencyServices));
+    safeSetLocalStorage('jonogon_emergency_services', emergencyServices);
   }, [emergencyServices]);
 
   useEffect(() => {
-    localStorage.setItem('jonogon_homepage_sections', JSON.stringify(homepageSections));
+    safeSetLocalStorage('jonogon_homepage_sections', homepageSections);
   }, [homepageSections]);
 
   useEffect(() => {
-    localStorage.setItem('jonogon_section_columns', JSON.stringify(sectionColumnsOrder));
+    safeSetLocalStorage('jonogon_section_columns', sectionColumnsOrder);
   }, [sectionColumnsOrder]);
 
   // Article Actions with MariaDB Sync
@@ -1307,8 +1283,8 @@ export function NewsProvider({ children }) {
   const resetMasterGroupsToDefault = () => {
     setCategoryMasterGroups(initialCategoryMasterGroups);
     setCategories(initialCategories);
-    localStorage.removeItem('jonogon_master_groups');
-    localStorage.removeItem('jonogon_categories');
+    safeRemoveLocalStorage('jonogon_master_groups');
+    safeRemoveLocalStorage('jonogon_categories');
   };
 
   // Breaking News Actions
@@ -1389,7 +1365,7 @@ export function NewsProvider({ children }) {
 
   const resetHomepageSectionsToDefault = () => {
     setHomepageSections(defaultHomepageSections);
-    localStorage.setItem('jonogon_homepage_sections', JSON.stringify(defaultHomepageSections));
+    safeSetLocalStorage('jonogon_homepage_sections', defaultHomepageSections);
   };
 
   // 3-Column Grid Order Handlers
@@ -1424,7 +1400,7 @@ export function NewsProvider({ children }) {
       }));
     } else {
       setSectionColumnsOrder(defaultSectionColumnsOrder);
-      localStorage.setItem('jonogon_section_columns', JSON.stringify(defaultSectionColumnsOrder));
+      safeSetLocalStorage('jonogon_section_columns', defaultSectionColumnsOrder);
     }
   };
 
@@ -1439,7 +1415,7 @@ export function NewsProvider({ children }) {
   const toggleAdminLanguage = () => {
     setAdminLanguage((prev) => {
       const next = prev === 'bn' ? 'en' : 'bn';
-      localStorage.setItem('jonogon_admin_lang', next);
+      safeSetLocalStorage('jonogon_admin_lang', next);
       return next;
     });
   };
@@ -1451,7 +1427,7 @@ export function NewsProvider({ children }) {
   const toggleAdminTheme = () => {
     setAdminTheme((prev) => {
       const next = prev === 'light' ? 'dark' : 'light';
-      localStorage.setItem('jonogon_admin_theme', next);
+      safeSetLocalStorage('jonogon_admin_theme', next);
       return next;
     });
   };

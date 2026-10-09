@@ -90,12 +90,14 @@ export default function WebsiteLoadPopup({ isPreview = false, previewData = null
       return;
     }
 
-    if (frequency === 'once_per_session') {
-      sessionStorage.setItem('jonogon_load_popup_session_seen', 'true');
-    } else if (frequency === 'once_per_day') {
-      const today = new Date().toISOString().slice(0, 10);
-      localStorage.setItem('jonogon_load_popup_day_seen', today);
-    }
+    try {
+      if (frequency === 'once_per_session') {
+        sessionStorage.setItem('jonogon_load_popup_session_seen', 'true');
+      } else if (frequency === 'once_per_day') {
+        const today = new Date().toISOString().slice(0, 10);
+        localStorage.setItem('jonogon_load_popup_day_seen', today);
+      }
+    } catch (e) {}
   };
 
   if (!isOpen) return null;
