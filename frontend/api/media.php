@@ -288,16 +288,25 @@ if ($requestMethod === 'GET') {
             if (!empty($galleryRows)) {
                 $formattedList = [];
                 foreach ($galleryRows as $row) {
+                    $pubUrl = !empty($row['public_url']) ? $row['public_url'] : ($row['file_url'] ?? '');
+                    $stKey = !empty($row['storage_key']) ? $row['storage_key'] : ($row['file_name'] ?? '');
+                    $fName = !empty($row['file_name']) ? $row['file_name'] : ($row['original_name'] ?? basename($pubUrl));
+                    $oName = !empty($row['original_name']) ? $row['original_name'] : $fName;
+
                     $formattedList[] = [
                         'id' => $row['id'],
-                        'original_name' => $row['file_name'],
-                        'file_name' => $row['file_name'],
-                        'storage_key' => $row['storage_key'],
-                        'public_url' => $row['public_url'],
+                        'original_name' => $oName,
+                        'file_name' => $fName,
+                        'storage_key' => $stKey,
+                        'public_url' => $pubUrl,
+                        'file_url' => $pubUrl,
                         'file_format' => str_replace('image/', '', $row['file_type'] ?: 'webp'),
-                        'size_bytes' => (int)$row['file_size'],
+                        'size_bytes' => (int)($row['file_size'] ?? 0),
                         'dimensions' => $row['dimensions'] ?: '1200x630',
-                        'provider' => 'backblaze',
+                        'provider' => $row['storage_provider'] ?? 'backblaze',
+                        'caption' => $row['caption'] ?? '',
+                        'category' => $row['category'] ?? 'general',
+                        'associated_news' => $row['category'] ?? 'general gallery',
                         'created_at' => $row['created_at']
                     ];
                 }
@@ -317,24 +326,48 @@ if ($requestMethod === 'GET') {
 
         // Sync B2 files into media_gallery in MariaDB
         if ($pdo && !empty($mediaList)) {
-            $mStmt = $pdo->prepare("
-                INSERT INTO `media_gallery` (`file_name`, `storage_key`, `public_url`, `file_type`, `file_size`, `dimensions`)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE `public_url` = VALUES(`public_url`)
-            ");
-            foreach ($mediaList as $f) {
-                $chk = $pdo->prepare("SELECT id FROM `media_gallery` WHERE `storage_key` = ?");
-                $chk->execute([$f['storage_key']]);
-                if (!$chk->fetch()) {
-                    $mStmt->execute([
-                        $f['original_name'],
-                        $f['storage_key'],
-                        $f['public_url'],
-                        'image/' . ($f['file_format'] ?? 'webp'),
-                        $f['size_bytes'] ?? 0,
-                        ($f['width'] ?? 1200) . 'x' . ($f['height'] ?? 630)
-                    ]);
+            // First ensure columns exist
+            try {
+                $colStmt = $pdo->query("SHOW COLUMNS FROM `media_gallery`");
+                $mgCols = [];
+                while ($c = $colStmt->fetch(PDO::FETCH_ASSOC)) {
+                    $mgCols[strtolower($c['Field'])] = true;
                 }
+                if (!isset($mgCols['storage_key'])) {
+                    @$pdo->exec("ALTER TABLE `media_gallery` ADD COLUMN `storage_key` VARCHAR(500) NULL");
+                }
+                if (!isset($mgCols['public_url'])) {
+                    @$pdo->exec("ALTER TABLE `media_gallery` ADD COLUMN `public_url` TEXT NULL");
+                }
+                if (!isset($mgCols['file_url'])) {
+                    @$pdo->exec("ALTER TABLE `media_gallery` ADD COLUMN `file_url` TEXT NULL");
+                }
+                if (!isset($mgCols['original_name'])) {
+                    @$pdo->exec("ALTER TABLE `media_gallery` ADD COLUMN `original_name` VARCHAR(255) NULL");
+                }
+            } catch (Exception $e) {}
+
+            foreach ($mediaList as $f) {
+                try {
+                    $chk = $pdo->prepare("SELECT id FROM `media_gallery` WHERE `storage_key` = ? OR `public_url` = ? OR `file_url` = ? LIMIT 1");
+                    $chk->execute([$f['storage_key'], $f['public_url'], $f['public_url']]);
+                    if (!$chk->fetch()) {
+                        $mStmt = $pdo->prepare("
+                            INSERT INTO `media_gallery` (`file_name`, `original_name`, `storage_key`, `public_url`, `file_url`, `file_type`, `file_size`, `dimensions`)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ");
+                        $mStmt->execute([
+                            $f['file_name'] ?? $f['original_name'],
+                            $f['original_name'],
+                            $f['storage_key'],
+                            $f['public_url'],
+                            $f['public_url'],
+                            'image/' . ($f['file_format'] ?? 'webp'),
+                            $f['size_bytes'] ?? 0,
+                            ($f['width'] ?? 1200) . 'x' . ($f['height'] ?? 630)
+                        ]);
+                    }
+                } catch (Exception $e) {}
             }
         }
 

@@ -167,34 +167,123 @@ if ($requestMethod === 'POST') {
             @unlink($tempWebpPath);
         }
 
-        // 4. Save Record to MariaDB `media_uploads` and `media_gallery` tables
-        try {
-            if ($pdo) {
-                $stmt = $pdo->prepare("
-                    INSERT INTO `media_uploads` (
-                        `original_name`, `storage_key`, `public_url`, `file_format`,
-                        `width`, `height`, `size_bytes`, `provider`
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        // 4. Save Record to MariaDB `media_gallery` (and legacy `media_uploads` if present)
+        if ($pdo) {
+            // First, ensure media_gallery table exists and has all required columns
+            try {
+                $pdo->exec("
+                    CREATE TABLE IF NOT EXISTS `media_gallery` (
+                        `id` INT AUTO_INCREMENT PRIMARY KEY,
+                        `file_name` VARCHAR(255) NOT NULL,
+                        `original_name` VARCHAR(255) NULL,
+                        `storage_key` VARCHAR(500) NULL,
+                        `public_url` TEXT NULL,
+                        `file_url` TEXT NULL,
+                        `file_type` VARCHAR(50) DEFAULT 'image/webp',
+                        `file_size` BIGINT DEFAULT 0,
+                        `dimensions` VARCHAR(50) NULL,
+                        `storage_provider` VARCHAR(50) DEFAULT 'b2',
+                        `caption` VARCHAR(500) NULL,
+                        `category` VARCHAR(100) DEFAULT 'general',
+                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
                 ");
-                $stmt->execute([
-                    $originalName, $storageKey, $publicUrl, $finalFormat,
-                    $width, $height, $finalSize, $provider
-                ]);
 
-                // Also insert into media_gallery for phpMyAdmin and Media Gallery manager
+                // Auto-detect existing columns in media_gallery
+                $colStmt = $pdo->query("SHOW COLUMNS FROM `media_gallery`");
+                $existingCols = [];
+                while ($c = $colStmt->fetch(PDO::FETCH_ASSOC)) {
+                    $existingCols[strtolower($c['Field'])] = true;
+                }
+
+                // Auto-migrate any missing columns
+                $columnsToAdd = [
+                    'storage_key' => "VARCHAR(500) NULL",
+                    'public_url' => "TEXT NULL",
+                    'file_url' => "TEXT NULL",
+                    'original_name' => "VARCHAR(255) NULL",
+                    'storage_provider' => "VARCHAR(50) DEFAULT 'b2'",
+                    'caption' => "VARCHAR(500) NULL",
+                    'category' => "VARCHAR(100) DEFAULT 'general'"
+                ];
+                foreach ($columnsToAdd as $colName => $colDef) {
+                    if (!isset($existingCols[$colName])) {
+                        try {
+                            $pdo->exec("ALTER TABLE `media_gallery` ADD COLUMN `{$colName}` {$colDef}");
+                            $existingCols[$colName] = true;
+                        } catch (Exception $e) {}
+                    }
+                }
+
+                // Prepare insert payload dynamically
                 $dim = "{$width}x{$height}";
-                $gStmt = $pdo->prepare("
-                    INSERT INTO `media_gallery` (
-                        `file_name`, `storage_key`, `public_url`, `file_type`, `file_size`, `dimensions`
-                    ) VALUES (?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE `public_url` = VALUES(`public_url`)
-                ");
-                $gStmt->execute([
-                    $originalName, $storageKey, $publicUrl, 'image/' . $finalFormat, $finalSize, $dim
-                ]);
+                $caption = trim($_POST['caption'] ?? ($_POST['imageCaption'] ?? 'ছবি: সংগৃহীত'));
+                $category = trim($_POST['category'] ?? ($_POST['associated_news'] ?? 'general'));
+
+                $fields = [];
+                if (isset($existingCols['file_name'])) {
+                    $fields['file_name'] = $finalFileName ?: $originalName;
+                }
+                if (isset($existingCols['original_name'])) {
+                    $fields['original_name'] = $originalName;
+                }
+                if (isset($existingCols['storage_key'])) {
+                    $fields['storage_key'] = $storageKey;
+                }
+                if (isset($existingCols['public_url'])) {
+                    $fields['public_url'] = $publicUrl;
+                }
+                if (isset($existingCols['file_url'])) {
+                    $fields['file_url'] = $publicUrl;
+                }
+                if (isset($existingCols['file_type'])) {
+                    $fields['file_type'] = 'image/' . $finalFormat;
+                }
+                if (isset($existingCols['file_size'])) {
+                    $fields['file_size'] = (int)$finalSize;
+                }
+                if (isset($existingCols['dimensions'])) {
+                    $fields['dimensions'] = $dim;
+                }
+                if (isset($existingCols['storage_provider'])) {
+                    $fields['storage_provider'] = $provider;
+                }
+                if (isset($existingCols['caption'])) {
+                    $fields['caption'] = $caption;
+                }
+                if (isset($existingCols['category'])) {
+                    $fields['category'] = $category;
+                }
+
+                if (!empty($fields)) {
+                    $colNames = '`' . implode('`, `', array_keys($fields)) . '`';
+                    $placeholders = implode(', ', array_fill(0, count($fields), '?'));
+                    $sql = "INSERT INTO `media_gallery` ({$colNames}) VALUES ({$placeholders})";
+                    $gStmt = $pdo->prepare($sql);
+                    $gStmt->execute(array_values($fields));
+                }
+            } catch (Exception $mgEx) {
+                error_log("Error saving to media_gallery: " . $mgEx->getMessage());
             }
-        } catch (Exception $dbEx) {
-            // Silently continue so upload succeeds even if db log has minor issue
+
+            // Optional: Also save to legacy media_uploads if table exists (in isolated try block)
+            try {
+                $chkUploads = $pdo->query("SHOW TABLES LIKE 'media_uploads'");
+                if ($chkUploads && $chkUploads->rowCount() > 0) {
+                    $uStmt = $pdo->prepare("
+                        INSERT INTO `media_uploads` (
+                            `original_name`, `storage_key`, `public_url`, `file_format`,
+                            `width`, `height`, `size_bytes`, `provider`
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    $uStmt->execute([
+                        $originalName, $storageKey, $publicUrl, $finalFormat,
+                        $width, $height, $finalSize, $provider
+                    ]);
+                }
+            } catch (Exception $upEx) {
+                // Ignore legacy media_uploads table error
+            }
         }
 
         echo json_encode([

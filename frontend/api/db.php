@@ -253,11 +253,16 @@ if ($pdo) {
             CREATE TABLE IF NOT EXISTS `media_gallery` (
                 `id` INT AUTO_INCREMENT PRIMARY KEY,
                 `file_name` VARCHAR(255) NOT NULL,
-                `storage_key` VARCHAR(500) NOT NULL,
-                `public_url` TEXT NOT NULL,
+                `original_name` VARCHAR(255) NULL,
+                `storage_key` VARCHAR(500) NULL,
+                `public_url` TEXT NULL,
+                `file_url` TEXT NULL,
                 `file_type` VARCHAR(50) DEFAULT 'image/webp',
                 `file_size` BIGINT DEFAULT 0,
                 `dimensions` VARCHAR(50) NULL,
+                `storage_provider` VARCHAR(50) DEFAULT 'b2',
+                `caption` VARCHAR(500) NULL,
+                `category` VARCHAR(100) DEFAULT 'general',
                 `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
@@ -419,6 +424,31 @@ if ($pdo) {
             } catch (Exception $colEx) {
                 // ignore
             }
+        }
+
+        // Auto-migrate media_gallery table columns
+        try {
+            $checkMg = $pdo->query("SHOW TABLES LIKE 'media_gallery'");
+            if ($checkMg && $checkMg->rowCount() > 0) {
+                $mgCols = array_map('strtolower', $pdo->query("SHOW COLUMNS FROM `media_gallery`")->fetchAll(PDO::FETCH_COLUMN));
+                if (!in_array('storage_key', $mgCols)) {
+                    $pdo->exec("ALTER TABLE `media_gallery` ADD COLUMN `storage_key` VARCHAR(500) NULL");
+                }
+                if (!in_array('public_url', $mgCols)) {
+                    $pdo->exec("ALTER TABLE `media_gallery` ADD COLUMN `public_url` TEXT NULL");
+                }
+                if (!in_array('file_url', $mgCols)) {
+                    $pdo->exec("ALTER TABLE `media_gallery` ADD COLUMN `file_url` TEXT NULL");
+                }
+                if (!in_array('original_name', $mgCols)) {
+                    $pdo->exec("ALTER TABLE `media_gallery` ADD COLUMN `original_name` VARCHAR(255) NULL");
+                }
+                if (!in_array('storage_provider', $mgCols)) {
+                    $pdo->exec("ALTER TABLE `media_gallery` ADD COLUMN `storage_provider` VARCHAR(50) DEFAULT 'b2'");
+                }
+            }
+        } catch (Exception $mgEx) {
+            // ignore
         }
 
     } catch (Exception $schemaErr) {
