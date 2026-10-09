@@ -10,14 +10,18 @@ const newsRouter = Router();
  */
 newsRouter.get("/", async (_req: Request, res: Response): Promise<any> => {
   try {
-    const [rows]: any = await primaryDb.query(
-      `SELECT n.*, c.name as category_name
-       FROM news n
-       LEFT JOIN categories c ON n.category_id = c.id
-       WHERE n.status = 'published'
-       ORDER BY n.created_at DESC
-       LIMIT 50`
-    );
+    let rows: any[] = [];
+    try {
+      const [postRows]: any = await primaryDb.query(
+        `SELECT * FROM news_posts ORDER BY created_at DESC LIMIT 50`
+      );
+      rows = postRows;
+    } catch (e) {
+      const [legacyRows]: any = await primaryDb.query(
+        `SELECT * FROM news ORDER BY created_at DESC LIMIT 50`
+      );
+      rows = legacyRows;
+    }
 
     // Transform stored relative keys to full CDN URLs dynamically
     const newsWithCdnImages = rows.map((item: any) => ({
