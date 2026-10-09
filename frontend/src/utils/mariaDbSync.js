@@ -8,9 +8,14 @@ function getNewsEndpoints() {
   const list = [
     '/api/news.php',
     'api/news.php',
-    './api/news.php'
+    './api/news.php',
+    'http://localhost/janogon/api/news.php',
+    'http://127.0.0.1/janogon/api/news.php',
+    'https://jonogon.news/api/news.php'
   ];
-  if (origin) list.unshift(`${origin}/api/news.php`);
+  if (origin) {
+    list.unshift(`${origin}/api/news.php`);
+  }
   return [...new Set(list)];
 }
 
@@ -19,9 +24,14 @@ function getSyncEndpoints() {
   const list = [
     '/api/admin_sync.php',
     'api/admin_sync.php',
-    './api/admin_sync.php'
+    './api/admin_sync.php',
+    'http://localhost/janogon/api/admin_sync.php',
+    'http://127.0.0.1/janogon/api/admin_sync.php',
+    'https://jonogon.news/api/admin_sync.php'
   ];
-  if (origin) list.unshift(`${origin}/api/admin_sync.php`);
+  if (origin) {
+    list.unshift(`${origin}/api/admin_sync.php`);
+  }
   return [...new Set(list)];
 }
 
@@ -45,14 +55,18 @@ export async function saveArticleToMariaDb(articlePayload) {
         if (result && result.success) {
           console.log(`✅ Synced article to MariaDB via ${endpoint}:`, result);
           return { success: true, result, endpoint };
+        } else if (result && result.message) {
+          lastError = new Error(result.message);
         }
+      } else {
+        lastError = new Error(`HTTP ${response.status} from ${endpoint}`);
       }
     } catch (err) {
       lastError = err;
     }
   }
 
-  console.warn('⚠️ MariaDB sync could not reach backend, persisted in local memory:', lastError?.message);
+  console.warn('⚠️ MariaDB sync note:', lastError?.message);
   return { success: false, error: lastError?.message };
 }
 

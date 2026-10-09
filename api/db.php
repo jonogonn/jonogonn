@@ -82,7 +82,7 @@ if (!$pdo && basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'db.php') {
 }
 
 // -------------------------------------------------------------
-// AUTO-INITIALIZE TABLES IF NOT ALREADY CREATED IN CPANEL
+// AUTO-INITIALIZE TABLES & RUN SCHEMA MIGRATIONS IF NEEDED
 // -------------------------------------------------------------
 if ($pdo) {
     try {
@@ -115,7 +115,54 @@ if ($pdo) {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
 
-        // 3. News Table (Matching cPanel Schema + Rich Social Card Fields)
+        // 3. News Posts Table (Master Multi-language Schema)
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `news_posts` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `post_id` VARCHAR(100) NOT NULL UNIQUE,
+                `slug` VARCHAR(255) NOT NULL UNIQUE,
+                `title_bn` VARCHAR(500) NOT NULL,
+                `title_en` VARCHAR(500) NULL,
+                `kicker` VARCHAR(255) NULL,
+                `subtitle` VARCHAR(500) NULL,
+                `excerpt_bn` TEXT NULL,
+                `excerpt_en` TEXT NULL,
+                `content_bn` LONGTEXT NOT NULL,
+                `content_en` LONGTEXT NULL,
+                `blocks` LONGTEXT NULL COMMENT 'JSON array of editor blocks',
+                `category_id` VARCHAR(100) NOT NULL DEFAULT 'bangladesh',
+                `category_bn` VARCHAR(150) NOT NULL DEFAULT 'বাংলাদেশ',
+                `category_en` VARCHAR(150) NOT NULL DEFAULT 'Bangladesh',
+                `categories` LONGTEXT NULL COMMENT 'JSON array of categories',
+                `card_category` VARCHAR(200) NULL,
+                `image_caption` VARCHAR(500) DEFAULT 'ছবি: সংগৃহীত',
+                `featured_image` TEXT NULL,
+                `gallery_images` LONGTEXT NULL,
+                `author` VARCHAR(150) NOT NULL DEFAULT 'জনগণ নিউজ ডেস্ক',
+                `author_id` VARCHAR(100) DEFAULT 'user-1',
+                `author_avatar` TEXT NULL,
+                `reporter_name` VARCHAR(150) NULL,
+                `read_time` VARCHAR(50) DEFAULT '৪ মিনিট পড়তে',
+                `is_lead_hero` TINYINT(1) DEFAULT 0,
+                `is_breaking` TINYINT(1) DEFAULT 0,
+                `is_featured` TINYINT(1) DEFAULT 0,
+                `is_video` TINYINT(1) DEFAULT 0,
+                `youtube_url` TEXT NULL,
+                `video_duration` VARCHAR(50) NULL,
+                `status` VARCHAR(50) NOT NULL DEFAULT 'published',
+                `status_note` TEXT NULL,
+                `views` BIGINT UNSIGNED DEFAULT 0,
+                `shares_count` INT UNSIGNED DEFAULT 0,
+                `seo_title` VARCHAR(300) NULL,
+                `seo_description` TEXT NULL,
+                `seo_keywords` VARCHAR(500) NULL,
+                `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                `published_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+
+        // 4. Legacy `news` Table for Backward Compatibility
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS `news` (
                 `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -131,6 +178,7 @@ if ($pdo) {
                 `card_caption` VARCHAR(255) DEFAULT 'ছবি: সংগৃহীত',
                 `excerpt` TEXT NULL,
                 `content` LONGTEXT NOT NULL,
+                `blocks` LONGTEXT NULL,
                 `featured_image` TEXT NULL,
                 `thumbnail_image` TEXT NULL,
                 `author` VARCHAR(150) DEFAULT 'জনগণ নিউজ ডেস্ক',
@@ -153,7 +201,54 @@ if ($pdo) {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
 
-        // 4. Backup Logs Table
+        // 5. Schema Auto-Migrations: Safely add missing columns to existing tables
+        $tablesToCheck = ['news_posts', 'news'];
+        foreach ($tablesToCheck as $tbl) {
+            try {
+                $checkTbl = $pdo->query("SHOW TABLES LIKE '{$tbl}'");
+                if ($checkTbl && $checkTbl->rowCount() > 0) {
+                    $colsResult = $pdo->query("SHOW COLUMNS FROM `{$tbl}`")->fetchAll(PDO::FETCH_COLUMN);
+                    if (!in_array('blocks', $colsResult)) {
+                        $pdo->exec("ALTER TABLE `{$tbl}` ADD COLUMN `blocks` LONGTEXT NULL");
+                    }
+                    if (!in_array('kicker', $colsResult)) {
+                        $pdo->exec("ALTER TABLE `{$tbl}` ADD COLUMN `kicker` VARCHAR(255) NULL");
+                    }
+                    if (!in_array('card_category', $colsResult)) {
+                        $pdo->exec("ALTER TABLE `{$tbl}` ADD COLUMN `card_category` VARCHAR(200) NULL");
+                    }
+                    if (!in_array('categories', $colsResult) && $tbl === 'news_posts') {
+                        $pdo->exec("ALTER TABLE `{$tbl}` ADD COLUMN `categories` LONGTEXT NULL");
+                    }
+                }
+            } catch (Exception $colEx) {
+                // ignore
+            }
+        }
+
+        // 6. Admin Members Table (For Access Control & Team Credentials)
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `admin_members` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `user_code` VARCHAR(50) NOT NULL UNIQUE,
+                `username` VARCHAR(100) NOT NULL UNIQUE,
+                `password_hash` VARCHAR(255) NULL,
+                `temp_password` VARCHAR(255) NULL,
+                `name` VARCHAR(200) NOT NULL,
+                `designation` VARCHAR(200) NOT NULL,
+                `role` VARCHAR(100) NOT NULL DEFAULT 'Reporter',
+                `phone` VARCHAR(50) NOT NULL,
+                `email` VARCHAR(255) NOT NULL UNIQUE,
+                `avatar` TEXT NULL,
+                `status` VARCHAR(20) NOT NULL DEFAULT 'active',
+                `allowed_tabs` LONGTEXT NOT NULL,
+                `last_login` DATETIME NULL,
+                `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+
+        // 7. Backup Logs Table
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS `backup_logs` (
                 `id` INT AUTO_INCREMENT PRIMARY KEY,

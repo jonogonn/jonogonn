@@ -9,12 +9,12 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost/janogon',
+        target: 'http://127.0.0.1/janogon',
         changeOrigin: true,
         secure: false
       },
       '/uploads': {
-        target: 'http://localhost/janogon',
+        target: 'http://127.0.0.1/janogon',
         changeOrigin: true,
         secure: false
       }

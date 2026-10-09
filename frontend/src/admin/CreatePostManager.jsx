@@ -102,6 +102,131 @@ export function formatVideoEmbedUrl(url) {
   return trimmed;
 }
 
+// Helper: Parse raw HTML content into modular Editor Blocks
+export function parseHtmlToBlocks(html, defaultTitle = '', defaultImage = '', defaultCaption = 'ছবি: সংগৃহীত') {
+  if (!html || typeof html !== 'string' || !html.trim()) {
+    return [
+      { id: `heading-${Date.now()}-1`, type: 'heading', level: 'h1', content: defaultTitle || '' },
+      { id: `image-${Date.now()}-2`, type: 'image', url: defaultImage || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80', caption: defaultCaption },
+      { id: `paragraph-${Date.now()}-3`, type: 'paragraph', content: '' }
+    ];
+  }
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const bodyChildren = Array.from(doc.body.children);
+
+    if (bodyChildren.length === 0) {
+      const textContent = doc.body.textContent || html;
+      return [
+        { id: `heading-${Date.now()}-1`, type: 'heading', level: 'h1', content: defaultTitle || '' },
+        { id: `image-${Date.now()}-2`, type: 'image', url: defaultImage || '', caption: defaultCaption },
+        { id: `paragraph-${Date.now()}-3`, type: 'paragraph', content: textContent }
+      ];
+    }
+
+    const parsedBlocks = [];
+    const uid = Date.now();
+
+    bodyChildren.forEach((el, i) => {
+      const tag = el.tagName.toLowerCase();
+      const elClass = el.className || '';
+
+      if (/^h[1-6]$/.test(tag) || elClass.includes('post-heading')) {
+        const level = /^h[1-6]$/.test(tag) ? tag : (elClass.match(/h[1-6]/) ? elClass.match(/h[1-6]/)[0] : 'h2');
+        parsedBlocks.push({
+          id: `block-heading-${uid}-${i}`,
+          type: 'heading',
+          level,
+          content: el.innerHTML || el.textContent || ''
+        });
+      } else if (tag === 'figure' || elClass.includes('post-figure') || tag === 'img' || elClass.includes('post-image')) {
+        const imgEl = tag === 'img' ? el : el.querySelector('img');
+        const capEl = el.querySelector('figcaption') || el.querySelector('.post-caption');
+        parsedBlocks.push({
+          id: `block-image-${uid}-${i}`,
+          type: 'image',
+          url: imgEl?.getAttribute('src') || defaultImage || '',
+          caption: capEl?.textContent?.trim() || defaultCaption
+        });
+      } else if (elClass.includes('post-video-embed') || tag === 'iframe') {
+        const iframe = tag === 'iframe' ? el : el.querySelector('iframe');
+        parsedBlocks.push({
+          id: `block-video-${uid}-${i}`,
+          type: 'video',
+          url: iframe?.getAttribute('src') || ''
+        });
+      } else if (elClass.includes('post-file-download') || elClass.includes('post-download-btn')) {
+        const aEl = tag === 'a' ? el : el.querySelector('a');
+        parsedBlocks.push({
+          id: `block-file-${uid}-${i}`,
+          type: 'file',
+          url: aEl?.getAttribute('href') || '',
+          label: aEl?.textContent?.trim() || 'Download File'
+        });
+      } else if (tag === 'blockquote' || elClass.includes('post-blockquote')) {
+        parsedBlocks.push({
+          id: `block-quote-${uid}-${i}`,
+          type: 'blockquote',
+          content: el.innerHTML || el.textContent || ''
+        });
+      } else if (tag === 'ul' || tag === 'ol' || elClass.includes('post-list')) {
+        const items = Array.from(el.querySelectorAll('li')).map((li) => li.innerHTML || li.textContent || '');
+        parsedBlocks.push({
+          id: `block-list-${uid}-${i}`,
+          type: 'list',
+          listType: tag === 'ol' ? 'numbered' : 'bullet',
+          items: items.length > 0 ? items : ['আইটেম ১']
+        });
+      } else if (tag === 'table' || elClass.includes('post-table-wrap') || el.querySelector('table')) {
+        const table = tag === 'table' ? el : el.querySelector('table');
+        const headers = Array.from(table?.querySelectorAll('thead th') || []).map((th) => th.textContent || '');
+        const rows = Array.from(table?.querySelectorAll('tbody tr') || []).map((tr) =>
+          Array.from(tr.querySelectorAll('td') || []).map((td) => td.textContent || '')
+        );
+        parsedBlocks.push({
+          id: `block-table-${uid}-${i}`,
+          type: 'table',
+          headers: headers.length > 0 ? headers : ['কলাম ১', 'কলাম ২', 'কলাম ৩'],
+          rows: rows.length > 0 ? rows : [['তথ্য ১', 'তথ্য ২', 'তথ্য ৩']]
+        });
+      } else if (tag === 'pre' || elClass.includes('post-code-wrap')) {
+        const codeEl = el.querySelector('code') || el;
+        parsedBlocks.push({
+          id: `block-code-${uid}-${i}`,
+          type: 'code',
+          code: codeEl.textContent || '',
+          lang: 'javascript'
+        });
+      } else if (tag === 'hr' || elClass.includes('post-divider')) {
+        parsedBlocks.push({
+          id: `block-divider-${uid}-${i}`,
+          type: 'divider'
+        });
+      } else {
+        parsedBlocks.push({
+          id: `block-paragraph-${uid}-${i}`,
+          type: 'paragraph',
+          content: el.innerHTML || el.textContent || ''
+        });
+      }
+    });
+
+    if (parsedBlocks.length > 0) {
+      return parsedBlocks;
+    }
+  } catch (err) {
+    console.warn('parseHtmlToBlocks error:', err);
+  }
+
+  return [
+    { id: `heading-${Date.now()}-1`, type: 'heading', level: 'h1', content: defaultTitle || '' },
+    { id: `image-${Date.now()}-2`, type: 'image', url: defaultImage || '', caption: defaultCaption },
+    { id: `paragraph-${Date.now()}-3`, type: 'paragraph', content: html }
+  ];
+}
+
 export default function CreatePostManager({ initialPostId = null, triggerSaveToast, onSwitchToArticles }) {
   const {
     adminLanguage,
@@ -209,13 +334,36 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
         setCardCaption(art.cardCaption || 'ছবি: সংগৃহীত');
         setCardCategory(art.cardCategory || '');
 
-        if (art.blocks && art.blocks.length > 0) {
-          setBlocks(art.blocks);
+        let articleBlocks = null;
+        if (art.blocks) {
+          if (Array.isArray(art.blocks) && art.blocks.length > 0) {
+            articleBlocks = art.blocks;
+          } else if (typeof art.blocks === 'string') {
+            try {
+              const parsed = JSON.parse(art.blocks);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                articleBlocks = parsed;
+              }
+            } catch (e) {}
+          }
+        }
+
+        if (articleBlocks && articleBlocks.length > 0) {
+          setBlocks(articleBlocks);
+        } else if (art.contentBn || art.content || art.contentEn) {
+          // Parse HTML content into structured blocks (Headings, Paragraphs, Images, Blockquotes, Tables, Lists, Videos)
+          const parsedFromHtml = parseHtmlToBlocks(
+            art.contentBn || art.content || art.contentEn,
+            art.titleBn || art.title || '',
+            art.imageUrl || art.featuredImage || '',
+            art.cardCaption || 'ছবি: সংগৃহীত'
+          );
+          setBlocks(parsedFromHtml);
         } else {
           setBlocks([
             { id: `heading-${Date.now()}`, type: 'heading', level: 'h1', content: art.titleBn || art.titleEn || '' },
             { id: `image-${Date.now()}`, type: 'image', url: art.imageUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80', caption: art.cardCaption || 'ছবি: সংগৃহীত' },
-            { id: `paragraph-${Date.now()}`, type: 'paragraph', content: art.contentBn || art.contentEn || art.excerptBn || '' }
+            { id: `paragraph-${Date.now()}`, type: 'paragraph', content: art.excerptBn || '' }
           ]);
         }
       }
@@ -619,25 +767,51 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
 
   // Save as Draft
   const handleManualSaveDraft = () => {
-    const draftData = {
-      id: postId || `draft-${Date.now()}`,
-      title: mainTitle || (isBn ? 'শিরোনামহীন খসড়া' : 'Untitled Draft'),
-      kicker,
+    const compiledHtml = compileBlocksToHtml();
+    const draftPayload = {
+      titleBn: mainTitle || (isBn ? 'শিরোনামহীন খসড়া' : 'Untitled Draft'),
+      titleEn: mainTitle || 'Untitled Draft',
+      kicker: kicker || '',
       slug: slug || `draft-${Date.now()}`,
-      blocks,
-      excerpt,
-      selectedCategories,
-      tags,
-      metaTitle,
-      metaDesc,
-      focusKeyword,
-      author,
-      isLeadHero,
-      isHighlighted,
-      isBreaking,
-      isVideo,
-      videoDuration,
-      cardCaption,
+      blocks: blocks,
+      category: primaryCatId,
+      categoryBn: primaryCatObj?.nameBn || 'বাংলাদেশ',
+      categoryEn: primaryCatObj?.nameEn || 'Bangladesh',
+      categories: selectedCategories,
+      excerptBn: excerpt || mainTitle || '',
+      excerptEn: excerpt || mainTitle || '',
+      contentBn: compiledHtml,
+      contentEn: compiledHtml,
+      imageUrl: featuredImageUrl,
+      cardCaption: cardCaption || 'ছবি: সংগৃহীত',
+      cardCategory: cardCategoryDisplay,
+      author: author || 'জনগণ নিউজ ডেস্ক',
+      dateBn: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }),
+      dateEn: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+      views: 1,
+      isLeadHero: Boolean(isLeadHero),
+      isHighlighted: Boolean(isHighlighted),
+      isBreaking: Boolean(isBreaking),
+      isVideo: Boolean(isVideo),
+      videoDuration: videoDuration || '০৩:৪৫',
+      tags: tags,
+      metaTitle: metaTitle || mainTitle,
+      metaDesc: metaDesc || excerpt,
+      focusKeyword: focusKeyword || '',
+      status: 'draft'
+    };
+
+    if (postId) {
+      updateArticle(postId, draftPayload);
+    } else {
+      const newId = `draft-${Date.now()}`;
+      setPostId(newId);
+      addArticle({ ...draftPayload, id: newId });
+    }
+
+    const draftData = {
+      ...draftPayload,
+      id: postId || `draft-${Date.now()}`,
       updatedAt: new Date().toISOString()
     };
 
@@ -732,12 +906,15 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
             const TagName = b.level || 'h2';
             return `<${TagName} class="post-heading ${TagName}">${b.content || ''}</${TagName}>`;
           }
-          case 'image':
-            return b.url
-              ? `<figure class="post-figure"><img src="${b.url}" alt="${b.caption || 'Image'}" class="post-image" />${
-                  b.caption ? `<figcaption class="post-caption">${b.caption}</figcaption>` : ''
+          case 'image': {
+            const imgSrc = b.previewUrl || b.url || '';
+            const fallbackSrc = b.previewUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80';
+            return imgSrc
+              ? `<figure class="post-figure" style="margin: 18px 0; text-align: center;"><img src="${imgSrc}" alt="${b.caption || 'Image'}" class="post-image" style="width: 100%; max-height: 480px; object-fit: cover; border-radius: 8px; display: block; margin: 0 auto;" onerror="if(this.src!=='${fallbackSrc}'){this.src='${fallbackSrc}';}" />${
+                  b.caption ? `<figcaption class="post-caption" style="font-size: 0.82rem; color: #888888; margin-top: 6px; font-style: italic; text-align: right;">${b.caption}</figcaption>` : ''
                 }</figure>`
               : '';
+          }
           case 'paragraph':
             return `<div class="post-paragraph">${b.content || ''}</div>`;
           case 'blockquote':
@@ -766,7 +943,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
             return b.url ? `<div class="post-audio"><audio controls src="${b.url}"></audio></div>` : '';
           case 'file':
             return b.url
-              ? `<div class="post-file-download"><a href="${b.url}" target="_blank" rel="noopener noreferrer" class="post-download-btn">${b.label || 'Download File'}</a></div>`
+              ? `<div class="post-file-download" style="margin: 20px 0;"><a href="${b.url}" target="_blank" rel="noopener noreferrer" class="post-download-btn" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; background-color: #E60012; color: #ffffff !important; padding: 10px 22px; border-radius: 6px; font-weight: 700; text-decoration: none; font-size: 0.95rem; box-shadow: 0 3px 8px rgba(230,0,18,0.35);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #ffffff;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span style="color: #ffffff !important; font-weight: 700;">${b.label || (isBn ? 'ফাইল ডাউনলোড করুন' : 'Download File')}</span></a></div>`
               : '';
           case 'video': {
             const embedUrl = formatVideoEmbedUrl(b.url);
@@ -795,6 +972,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       titleEn: mainTitle,
       kicker: kicker || '',
       slug: slug || `post-${Date.now()}`,
+      blocks: blocks,
       category: primaryCatId,
       categoryBn: primaryCatObj?.nameBn || 'বাংলাদেশ',
       categoryEn: primaryCatObj?.nameEn || 'Bangladesh',
@@ -854,6 +1032,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       titleEn: mainTitle,
       kicker: kicker || '',
       slug: slug || `post-${Date.now()}`,
+      blocks: blocks,
       category: primaryCatId,
       categoryBn: primaryCatObj?.nameBn || 'বাংলাদেশ',
       categoryEn: primaryCatObj?.nameEn || 'Bangladesh',

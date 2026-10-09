@@ -79,6 +79,16 @@ if ($method === 'GET') {
 
         // Normalize article fields for frontend compatibility
         $articles = array_map(function($row) {
+            $parsedBlocks = [];
+            if (!empty($row['blocks'])) {
+                if (is_array($row['blocks'])) {
+                    $parsedBlocks = $row['blocks'];
+                } else {
+                    $decoded = json_decode($row['blocks'], true);
+                    $parsedBlocks = is_array($decoded) ? $decoded : [];
+                }
+            }
+
             return [
                 'id' => $row['post_id'] ?? ('news-' . $row['id']),
                 'db_id' => (int)($row['id'] ?? 0),
@@ -95,16 +105,18 @@ if ($method === 'GET') {
                 'contentBn' => $row['content_bn'] ?? ($row['content'] ?? ''),
                 'contentEn' => $row['content_en'] ?? '',
                 'content' => $row['content_bn'] ?? ($row['content'] ?? ''),
+                'blocks' => $parsedBlocks,
                 'category' => $row['category_id'] ?? 'bangladesh',
                 'categoryId' => $row['category_id'] ?? 'bangladesh',
                 'categoryBn' => $row['category_bn'] ?? 'বাংলাদেশ',
                 'categoryEn' => $row['category_en'] ?? 'Bangladesh',
+                'categories' => !empty($row['categories']) ? (json_decode($row['categories'], true) ?: []) : [],
                 'cardCategory' => $row['card_category'] ?? 'সারাদেশ । বাংলাদেশ',
                 'cardCaption' => $row['image_caption'] ?? ($row['card_caption'] ?? 'ছবি: সংগৃহীত'),
                 'imageUrl' => $row['featured_image'] ?? '',
                 'featuredImage' => $row['featured_image'] ?? '',
                 'galleryImages' => !empty($row['gallery_images']) ? (json_decode($row['gallery_images'], true) ?: []) : [],
-                'author' => $row['author'] ?? 'মোঃ বিপ্লব হোসেন',
+                'author' => $row['author'] ?? 'জনগণ নিউজ ডেস্ক',
                 'authorId' => $row['author_id'] ?? 'user-1',
                 'authorAvatar' => $row['author_avatar'] ?? '',
                 'reporterName' => $row['reporter_name'] ?? '',
@@ -188,6 +200,8 @@ if ($method === 'POST') {
             $postId = 'news-' . time() . '-' . rand(100, 999);
         }
 
+        $blocks = is_array($data['blocks'] ?? null) ? json_encode($data['blocks'], JSON_UNESCAPED_UNICODE) : ($data['blocks'] ?? null);
+        $categories = is_array($data['categories'] ?? null) ? json_encode($data['categories'], JSON_UNESCAPED_UNICODE) : null;
         $categoryId = $data['category'] ?? ($data['categoryId'] ?? ($data['category_id'] ?? 'bangladesh'));
         $categoryBn = $data['categoryBn'] ?? ($data['category_bn'] ?? 'বাংলাদেশ');
         $categoryEn = $data['categoryEn'] ?? ($data['category_en'] ?? 'Bangladesh');
@@ -195,7 +209,7 @@ if ($method === 'POST') {
         $cardCaption = $data['imageCaption'] ?? ($data['cardCaption'] ?? ($data['card_caption'] ?? 'ছবি: সংগৃহীত'));
         $featuredImage = $data['imageUrl'] ?? ($data['featuredImage'] ?? ($data['featured_image'] ?? ''));
         $galleryImages = is_array($data['galleryImages'] ?? null) ? json_encode($data['galleryImages'], JSON_UNESCAPED_UNICODE) : null;
-        $author = $data['author'] ?? 'মোঃ বিপ্লব হোসেন';
+        $author = $data['author'] ?? 'জনগণ নিউজ ডেস্ক';
         $authorId = $data['authorId'] ?? ($data['author_id'] ?? 'user-1');
         $authorAvatar = $data['authorAvatar'] ?? ($data['author_avatar'] ?? '');
         $reporterName = $data['reporterName'] ?? ($data['reporter_name'] ?? '');
@@ -232,9 +246,11 @@ if ($method === 'POST') {
                         `excerpt_en` = ?,
                         `content_bn` = ?,
                         `content_en` = ?,
+                        `blocks` = ?,
                         `category_id` = ?,
                         `category_bn` = ?,
                         `category_en` = ?,
+                        `categories` = ?,
                         `card_category` = ?,
                         `image_caption` = ?,
                         `featured_image` = ?,
@@ -260,8 +276,8 @@ if ($method === 'POST') {
                 $stmt = $pdo->prepare($updateSql);
                 $stmt->execute([
                     $titleBn, $titleEn, $kicker, $subtitle, $excerptBn, $excerptEn,
-                    $contentBn, $contentEn, $categoryId, $categoryBn, $categoryEn,
-                    $cardCategory, $cardCaption, $featuredImage, $galleryImages,
+                    $contentBn, $contentEn, $blocks, $categoryId, $categoryBn, $categoryEn,
+                    $categories, $cardCategory, $cardCaption, $featuredImage, $galleryImages,
                     $author, $authorId, $authorAvatar, $reporterName, $readTime,
                     $isLeadHero, $isBreaking, $isFeatured, $isVideo, $youtubeUrl,
                     $videoDuration, $status, $statusNote, $seoTitle, $seoDesc,
@@ -273,16 +289,16 @@ if ($method === 'POST') {
                 $insertSql = "
                     INSERT INTO `news_posts` (
                         `post_id`, `slug`, `title_bn`, `title_en`, `kicker`, `subtitle`,
-                        `excerpt_bn`, `excerpt_en`, `content_bn`, `content_en`, `category_id`,
-                        `category_bn`, `category_en`, `card_category`, `image_caption`,
+                        `excerpt_bn`, `excerpt_en`, `content_bn`, `content_en`, `blocks`, `category_id`,
+                        `category_bn`, `category_en`, `categories`, `card_category`, `image_caption`,
                         `featured_image`, `gallery_images`, `author`, `author_id`, `author_avatar`,
                         `reporter_name`, `read_time`, `is_lead_hero`, `is_breaking`, `is_featured`,
                         `is_video`, `youtube_url`, `video_duration`, `status`, `status_note`,
                         `views`, `shares_count`, `seo_title`, `seo_description`, `seo_keywords`
                     ) VALUES (
                         ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?,
                         ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?,
                         ?, ?, ?, ?, ?,
                         ?, ?, ?, ?, ?,
                         ?, ?, ?, ?, ?,
@@ -292,8 +308,8 @@ if ($method === 'POST') {
                 $stmt = $pdo->prepare($insertSql);
                 $stmt->execute([
                     $postId, $slug, $titleBn, $titleEn, $kicker, $subtitle,
-                    $excerptBn, $excerptEn, $contentBn, $contentEn, $categoryId,
-                    $categoryBn, $categoryEn, $cardCategory, $cardCaption,
+                    $excerptBn, $excerptEn, $contentBn, $contentEn, $blocks, $categoryId,
+                    $categoryBn, $categoryEn, $categories, $cardCategory, $cardCaption,
                     $featuredImage, $galleryImages, $author, $authorId, $authorAvatar,
                     $reporterName, $readTime, $isLeadHero, $isBreaking, $isFeatured,
                     $isVideo, $youtubeUrl, $videoDuration, $status, $statusNote,
@@ -309,13 +325,43 @@ if ($method === 'POST') {
             $existing = $checkStmt->fetch();
 
             if ($existing) {
-                $stmt = $pdo->prepare("UPDATE `news` SET `title` = ?, `slug` = ?, `content` = ?, `excerpt` = ?, `featured_image` = ?, `status` = ?, `category_id` = ? WHERE `id` = ?");
-                $stmt->execute([$titleBn, $slug, $contentBn, $excerptBn, $featuredImage, $status, $categoryId, $existing['id']]);
+                $stmt = $pdo->prepare("
+                    UPDATE `news` SET 
+                        `title` = ?, `slug` = ?, `kicker` = ?, `content` = ?, `blocks` = ?, 
+                        `excerpt` = ?, `featured_image` = ?, `card_category` = ?, `card_caption` = ?, 
+                        `author` = ?, `status` = ?, `category_id` = ?, `category_bn` = ?, 
+                        `is_lead_hero` = ?, `is_breaking` = ?, `is_video` = ?, `tags` = ? 
+                    WHERE `id` = ?
+                ");
+                $stmt->execute([
+                    $titleBn, $slug, $kicker, $contentBn, $blocks,
+                    $excerptBn, $featuredImage, $cardCategory, $cardCaption,
+                    $author, $status, $categoryId, $categoryBn,
+                    $isLeadHero, $isBreaking, $isVideo, $tags,
+                    $existing['id']
+                ]);
                 $dbId = $existing['id'];
                 $msg = 'সংবাদটি MariaDB টেবিলে আপডেট হয়েছে!';
             } else {
-                $stmt = $pdo->prepare("INSERT INTO `news` (`post_id`, `slug`, `title`, `content`, `excerpt`, `featured_image`, `status`, `category_id`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$postId, $slug, $titleBn, $contentBn, $excerptBn, $featuredImage, $status, $categoryId]);
+                $stmt = $pdo->prepare("
+                    INSERT INTO `news` (
+                        `post_id`, `slug`, `title`, `kicker`, `content`, `blocks`, 
+                        `excerpt`, `featured_image`, `card_category`, `card_caption`, 
+                        `author`, `status`, `category_id`, `category_bn`, 
+                        `is_lead_hero`, `is_breaking`, `is_video`, `tags`
+                    ) VALUES (
+                        ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?,
+                        ?, ?, ?, ?,
+                        ?, ?, ?, ?
+                    )
+                ");
+                $stmt->execute([
+                    $postId, $slug, $titleBn, $kicker, $contentBn, $blocks,
+                    $excerptBn, $featuredImage, $cardCategory, $cardCaption,
+                    $author, $status, $categoryId, $categoryBn,
+                    $isLeadHero, $isBreaking, $isVideo, $tags
+                ]);
                 $dbId = $pdo->lastInsertId();
                 $msg = 'সংবাদটি MariaDB টেবিলে সংরক্ষিত হয়েছে!';
             }

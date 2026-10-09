@@ -7,6 +7,9 @@ credantials.txt
 credentials.txt
 *.pem
 *.key
+.*_key
+.resend_key
+api/.resend_key
 *.cert
 .env
 .env.*

@@ -378,6 +378,46 @@ if ($method === 'POST') {
             exit;
         }
 
+        // 8. Save Admin Members / Team Access
+        if ($module === 'members' || $module === 'admin_users') {
+            if (is_array($data)) {
+                $memStmt = $pdo->prepare("
+                    INSERT INTO `admin_members` (
+                        `user_code`, `username`, `temp_password`, `name`, `designation`,
+                        `role`, `phone`, `email`, `avatar`, `status`, `allowed_tabs`
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        `name` = VALUES(`name`),
+                        `designation` = VALUES(`designation`),
+                        `role` = VALUES(`role`),
+                        `phone` = VALUES(`phone`),
+                        `avatar` = VALUES(`avatar`),
+                        `status` = VALUES(`status`),
+                        `allowed_tabs` = VALUES(`allowed_tabs`),
+                        `temp_password` = VALUES(`temp_password`)
+                ");
+                foreach ($data as $m) {
+                    $userCode = $m['user_code'] ?? ($m['userCode'] ?? ('JNG-' . rand(1000, 9999)));
+                    $username = $m['username'] ?? '';
+                    $tempPass = $m['temp_password'] ?? ($m['password'] ?? '');
+                    $name = $m['name'] ?? '';
+                    $designation = $m['designation'] ?? 'টিম সদস্য';
+                    $role = $m['role'] ?? 'Reporter';
+                    $phone = $m['phone'] ?? '';
+                    $email = $m['email'] ?? '';
+                    $avatar = $m['avatar'] ?? '';
+                    $status = $m['status'] ?? 'active';
+                    $allowedTabs = is_array($m['allowed_tabs'] ?? null) ? json_encode($m['allowed_tabs'], JSON_UNESCAPED_UNICODE) : (is_string($m['allowed_tabs'] ?? null) ? $m['allowed_tabs'] : json_encode(['overview', 'create-post', 'edit-post']));
+
+                    if ($username && $email) {
+                        $memStmt->execute([$userCode, $username, $tempPass, $name, $designation, $role, $phone, $email, $avatar, $status, $allowedTabs]);
+                    }
+                }
+            }
+            echo json_encode(['success' => true, 'message' => 'টিম মেম্বার ডাটা MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
+            exit;
+        }
+
         echo json_encode(['success' => false, 'message' => 'অজ্ঞাত মডিউল: ' . $module]);
         exit;
 

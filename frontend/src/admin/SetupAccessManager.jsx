@@ -468,28 +468,53 @@ export default function SetupAccessManager({ triggerSaveToast }) {
         newMemberForm.avatar.trim() ||
         `https://ui-avatars.com/api/?name=${encodeURIComponent(newMemberForm.name)}&background=E50914&color=fff&size=160`,
       status: 'active',
-      allowed_tabs: newMemberForm.allowed_tabs
+      allowed_tabs: Array.isArray(newMemberForm.allowed_tabs)
+        ? newMemberForm.allowed_tabs
+        : ['overview', 'create-post', 'edit-post', 'gallery']
     };
 
     setIsSendingEmail(true);
 
-    // 1. Insert into Supabase
+    // 1. Insert into Supabase (with fallback table checking)
     let createdRecord = null;
+    let supabaseInsertError = null;
+
     try {
       const { data, error } = await supabase
         .from('admin_users')
         .insert([newMemberPayload])
-        .select()
-        .single();
+        .select();
 
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         createdRecord = {
-          ...data,
-          allowed_tabs: data.allowed_tabs || newMemberForm.allowed_tabs
+          ...data[0],
+          allowed_tabs: Array.isArray(data[0].allowed_tabs)
+            ? data[0].allowed_tabs
+            : typeof data[0].allowed_tabs === 'string'
+            ? JSON.parse(data[0].allowed_tabs || '[]')
+            : newMemberPayload.allowed_tabs
         };
+        setSupabaseConnected(true);
+      } else {
+        if (error) {
+          supabaseInsertError = error;
+          console.warn('Supabase admin_users insert error:', error.message);
+        }
+        // Try fallback table admin_members if admin_users fails
+        const fbResult = await supabase
+          .from('admin_members')
+          .insert([newMemberPayload])
+          .select();
+
+        if (!fbResult.error && fbResult.data && fbResult.data.length > 0) {
+          createdRecord = fbResult.data[0];
+          setSupabaseConnected(true);
+          supabaseInsertError = null;
+        }
       }
     } catch (err) {
-      console.warn('Supabase insert notice:', err);
+      supabaseInsertError = err;
+      console.warn('Supabase insert exception:', err);
     }
 
     const localItem = createdRecord || {
@@ -497,10 +522,31 @@ export default function SetupAccessManager({ triggerSaveToast }) {
       ...newMemberPayload
     };
 
-    // Update local state immediately
-    setMembers((prev) => [localItem, ...prev]);
+    // Update local state and localStorage immediately
+    setMembers((prev) => {
+      const filtered = prev.filter((m) => m.username !== localItem.username && m.email !== localItem.email);
+      const updated = [localItem, ...filtered];
+      try {
+        localStorage.setItem('jonogon_access_members', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
 
-    // 2. Dispatch Automated Email via backend API
+    // 2. Also persist to MariaDB admin_sync API
+    try {
+      await fetch('/api/admin_sync.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          module: 'members',
+          data: [newMemberPayload]
+        })
+      });
+    } catch (dbErr) {
+      console.warn('MariaDB admin_sync notice:', dbErr);
+    }
+
+    // 3. Dispatch Automated Email via backend API
     let emailSentResult = false;
     let emailPreviewHtml = '';
     try {
@@ -532,7 +578,7 @@ export default function SetupAccessManager({ triggerSaveToast }) {
     setIsSendingEmail(false);
     setIsAddModalOpen(false);
 
-    // 3. Show Credential & Email Confirmation Modal
+    // 4. Show Credential & Email Confirmation Modal
     setCredentialModalData({
       name: newMemberPayload.name,
       email: newMemberPayload.email,
@@ -549,8 +595,8 @@ export default function SetupAccessManager({ triggerSaveToast }) {
 
     showSuccess(
       isBn
-        ? `নতুন সদস্য "${newMemberPayload.name}" সফলভাবে যুক্ত হয়েছেন এবং ইমেইল পাঠানো হয়েছে!`
-        : `Added ${newMemberPayload.name} and dispatched login credentials!`
+        ? `নতুন সদস্য "${newMemberPayload.name}" সফলভাবে যুক্ত হয়েছেন এবং ডাটাবেজে সংরক্ষিত হয়েছে!`
+        : `Added ${newMemberPayload.name} and synced to Supabase database!`
     );
 
     if (triggerSaveToast) triggerSaveToast(isBn ? 'সদস্য এক্সেস যুক্ত সম্পন্ন!' : 'Member added!');
@@ -570,13 +616,22 @@ export default function SetupAccessManager({ triggerSaveToast }) {
     if (confirmed) {
       // 1. Delete from Supabase
       try {
-        await supabase.from('admin_users').delete().eq('id', member.id);
+        const res1 = await supabase.from('admin_users').delete().eq('id', member.id);
+        if (res1.error) {
+          await supabase.from('admin_members').delete().eq('id', member.id);
+        }
       } catch (err) {
         console.warn('Supabase delete error:', err);
       }
 
       // 2. Delete from local state
-      setMembers((prev) => prev.filter((m) => m.id !== member.id));
+      setMembers((prev) => {
+        const updated = prev.filter((m) => m.id !== member.id);
+        try {
+          localStorage.setItem('jonogon_access_members', JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
       showSuccess(isBn ? 'সদস্যের এক্সেস সফলভাবে মুছে ফেলা হয়েছে।' : 'Member access removed.');
     }
   };

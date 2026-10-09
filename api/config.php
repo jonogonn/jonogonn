@@ -32,3 +32,12 @@ define('CDN_BASE_URL', getenv('CDN_BASE_URL') ?: 'https://cdn.jonogon.news');
 // Local fallback uploads directory
 define('LOCAL_UPLOADS_DIR', __DIR__ . '/../uploads/');
 define('LOCAL_UPLOADS_URL', '/uploads/');
+
+// -------------------------------------------------------------
+// 4. RESEND TRANSACTIONAL EMAIL CONFIGURATION
+// -------------------------------------------------------------
+$resendLocalKeyFile = __DIR__ . '/.resend_key';
+$resendLocalKey = file_exists($resendLocalKeyFile) ? trim((string)@file_get_contents($resendLocalKeyFile)) : '';
+define('RESEND_API_KEY', getenv('RESEND_API_KEY') ?: $resendLocalKey);
+define('RESEND_FROM_EMAIL', getenv('RESEND_FROM_EMAIL') ?: 'Jonogon News <noreply@jonogon.news>');
+
