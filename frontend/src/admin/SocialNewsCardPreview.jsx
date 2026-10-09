@@ -1,5 +1,17 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Minus, Plus, RotateCcw, ShieldAlert, Lock, Eye, Type, Palette, Lightbulb } from 'lucide-react';
+import { Minus, Plus, RotateCcw, ShieldAlert, Lock, Eye, Type, Palette, Lightbulb, Crosshair } from 'lucide-react';
+
+const GRID_POSITIONS = [
+  { id: 'top left', label: 'Top Left', bn: 'উপর-বাম', arrow: '↖' },
+  { id: 'top center', label: 'Top Center', bn: 'উপর-মাঝ', arrow: '⬆' },
+  { id: 'top right', label: 'Top Right', bn: 'উপর-ডান', arrow: '↗' },
+  { id: 'center left', label: 'Center Left', bn: 'মাঝ-বাম', arrow: '⬅' },
+  { id: 'center center', label: 'Center Center', bn: 'মাঝখান', arrow: '⏺' },
+  { id: 'center right', label: 'Center Right', bn: 'মাঝ-ডান', arrow: '➡️' },
+  { id: 'bottom left', label: 'Bottom Left', bn: 'নিচে-বাম', arrow: '↙' },
+  { id: 'bottom center', label: 'Bottom Center', bn: 'নিচে-মাঝ', arrow: '⬇' },
+  { id: 'bottom right', label: 'Bottom Right', bn: 'নিচে-ডান', arrow: '↘' }
+];
 
 export default function SocialNewsCardPreview({
   title = '',
@@ -7,7 +19,9 @@ export default function SocialNewsCardPreview({
   imageUrl = '',
   caption = '',
   category = 'সারাদেশ । বাংলাদেশ',
-  dateBn = ''
+  dateBn = '',
+  imagePosition = 'center center',
+  onPositionChange = null
 }) {
   // State for security / Anti-screenshot lockout
   const [isLockedOut, setIsLockedOut] = useState(false);
@@ -20,6 +34,17 @@ export default function SocialNewsCardPreview({
   const [lineHeightRatio, setLineHeightRatio] = useState(1.18);
   const [colorMode, setColorMode] = useState('dual'); // 'dual' | 'red' | 'blue' | 'dark'
   const [manualLineBreak, setManualLineBreak] = useState(''); // optional custom split
+  const [internalImagePosition, setInternalImagePosition] = useState(imagePosition || 'center center');
+
+  const currentImagePosition = onPositionChange ? (imagePosition || 'center center') : internalImagePosition;
+
+  const handlePositionSelect = (pos) => {
+    if (onPositionChange) {
+      onPositionChange(pos);
+    } else {
+      setInternalImagePosition(pos);
+    }
+  };
 
   const containerRef = useRef(null);
 
@@ -161,6 +186,7 @@ export default function SocialNewsCardPreview({
     setLineHeightRatio(1.18);
     setColorMode('dual');
     setManualLineBreak('');
+    handlePositionSelect('center center');
   };
 
   return (
@@ -273,8 +299,10 @@ export default function SocialNewsCardPreview({
               width: '100%',
               height: '100%',
               objectFit: 'cover',
+              objectPosition: currentImagePosition,
               display: 'block',
-              pointerEvents: 'none'
+              pointerEvents: 'none',
+              transition: 'object-position 0.2s ease'
             }}
             draggable={false}
           />
@@ -733,7 +761,53 @@ export default function SocialNewsCardPreview({
           </div>
         </div>
 
-        {/* 4. Optional Manual Line Split Helper */}
+        {/* 4. Image Focal Point 3x3 Grid Position Alignment */}
+        <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed var(--border-color)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.76rem', fontWeight: 700 }}>
+              <Crosshair size={13} color="var(--primary-red)" />
+              <span>ছবির পজিশন / ফোকাস (3×3 Grid):</span>
+            </span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--primary-red)', fontWeight: 800 }}>
+              {GRID_POSITIONS.find((p) => p.id === currentImagePosition.toLowerCase())?.bn || currentImagePosition}
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, width: '100%', margin: '4px auto 6px' }}>
+            {GRID_POSITIONS.map((pos) => {
+              const isSelected = currentImagePosition.toLowerCase() === pos.id.toLowerCase();
+              return (
+                <button
+                  key={pos.id}
+                  type="button"
+                  onClick={() => handlePositionSelect(pos.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 3,
+                    padding: '5px 2px',
+                    fontSize: '0.7rem',
+                    fontWeight: isSelected ? 800 : 500,
+                    borderRadius: 5,
+                    border: isSelected ? '1px solid var(--primary-red)' : '1px solid var(--border-color)',
+                    backgroundColor: isSelected ? 'rgba(230, 0, 18, 0.18)' : 'var(--bg-subtle, #232731)',
+                    color: isSelected ? 'var(--primary-red)' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: isSelected ? '0 0 6px rgba(230,0,18,0.35)' : 'none'
+                  }}
+                  title={`${pos.label} (${pos.bn})`}
+                >
+                  <span style={{ fontSize: '0.78rem', lineHeight: 1 }}>{pos.arrow}</span>
+                  <span style={{ fontSize: '0.66rem', whiteSpace: 'nowrap' }}>{pos.bn}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 5. Optional Manual Line Split Helper */}
         <div style={{ marginTop: 8 }}>
           <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
             <Lightbulb size={12} style={{ color: 'var(--primary-red)' }} />

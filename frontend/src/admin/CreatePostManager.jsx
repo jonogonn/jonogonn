@@ -56,7 +56,12 @@ import {
   Share2,
   ChevronLeft,
   ChevronRight,
-  Zap
+  Zap,
+  Star,
+  CheckCircle,
+  Filter,
+  Grid,
+  RefreshCw
 } from 'lucide-react';
 import { uploadImageToStorage } from '../utils/imageUploader';
 import SocialNewsCardPreview from './SocialNewsCardPreview';
@@ -288,6 +293,15 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
   const [kicker, setKicker] = useState(''); // e.g. "অর্থবছর ২০২৪-২৫ থেকে ২৫-২৬"
   const [cardCaption, setCardCaption] = useState('ছবি: সংগৃহীত');
   const [cardCategory, setCardCategory] = useState(''); // e.g. "{sub_group} । {category}"
+  const [cardImagePosition, setCardImagePosition] = useState('center center'); // 3x3 Grid position
+
+  // Media Gallery Picker Modal State (B2 Cloud Storage)
+  const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
+  const [activeMediaPickerBlockIndex, setActiveMediaPickerBlockIndex] = useState(null);
+  const [mediaGalleryList, setMediaGalleryList] = useState([]);
+  const [isMediaGalleryLoading, setIsMediaGalleryLoading] = useState(false);
+  const [mediaPickerSearch, setMediaPickerSearch] = useState('');
+  const [mediaPickerFormat, setMediaPickerFormat] = useState('all');
 
   // Blocks State
   const [blocks, setBlocks] = useState([
@@ -301,7 +315,8 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       id: 'block-image-1',
       type: 'image',
       url: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80',
-      caption: 'ছবি: সংগৃহীত'
+      caption: 'ছবি: সংগৃহীত',
+      isThumbnail: true
     },
     {
       id: 'block-paragraph-1',
@@ -333,6 +348,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
         setVideoDuration(art.videoDuration || '');
         setCardCaption(art.cardCaption || 'ছবি: সংগৃহীত');
         setCardCategory(art.cardCategory || '');
+        if (art.cardImagePosition) setCardImagePosition(art.cardImagePosition);
 
         let articleBlocks = null;
         if (art.blocks) {
@@ -362,7 +378,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
         } else {
           setBlocks([
             { id: `heading-${Date.now()}`, type: 'heading', level: 'h1', content: art.titleBn || art.titleEn || '' },
-            { id: `image-${Date.now()}`, type: 'image', url: art.imageUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80', caption: art.cardCaption || 'ছবি: সংগৃহীত' },
+            { id: `image-${Date.now()}`, type: 'image', url: art.imageUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80', caption: art.cardCaption || 'ছবি: সংগৃহীত', isThumbnail: true },
             { id: `paragraph-${Date.now()}`, type: 'paragraph', content: art.excerptBn || '' }
           ]);
         }
@@ -403,9 +419,14 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
   // Helper: Derive main title from first heading block
   const mainTitle = blocks.find((b) => b.type === 'heading')?.content?.replace(/<[^>]*>?/gm, '').trim() || '';
 
-  // Helper: Featured Image
-  const featuredImageBlock = blocks.find((b) => b.type === 'image' && b.url);
-  const featuredImageUrl = featuredImageBlock?.url || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80';
+  // Helper: Featured Image (Prioritizes explicitly marked thumbnail image block, falls back to first available image)
+  const featuredImageBlock =
+    blocks.find((b) => b.type === 'image' && b.isThumbnail && (b.url || b.previewUrl)) ||
+    blocks.find((b) => b.type === 'image' && (b.url || b.previewUrl));
+  const featuredImageUrl =
+    featuredImageBlock?.url ||
+    featuredImageBlock?.previewUrl ||
+    'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80';
 
   // Helper: Primary category & Social Card Category label ({sub_group} । {category})
   const primaryCatId = selectedCategories[0] || 'bangladesh';
@@ -625,6 +646,94 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
     }
   };
 
+  // Fetch media files from B2 / MariaDB Media Gallery API
+  const fetchMediaForPicker = async () => {
+    setIsMediaGalleryLoading(true);
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const endpoints = [
+      '/api/media.php',
+      'api/media.php',
+      './api/media.php'
+    ];
+    if (origin) endpoints.unshift(`${origin}/api/media.php`);
+    const uniqueEndpoints = [...new Set(endpoints)];
+
+    let fetched = false;
+    for (const ep of uniqueEndpoints) {
+      try {
+        const res = await fetch(ep, { headers: { 'Accept': 'application/json' } });
+        if (res.ok) {
+          const result = await res.json();
+          if (result && result.success && Array.isArray(result.data)) {
+            setMediaGalleryList(result.data);
+            fetched = true;
+            break;
+          }
+        }
+      } catch (e) {
+        // continue
+      }
+    }
+    if (!fetched) {
+      setMediaGalleryList([]);
+    }
+    setIsMediaGalleryLoading(false);
+  };
+
+  // Open Media Gallery Picker Modal for a specific image block
+  const handleOpenMediaPicker = (blockIndex) => {
+    setActiveMediaPickerBlockIndex(blockIndex);
+    setIsMediaPickerOpen(true);
+    fetchMediaForPicker();
+  };
+
+  // Select an image from Media Gallery Picker and apply to current block
+  const handleSelectMediaFromPicker = (mediaItem) => {
+    if (activeMediaPickerBlockIndex === null) return;
+    const selectedUrl = mediaItem.public_url || mediaItem.b2_url || mediaItem.url || '';
+    if (selectedUrl) {
+      const currentCaption = blocks[activeMediaPickerBlockIndex]?.caption;
+      const cleanName = mediaItem.original_name ? mediaItem.original_name.replace(/\.[^/.]+$/, '') : '';
+      const newCaption = currentCaption && currentCaption !== 'ছবি: সংগৃহীত'
+        ? currentCaption
+        : cleanName
+        ? `ছবি: ${cleanName}`
+        : 'ছবি: সংগৃহীত';
+
+      updateBlock(activeMediaPickerBlockIndex, {
+        url: selectedUrl,
+        previewUrl: selectedUrl,
+        caption: newCaption
+      });
+
+      // If this block is thumbnail, also update card caption
+      if (blocks[activeMediaPickerBlockIndex]?.isThumbnail) {
+        setCardCaption(newCaption);
+      }
+
+      if (triggerSaveToast) triggerSaveToast(isBn ? 'গ্যালারি থেকে ছবি যুক্ত করা হয়েছে!' : 'Image selected from gallery!');
+    }
+    setIsMediaPickerOpen(false);
+    setActiveMediaPickerBlockIndex(null);
+  };
+
+  // Mark a specific Image Block as the Primary Article Thumbnail
+  const handleMarkAsThumbnail = (targetIndex) => {
+    setBlocks((prev) =>
+      prev.map((b, i) => {
+        if (b.type === 'image') {
+          return { ...b, isThumbnail: i === targetIndex };
+        }
+        return b;
+      })
+    );
+    const targetBlock = blocks[targetIndex];
+    if (targetBlock?.caption) {
+      setCardCaption(targetBlock.caption);
+    }
+    if (triggerSaveToast) triggerSaveToast(isBn ? 'মূল থাম্বনেইল হিসেবে সেট করা হয়েছে!' : 'Marked as main thumbnail!');
+  };
+
   // Execute Rich Text Command in Paragraph with Selection Preservation
   const executeFormatCmd = (command, value = null, blockIndex = null, editorEl = null) => {
     const el = editorEl || (blockIndex !== null ? document.getElementById(`editor-paragraph-${blocks[blockIndex]?.id}`) : null);
@@ -785,6 +894,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       imageUrl: featuredImageUrl,
       cardCaption: cardCaption || 'ছবি: সংগৃহীত',
       cardCategory: cardCategoryDisplay,
+      cardImagePosition: cardImagePosition,
       author: author || 'জনগণ নিউজ ডেস্ক',
       dateBn: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }),
       dateEn: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
@@ -910,8 +1020,8 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
             const imgSrc = b.previewUrl || b.url || '';
             const fallbackSrc = b.previewUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80';
             return imgSrc
-              ? `<figure class="post-figure" style="margin: 18px 0; text-align: center;"><img src="${imgSrc}" alt="${b.caption || 'Image'}" class="post-image" style="width: 100%; max-height: 480px; object-fit: cover; border-radius: 8px; display: block; margin: 0 auto;" onerror="if(this.src!=='${fallbackSrc}'){this.src='${fallbackSrc}';}" />${
-                  b.caption ? `<figcaption class="post-caption" style="font-size: 0.82rem; color: #888888; margin-top: 6px; font-style: italic; text-align: right;">${b.caption}</figcaption>` : ''
+              ? `<figure class="post-figure" style="margin: 20px 0; text-align: center; width: 100%;"><img src="${imgSrc}" alt="${b.caption || 'Image'}" class="post-image" style="width: 100%; height: auto; max-width: 100%; object-fit: contain; border-radius: 8px; display: block; margin: 0 auto;" onerror="if(this.src!=='${fallbackSrc}'){this.src='${fallbackSrc}';}" />${
+                  b.caption ? `<figcaption class="post-caption" style="font-size: 0.84rem; color: #888888; margin-top: 8px; font-style: italic; text-align: center;">${b.caption}</figcaption>` : ''
                 }</figure>`
               : '';
           }
@@ -984,6 +1094,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       imageUrl: featuredImageUrl,
       cardCaption: cardCaption || 'ছবি: সংগৃহীত',
       cardCategory: cardCategoryDisplay,
+      cardImagePosition: cardImagePosition,
       author: author || 'জনগণ নিউজ ডেস্ক',
       dateBn: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }),
       dateEn: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
@@ -1053,6 +1164,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       imageUrl: featuredImageUrl,
       cardCaption: cardCaption || 'ছবি: সংগৃহীত',
       cardCategory: cardCategoryDisplay,
+      cardImagePosition: cardImagePosition,
       author: author || 'জনগণ নিউজ ডেস্ক',
       dateBn: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }),
       dateEn: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
@@ -1459,6 +1571,11 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
           }}
         >
           {blocks.map((block, index) => {
+            const isThisThumbnail = block.type === 'image' && Boolean(
+              block.isThumbnail ||
+              (!blocks.some((b) => b.type === 'image' && b.isThumbnail) && blocks.filter((b) => b.type === 'image')[0]?.id === block.id)
+            );
+
             return (
               <div
                 key={block.id}
@@ -1466,7 +1583,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                 style={{
                   padding: 0,
                   overflow: 'hidden',
-                  border: '1px solid var(--border-color)',
+                  border: isThisThumbnail ? '1.5px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-color)',
                   transition: 'border-color 0.15s ease',
                   margin: 0,
                   flexShrink: 0
@@ -1486,6 +1603,26 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                   <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ color: 'var(--primary-red)' }}>#{index + 1}</span>
                     <span style={{ textTransform: 'uppercase' }}>{block.type}</span>
+                    {isThisThumbnail && (
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10B981',
+                          border: '1px solid rgba(16, 185, 129, 0.35)',
+                          padding: '2px 8px',
+                          borderRadius: 12,
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4
+                        }}
+                        title={isBn ? 'এই ছবিটি প্রধান থাম্বনেইল হিসেবে নির্বাচিত' : 'Selected as Main Article Thumbnail'}
+                      >
+                        <Star size={11} fill="#10B981" />
+                        <span>{isBn ? 'মূল থাম্বনেইল' : 'Main Thumbnail'}</span>
+                      </span>
+                    )}
                   </span>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -1556,6 +1693,65 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                   {/* 2. IMAGE BLOCK */}
                   {block.type === 'image' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {/* Image Action Buttons: Upload from PC | Choose from B2 Gallery | Mark as Thumbnail */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 2 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <button
+                            type="button"
+                            className="admin-btn-secondary"
+                            onClick={() => document.getElementById(`image-input-${block.id}`)?.click()}
+                            style={{ fontSize: '0.78rem', padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                          >
+                            <Upload size={13} color="var(--primary-red)" />
+                            <span>{isBn ? 'কম্পিউটার থেকে আপলোড' : 'Upload from Device'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="admin-btn-secondary"
+                            onClick={() => handleOpenMediaPicker(index)}
+                            style={{
+                              fontSize: '0.78rem',
+                              padding: '5px 12px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                              borderColor: 'rgba(59, 130, 246, 0.35)',
+                              color: '#60A5FA'
+                            }}
+                          >
+                            <Folder size={13} />
+                            <span>{isBn ? 'মিডিয়া গ্যালারি থেকে নির্বাচন (B2)' : 'Media Gallery (B2)'}</span>
+                          </button>
+                        </div>
+
+                        {/* Mark as Thumbnail Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleMarkAsThumbnail(index)}
+                          style={{
+                            fontSize: '0.76rem',
+                            padding: '5px 12px',
+                            borderRadius: 6,
+                            border: isThisThumbnail ? '1px solid #10B981' : '1px solid var(--border-color)',
+                            backgroundColor: isThisThumbnail ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-subtle)',
+                            color: isThisThumbnail ? '#10B981' : 'var(--text-muted)',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            fontWeight: isThisThumbnail ? 800 : 600,
+                            transition: 'all 0.15s ease'
+                          }}
+                          title={isBn ? 'এই ছবিটিকে প্রধান থাম্বনেইল হিসেবে সেট করুন' : 'Mark this image as article thumbnail'}
+                        >
+                          <Star size={13} fill={isThisThumbnail ? '#10B981' : 'none'} color={isThisThumbnail ? '#10B981' : 'currentColor'} />
+                          <span>{isThisThumbnail ? (isBn ? '✓ মূল থাম্বনেইল' : '✓ Main Thumbnail') : (isBn ? '☆ থাম্বনেইল হিসেবে সেট করুন' : 'Mark as Thumbnail')}</span>
+                        </button>
+                      </div>
+
+                      {/* Dropzone / Preview Area */}
                       <div
                         style={{
                           border: '2px dashed var(--border-color)',
@@ -1608,14 +1804,14 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                               </div>
                             )}
                             <div style={{ marginTop: 8, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                              {isBn ? 'ছবি পরিবর্তন করতে ক্লিক করুন' : 'Click to change image'}
+                              {isBn ? 'ছবি পরিবর্তন করতে ক্লিক করুন অথবা উপরের বাটন ব্যবহার করুন' : 'Click to change image or use buttons above'}
                             </div>
                           </div>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                             <Upload size={24} color="var(--primary-red)" />
                             <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{isBn ? 'ছবি আপলোড করতে ক্লিক করুন' : 'Click to upload image'}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>JPG, PNG, WebP (Max 15MB)</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>JPG, PNG, WebP (Max 15MB) • অথবা উপরের মিডিয়া গ্যালারি বাটন ব্যবহার করুন</div>
                           </div>
                         )}
                       </div>
@@ -1991,6 +2187,8 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                   caption={cardCaption}
                   category={cardCategoryDisplay}
                   dateBn={new Date(publishDate).toLocaleDateString('bn-BD', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  imagePosition={cardImagePosition}
+                  onPositionChange={setCardImagePosition}
                 />
               </div>
 
@@ -2488,6 +2686,8 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                     caption={cardCaption}
                     category={cardCategoryDisplay}
                     dateBn={new Date(publishDate).toLocaleDateString('bn-BD', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    imagePosition={cardImagePosition}
+                    onPositionChange={setCardImagePosition}
                   />
                 </div>
               ) : (
@@ -2733,6 +2933,340 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MEDIA GALLERY PICKER MODAL (B2 Cloud Storage)
+          ======================================================== */}
+      {isMediaPickerOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            backdropFilter: 'blur(4px)'
+          }}
+          onClick={() => setIsMediaPickerOpen(false)}
+        >
+          <div
+            className="app-popup-card"
+            style={{
+              width: 920,
+              maxWidth: '96vw',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              backgroundColor: 'var(--bg-card, #1A1D24)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 12,
+              overflow: 'hidden',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '14px 20px',
+                borderBottom: '1px solid var(--border-color)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: 'var(--bg-subtle)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    backgroundColor: 'rgba(230, 0, 18, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--primary-red)'
+                  }}
+                >
+                  <Folder size={18} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                    {isBn ? 'মিডিয়া গ্যালারি থেকে ছবি নির্বাচন' : 'Select Image from Media Gallery'}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    {isBn ? 'Backblaze B2 ক্লাউডে সংরক্ষিত সকল সংবাদ ছবি' : 'All news assets stored in B2 Cloud Storage'}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={fetchMediaForPicker}
+                  className="admin-btn-secondary"
+                  style={{ padding: '6px 10px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 5 }}
+                  title="রিফ্রেশ করুন"
+                >
+                  <RefreshCw size={13} className={isMediaGalleryLoading ? 'animate-spin' : ''} />
+                  <span>{isBn ? 'রিফ্রেশ' : 'Refresh'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsMediaPickerOpen(false)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Search & Filter Toolbar */}
+            <div
+              style={{
+                padding: '12px 20px',
+                borderBottom: '1px solid var(--border-color)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 12,
+                backgroundColor: 'var(--bg-card)'
+              }}
+            >
+              {/* Search Box */}
+              <div style={{ position: 'relative', flex: 1, minWidth: 240, maxWidth: 380 }}>
+                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  className="admin-input"
+                  style={{ paddingLeft: 30, fontSize: '0.82rem', padding: '6px 10px 6px 30px' }}
+                  placeholder={isBn ? 'ছবির নাম বা কীওয়ার্ড খুঁজুন...' : 'Search by name or keyword...'}
+                  value={mediaPickerSearch}
+                  onChange={(e) => setMediaPickerSearch(e.target.value)}
+                />
+                {mediaPickerSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setMediaPickerSearch('')}
+                    style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+
+              {/* Format Filter Tabs */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Filter size={13} color="var(--text-muted)" />
+                {['all', 'webp', 'jpg', 'png'].map((fmt) => {
+                  const isActive = mediaPickerFormat === fmt;
+                  return (
+                    <button
+                      key={fmt}
+                      type="button"
+                      onClick={() => setMediaPickerFormat(fmt)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 4,
+                        fontSize: '0.74rem',
+                        fontWeight: isActive ? 800 : 500,
+                        border: isActive ? '1px solid var(--primary-red)' : '1px solid var(--border-color)',
+                        backgroundColor: isActive ? 'rgba(230, 0, 18, 0.15)' : 'transparent',
+                        color: isActive ? 'var(--primary-red)' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        textTransform: 'uppercase'
+                      }}
+                    >
+                      {fmt === 'all' ? (isBn ? 'সকল' : 'All') : fmt}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Media Grid Body */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '16px 20px',
+                minHeight: 280,
+                maxHeight: '58vh'
+              }}
+            >
+              {isMediaGalleryLoading ? (
+                <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <RefreshCw size={32} className="animate-spin" style={{ margin: '0 auto 12px', color: 'var(--primary-red)' }} />
+                  <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>
+                    {isBn ? 'ক্লাউড মিডিয়া গ্যালারি লোড হচ্ছে...' : 'Loading media gallery from B2 storage...'}
+                  </div>
+                </div>
+              ) : (() => {
+                const filtered = mediaGalleryList.filter((item) => {
+                  if (mediaPickerSearch.trim()) {
+                    const q = mediaPickerSearch.toLowerCase().trim();
+                    const matchName = (item.original_name || '').toLowerCase().includes(q);
+                    const matchKey = (item.storage_key || '').toLowerCase().includes(q);
+                    const matchNews = (item.associated_news || '').toLowerCase().includes(q);
+                    if (!matchName && !matchKey && !matchNews) return false;
+                  }
+                  if (mediaPickerFormat !== 'all') {
+                    const fmt = (item.file_format || 'webp').toLowerCase();
+                    if (fmt !== mediaPickerFormat.toLowerCase()) return false;
+                  }
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <ImageIcon size={44} style={{ margin: '0 auto 12px', opacity: 0.35 }} />
+                      <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+                        {isBn ? 'কোনো মিডিয়া ছবি পাওয়া যায়নি' : 'No images found'}
+                      </div>
+                      <div style={{ fontSize: '0.8rem' }}>
+                        {mediaPickerSearch
+                          ? (isBn ? 'অন্য কোনো কীওয়ার্ড দিয়ে অনুসন্ধান করুন।' : 'Try a different search keyword.')
+                          : (isBn ? 'কম্পিউটার থেকে ছবি আপলোড করলে তা স্বয়ংক্রিয়ভাবে এখানে যুক্ত হবে।' : 'Upload images from your device to see them here.')}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
+                      gap: 14
+                    }}
+                  >
+                    {filtered.map((item) => {
+                      const itemUrl = item.public_url || item.b2_url || item.url || '';
+                      const itemName = item.original_name || 'image.webp';
+                      const itemFormat = (item.file_format || 'webp').toUpperCase();
+                      const sizeKb = Math.round((item.size_bytes || 50000) / 1024);
+
+                      return (
+                        <div
+                          key={item.id || itemUrl}
+                          onClick={() => handleSelectMediaFromPicker(item)}
+                          style={{
+                            border: '1px solid var(--border-color)',
+                            borderRadius: 8,
+                            overflow: 'hidden',
+                            backgroundColor: 'var(--bg-subtle)',
+                            cursor: 'pointer',
+                            transition: 'all 0.18s ease',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            position: 'relative'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--primary-red)';
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 6px 18px rgba(0,0,0,0.3)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--border-color)';
+                            e.currentTarget.style.transform = 'none';
+                            e.currentTarget.style.boxShadow = 'none';
+                          }}
+                          title={isBn ? `সিলেক্ট করতে ক্লিক করুন: ${itemName}` : `Click to select: ${itemName}`}
+                        >
+                          {/* Image Thumbnail */}
+                          <div style={{ position: 'relative', width: '100%', paddingBottom: '70%', backgroundColor: '#111827', overflow: 'hidden' }}>
+                            <img
+                              src={itemUrl}
+                              alt={itemName}
+                              loading="lazy"
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                              }}
+                            />
+                            <span
+                              style={{
+                                position: 'absolute',
+                                top: 6,
+                                right: 6,
+                                backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                                color: '#fff',
+                                padding: '1px 5px',
+                                borderRadius: 3,
+                                fontSize: '0.65rem',
+                                fontWeight: 800,
+                                letterSpacing: 0.5
+                              }}
+                            >
+                              {itemFormat}
+                            </span>
+                          </div>
+
+                          {/* Info */}
+                          <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                            <div
+                              style={{
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                color: 'var(--text-primary)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {itemName}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                              <span>{sizeKb > 0 ? `${sizeKb} KB` : 'Cloud'}</span>
+                              <span style={{ color: 'var(--primary-red)', fontWeight: 700 }}>
+                                {isBn ? 'সিলেক্ট করুন' : 'Select'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: '12px 20px',
+                borderTop: '1px solid var(--border-color)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: 'var(--bg-subtle)',
+                fontSize: '0.78rem',
+                color: 'var(--text-muted)'
+              }}
+            >
+              <span>{isBn ? '💡 যে কোনো ছবিতে ক্লিক করলেই তা বর্তমান ইমেজ ব্লকে সেট হবে।' : '💡 Click any image to insert it into the active block.'}</span>
+              <button
+                type="button"
+                className="admin-btn-secondary"
+                onClick={() => setIsMediaPickerOpen(false)}
+                style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+              >
+                {isBn ? 'বন্ধ করুন' : 'Close'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,0 +1,23 @@
+# Jonogon News - Apache / LiteSpeed Configuration
+# Ensures API endpoints execute as PHP and SPA client routes work smoothly.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # 1. Allow direct execution of /api/ PHP endpoints and /uploads/
+  RewriteCond %{REQUEST_URI} ^/(api|uploads)/ [NC]
+  RewriteRule ^ - [L]
+
+  # 2. Allow direct access to real existing files and folders (e.g. assets, images)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # 3. Route all other requests to index.html for React SPA (if index.html exists)
+  RewriteCond %{DOCUMENT_ROOT}/index.html -f
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Force UTF-8 Encoding
+AddDefaultCharset UTF-8

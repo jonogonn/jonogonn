@@ -34,7 +34,7 @@ $type = $_GET['type'] ?? ($_POST['type'] ?? '');
 if ($method === 'GET') {
     try {
         if (!$pdo) {
-            throw new Exception('ডাটাবেজ সংযোগ সক্রিয় নেই।');
+            throw new Exception('MariaDB ডাটাবেজ সংযোগ সক্রিয় নেই: ' . ($dbError ?? 'Unknown error'));
         }
 
         $results = [];
@@ -113,7 +113,7 @@ if ($method === 'GET') {
 if ($method === 'POST') {
     try {
         if (!$pdo) {
-            throw new Exception('ডাটাবেজ সংযোগ সক্রিয় নেই।');
+            throw new Exception('MariaDB ডাটাবেজ সংযোগ সক্রিয় নেই: ' . ($dbError ?? 'Unknown error'));
         }
 
         $rawInput = file_get_contents('php://input');

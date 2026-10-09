@@ -409,7 +409,7 @@ if ($method === 'POST') {
 if ($method === 'DELETE') {
     try {
         if (!$pdo) {
-            throw new Exception('ডাটাবেজ সংযোগ সক্রিয় নেই।');
+            throw new Exception('MariaDB ডাটাবেজ সংযোগ সক্রিয় নেই: ' . ($dbError ?? 'Unknown error'));
         }
 
         $tableName = getAndEnsureNewsTable($pdo);

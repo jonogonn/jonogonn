@@ -17,6 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $format = isset($_GET['format']) ? $_GET['format'] : 'sql'; // 'sql' or 'json'
 $db = getDB();
 
+if (!$db) {
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['success' => false, 'message' => 'MariaDB ডাটাবেজ সংযোগ সক্রিয় নেই: ' . ($dbError ?? 'Unknown error')], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $tables = [
     'news_posts',
     'categories',

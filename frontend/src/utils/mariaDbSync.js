@@ -50,16 +50,20 @@ export async function saveArticleToMariaDb(articlePayload) {
         body: JSON.stringify(articlePayload)
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        if (result && result.success) {
-          console.log(`✅ Synced article to MariaDB via ${endpoint}:`, result);
-          return { success: true, result, endpoint };
-        } else if (result && result.message) {
-          lastError = new Error(result.message);
-        }
+      const contentType = response.headers.get('content-type') || '';
+      let result = null;
+      if (contentType.includes('application/json')) {
+        try {
+          result = await response.json();
+        } catch (jsonErr) {}
+      }
+
+      if (response.ok && result?.success) {
+        console.log(`✅ Synced article to MariaDB via ${endpoint}:`, result);
+        return { success: true, result, endpoint };
       } else {
-        lastError = new Error(`HTTP ${response.status} from ${endpoint}`);
+        const errorMsg = result?.message || result?.error || `HTTP ${response.status} from ${endpoint}`;
+        lastError = new Error(errorMsg);
       }
     } catch (err) {
       lastError = err;

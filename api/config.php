@@ -11,7 +11,7 @@ define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
 define('DB_PORT', (int)(getenv('DB_PORT') ?: 3306));
 define('DB_NAME', getenv('DB_NAME') ?: 'jonogonn_news_db');
 define('DB_USER', getenv('DB_USER') ?: 'jonogonn_admin');
-define('DB_PASS', getenv('DB_PASSWORD') ?: (getenv('DB_PASS') ?: 'Jg#Dbl2026@X7pL9'));
+define('DB_PASS', getenv('DB_PASSWORD') ?: (getenv('DB_PASS') ?: 'Jg#Db!2026@X7pL9'));
 
 // -------------------------------------------------------------
 // 2. BACKBLAZE B2 CLOUD STORAGE CONFIGURATION

@@ -144,19 +144,30 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
       });
 
       // Save directly to MariaDB
-      saveArticleToMariaDb(publishedPayload).catch((err) => {
+      let syncRes = null;
+      try {
+        syncRes = await saveArticleToMariaDb(publishedPayload);
+      } catch (err) {
         console.warn('MariaDB publish sync error:', err);
-      });
+      }
 
       if (triggerSaveToast) {
         triggerSaveToast(isBn ? 'সংবাদটি সফলভাবে অনুমোদিত ও প্রকাশিত হয়েছে!' : 'Post approved and published successfully!');
       }
 
-      showSuccess(
-        isBn
-          ? 'সংবাদটি সফলভাবে অনুমোদিত হয়েছে, MariaDB ডাটাবেজে সংরক্ষিত হয়েছে এবং মূল ওয়েবসাইটে প্রকাশিত হয়েছে! আপনি এখন নিচে থেকে সোশ্যাল ফটোকার্ড .JPG ডাউনলোড করতে পারেন।'
-          : 'Post approved and saved to MariaDB! You can now download the social poster JPG.'
-      );
+      if (syncRes && syncRes.success === false) {
+        showWarning(
+          isBn
+            ? `সংবাদটি সাইটে প্রকাশিত হয়েছে, তবে MariaDB ডাটাবেজে সিঙ্ক সতর্কতা: ${syncRes.error || 'Server error'}`
+            : `Post published, but MariaDB notice: ${syncRes.error || 'Server error'}`
+        );
+      } else {
+        showSuccess(
+          isBn
+            ? 'সংবাদটি সফলভাবে অনুমোদিত হয়েছে, MariaDB ডাটাবেজে সংরক্ষিত হয়েছে এবং মূল ওয়েবসাইটে প্রকাশিত হয়েছে! আপনি এখন নিচে থেকে সোশ্যাল ফটোকার্ড .JPG ডাউনলোড করতে পারেন।'
+            : 'Post approved and saved to MariaDB! You can now download the social poster JPG.'
+        );
+      }
 
       if (previewArticle && previewArticle.id === article.id) {
         setPreviewArticle((prev) => ({ ...prev, status: 'published' }));

@@ -15,6 +15,7 @@ export async function generateSocialCardJpg({
   lineHeight = 1.18,
   colorMode = 'dual',
   manualLineBreak = '',
+  imagePosition = 'center center',
   fileName = 'jonogon-social-card.jpg',
   returnBlob = false
 }) {
@@ -83,16 +84,38 @@ export async function generateSocialCardJpg({
           const boxRatio = photoW / photoH;
           let drawW, drawH, drawX, drawY;
 
+          let alignX = 'center';
+          let alignY = 'center';
+          if (typeof imagePosition === 'string') {
+            const posLower = imagePosition.toLowerCase();
+            if (posLower.includes('left')) alignX = 'left';
+            if (posLower.includes('right')) alignX = 'right';
+            if (posLower.includes('top')) alignY = 'top';
+            if (posLower.includes('bottom')) alignY = 'bottom';
+          }
+
           if (imgRatio > boxRatio) {
             drawH = photoH;
             drawW = photoH * imgRatio;
-            drawX = photoX - (drawW - photoW) / 2;
             drawY = photoY;
+            if (alignX === 'left') {
+              drawX = photoX;
+            } else if (alignX === 'right') {
+              drawX = photoX - (drawW - photoW);
+            } else {
+              drawX = photoX - (drawW - photoW) / 2;
+            }
           } else {
             drawW = photoW;
             drawH = photoW / imgRatio;
             drawX = photoX;
-            drawY = photoY - (drawH - photoH) / 2;
+            if (alignY === 'top') {
+              drawY = photoY;
+            } else if (alignY === 'bottom') {
+              drawY = photoY - (drawH - photoH);
+            } else {
+              drawY = photoY - (drawH - photoH) / 2;
+            }
           }
 
           ctx.drawImage(userImg, drawX, drawY, drawW, drawH);
