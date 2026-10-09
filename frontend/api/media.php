@@ -24,32 +24,100 @@ $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $action = $_GET['action'] ?? '';
 
 // -------------------------------------------------------------
-// PROXY IMAGE FOR CORS-SAFE CANVAS EXPORT
+// PROXY IMAGE FOR CORS-SAFE CANVAS EXPORT & B2 PRIVATE BUCKET
 // -------------------------------------------------------------
 if ($action === 'proxy_image') {
     $targetUrl = $_GET['url'] ?? '';
-    if (empty($targetUrl) || !filter_var($targetUrl, FILTER_VALIDATE_URL)) {
+    if (empty($targetUrl)) {
         http_response_code(400);
         exit(json_encode(['error' => 'Invalid or missing image URL']));
     }
-    $ch = curl_init($targetUrl);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-    $imgData = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $cType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'image/jpeg';
-    curl_close($ch);
 
-    if ($httpCode === 200 && $imgData) {
-        header('Content-Type: ' . $cType);
-        header('Access-Control-Allow-Origin: *');
-        header('Cache-Control: public, max-age=86400');
-        echo $imgData;
-        exit;
+    // 1. Check if targetUrl matches local file in uploads/
+    $parsedPath = parse_url($targetUrl, PHP_URL_PATH) ?: $targetUrl;
+    $relPath = ltrim($parsedPath, '/');
+    $cleanSubPath = '';
+    if (strpos($relPath, 'uploads/') !== false) {
+        $cleanSubPath = substr($relPath, strpos($relPath, 'uploads/'));
+    } elseif (strpos($targetUrl, 'uploads/') !== false) {
+        $cleanSubPath = substr($targetUrl, strpos($targetUrl, 'uploads/'));
+        $cleanSubPath = explode('?', $cleanSubPath)[0];
     }
+
+    if ($cleanSubPath) {
+        $localFilePath = __DIR__ . '/../' . $cleanSubPath;
+        if (file_exists($localFilePath) && is_file($localFilePath)) {
+            $ext = strtolower(pathinfo($localFilePath, PATHINFO_EXTENSION));
+            $cType = ($ext === 'webp') ? 'image/webp' : (($ext === 'png') ? 'image/png' : 'image/jpeg');
+            header('Content-Type: ' . $cType);
+            header('Access-Control-Allow-Origin: *');
+            header('Cache-Control: public, max-age=31536000');
+            readfile($localFilePath);
+            exit;
+        }
+    }
+
+    // 2. Fetch directly from Backblaze B2 using download authorization token
+    $storageKey = $cleanSubPath ?: basename($parsedPath);
+    if ($storageKey) {
+        $auth = b2Auth();
+        if ($auth && !empty($auth['authorizationToken'])) {
+            $dlToken = getB2DownloadToken($auth, 3600);
+            $downloadUrl = $auth['downloadUrl'] ?? "https://f005.backblazeb2.com";
+            $b2DirectUrl = rtrim($downloadUrl, '/') . '/file/' . B2_BUCKET_NAME . '/' . ltrim($storageKey, '/');
+            if ($dlToken) {
+                $b2DirectUrl .= '?Authorization=' . $dlToken;
+            }
+
+            $ch = curl_init($b2DirectUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            $imgData = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $cType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'image/webp';
+            curl_close($ch);
+
+            if ($httpCode === 200 && $imgData) {
+                // Save locally if local folder exists
+                if (!empty($localFilePath)) {
+                    $dir = dirname($localFilePath);
+                    if (!is_dir($dir)) @mkdir($dir, 0755, true);
+                    @file_put_contents($localFilePath, $imgData);
+                }
+                header('Content-Type: ' . $cType);
+                header('Access-Control-Allow-Origin: *');
+                header('Cache-Control: public, max-age=31536000');
+                echo $imgData;
+                exit;
+            }
+        }
+    }
+
+    // 3. Fallback: Generic cURL fetch
+    if (filter_var($targetUrl, FILTER_VALIDATE_URL)) {
+        $ch = curl_init($targetUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        $imgData = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $cType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'image/jpeg';
+        curl_close($ch);
+
+        if ($httpCode === 200 && $imgData) {
+            header('Content-Type: ' . $cType);
+            header('Access-Control-Allow-Origin: *');
+            header('Cache-Control: public, max-age=86400');
+            echo $imgData;
+            exit;
+        }
+    }
+
     http_response_code(404);
     exit(json_encode(['error' => 'Failed to retrieve image']));
 }
@@ -286,6 +354,10 @@ if ($requestMethod === 'GET') {
             $stmt = $pdo->query("SELECT * FROM `media_gallery` ORDER BY `id` DESC LIMIT 500");
             $galleryRows = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
             if (!empty($galleryRows)) {
+                $auth = b2Auth();
+                $dlToken = $auth ? getB2DownloadToken($auth, 604800) : '';
+                $downloadUrl = $auth['downloadUrl'] ?? "https://f005.backblazeb2.com";
+
                 $formattedList = [];
                 foreach ($galleryRows as $row) {
                     $pubUrl = !empty($row['public_url']) ? $row['public_url'] : ($row['file_url'] ?? '');
@@ -293,13 +365,19 @@ if ($requestMethod === 'GET') {
                     $fName = !empty($row['file_name']) ? $row['file_name'] : ($row['original_name'] ?? basename($pubUrl));
                     $oName = !empty($row['original_name']) ? $row['original_name'] : $fName;
 
+                    if ($dlToken && $stKey && (strpos($pubUrl, 'cdn.jonogon.news') !== false || strpos($pubUrl, 'backblazeb2.com') !== false || empty($pubUrl))) {
+                        $workingUrl = rtrim($downloadUrl, '/') . '/file/' . B2_BUCKET_NAME . '/' . ltrim($stKey, '/') . '?Authorization=' . $dlToken;
+                    } else {
+                        $workingUrl = $pubUrl;
+                    }
+
                     $formattedList[] = [
                         'id' => $row['id'],
                         'original_name' => $oName,
                         'file_name' => $fName,
                         'storage_key' => $stKey,
-                        'public_url' => $pubUrl,
-                        'file_url' => $pubUrl,
+                        'public_url' => $workingUrl,
+                        'file_url' => $workingUrl,
                         'file_format' => str_replace('image/', '', $row['file_type'] ?: 'webp'),
                         'size_bytes' => (int)($row['file_size'] ?? 0),
                         'dimensions' => $row['dimensions'] ?: '1200x630',

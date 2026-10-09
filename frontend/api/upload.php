@@ -373,6 +373,40 @@ function b2AuthorizeAccount($keyId, $applicationKey) {
 }
 
 // -------------------------------------------------------------
+// HELPER: GET B2 DOWNLOAD AUTHORIZATION TOKEN
+// -------------------------------------------------------------
+function getB2DownloadToken($auth, $validSeconds = 604800) {
+    if (!$auth || empty($auth['apiUrl']) || empty($auth['authorizationToken'])) {
+        return '';
+    }
+    $url = $auth['apiUrl'] . "/b2api/v2/b2_get_download_authorization";
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+        'bucketId' => B2_BUCKET_ID,
+        'fileNamePrefix' => '',
+        'validDurationInSeconds' => $validSeconds
+    ]));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Authorization: " . $auth['authorizationToken'],
+        "Content-Type: application/json"
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    $res = curl_exec($ch);
+    $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($http === 200 && $res) {
+        $data = json_decode($res, true);
+        return $data['authorizationToken'] ?? '';
+    }
+    return '';
+}
+
+// -------------------------------------------------------------
 // HELPER: UPLOAD TO BACKBLAZE B2
 // -------------------------------------------------------------
 function uploadToBackblazeB2($filePath, $fileName, $contentType = 'image/webp') {
@@ -437,18 +471,20 @@ function uploadToBackblazeB2($filePath, $fileName, $contentType = 'image/webp') 
     if ($uploadHttpCode === 200 && $uploadRes) {
         $resultData = json_decode($uploadRes, true);
 
-        // Construct Public URL
-        if (defined('CDN_BASE_URL') && CDN_BASE_URL) {
-            $publicUrl = rtrim(CDN_BASE_URL, '/') . '/' . $fileName;
-        } else {
-            $publicUrl = rtrim($downloadUrl, '/') . '/file/' . B2_BUCKET_NAME . '/' . $fileName;
+        // Generate download authorization token for private B2 bucket access
+        $dlToken = getB2DownloadToken($auth, 604800); // 7 days token
+        $publicUrl = rtrim($downloadUrl, '/') . '/file/' . B2_BUCKET_NAME . '/' . $fileName;
+        if ($dlToken) {
+            $publicUrl .= '?Authorization=' . $dlToken;
         }
 
         return [
             'success' => true,
             'publicUrl' => $publicUrl,
+            'directUrl' => $publicUrl,
             'fileId' => $resultData['fileId'] ?? null,
-            'fileName' => $resultData['fileName'] ?? $fileName
+            'fileName' => $resultData['fileName'] ?? $fileName,
+            'downloadToken' => $dlToken
         ];
     }
 
