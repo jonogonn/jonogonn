@@ -46,3 +46,8 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+
+# SQL Database Schemas & Dumps
+*.sql
+**/*.sql
+

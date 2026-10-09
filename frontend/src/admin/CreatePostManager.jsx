@@ -1000,18 +1000,27 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       status: 'draft' // Saved as draft in Edit Post tab until 'Request Approval'
     };
 
+    let syncRes = null;
     if (postId) {
-      updateArticle(postId, postPayload);
+      syncRes = await updateArticle(postId, postPayload);
     } else {
-      addArticle(postPayload);
+      syncRes = await addArticle(postPayload);
     }
 
-    showSuccess(
-      isBn
-        ? 'আপনার সংবাদটি সফলভাবে তৈরি ও সংরক্ষিত হয়েছে! "পোস্ট সম্পাদনা" (Edit Post) ট্যাবে গিয়ে এটি দেখতে ও অনুমোদনের জন্য পাঠাতে পারবেন।'
-        : 'Your post has been submitted and saved! You can review and request approval from the Edit Post tab.',
-      isBn ? 'সফলভাবে তৈরি হয়েছে' : 'Saved to Edit Post'
-    );
+    if (syncRes && syncRes.success === false) {
+      showWarning(
+        isBn
+          ? `সংবাদটি সংরক্ষিত হয়েছে, তবে MariaDB ডাটাবেজে সিঙ্ক ত্রুটি: ${syncRes.error || 'Server error'}`
+          : `Post saved, but MariaDB notice: ${syncRes.error || 'Server error'}`
+      );
+    } else {
+      showSuccess(
+        isBn
+          ? 'আপনার সংবাদটি সফলভাবে তৈরি ও cPanel MariaDB ডাটাবেজে সংরক্ষিত হয়েছে! "পোস্ট সম্পাদনা" (Edit Post) ট্যাবে গিয়ে এটি দেখতে ও অনুমোদনের জন্য পাঠাতে পারবেন।'
+          : 'Your post has been created and saved to MariaDB database!',
+        isBn ? 'সফলভাবে তৈরি হয়েছে' : 'Saved to Edit Post'
+      );
+    }
 
     if (typeof onSwitchToArticles === 'function') {
       setTimeout(() => onSwitchToArticles(), 1500);
@@ -1061,18 +1070,27 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       approvalRequestedAt: new Date().toISOString()
     };
 
+    let syncRes = null;
     if (postId) {
-      updateArticle(postId, postPayload);
+      syncRes = await updateArticle(postId, postPayload);
     } else {
-      addArticle(postPayload);
+      syncRes = await addArticle(postPayload);
     }
 
-    showSuccess(
-      isBn
-        ? 'পোস্টটি সফলভাবে "Approve Post" ট্যাবে অনুমোদনের জন্য পাঠানো হয়েছে!'
-        : 'Post submitted to Approve Post tab for review!',
-      isBn ? 'অনুমোদনের আবেদন সফল' : 'Request Submitted'
-    );
+    if (syncRes && syncRes.success === false) {
+      showWarning(
+        isBn
+          ? `অনুমোদনের আবেদন জমা হয়েছে, তবে MariaDB ডাটাবেজ নোটিশ: ${syncRes.error || 'Server error'}`
+          : `Submitted for review, but DB notice: ${syncRes.error || 'Server error'}`
+      );
+    } else {
+      showSuccess(
+        isBn
+          ? 'পোস্টটি সফলভাবে MariaDB ডাটাবেজে সংরক্ষিত হয়েছে এবং "Approve Post" ট্যাবে অনুমোদনের জন্য পাঠানো হয়েছে!'
+          : 'Post saved to MariaDB and submitted to Approve Post tab for review!',
+        isBn ? 'অনুমোদনের আবেদন সফল' : 'Request Submitted'
+      );
+    }
 
     if (typeof onSwitchToArticles === 'function') {
       setTimeout(() => onSwitchToArticles(), 1500);

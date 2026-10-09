@@ -821,7 +821,7 @@ export function NewsProvider({ children }) {
   }, [sectionColumnsOrder]);
 
   // Article Actions with MariaDB Sync
-  const addArticle = (newArticle) => {
+  const addArticle = async (newArticle) => {
     const articleWithId = {
       ...newArticle,
       id: newArticle.id || `news-${Date.now()}`,
@@ -832,12 +832,19 @@ export function NewsProvider({ children }) {
     setArticles((prev) => [articleWithId, ...prev]);
 
     // Async sync to MariaDB Database
-    saveArticleToMariaDb(articleWithId).catch((err) => {
+    try {
+      const res = await saveArticleToMariaDb(articleWithId);
+      if (!res?.success) {
+        console.warn('MariaDB auto-sync notice:', res?.error);
+      }
+      return res;
+    } catch (err) {
       console.warn('MariaDB auto-sync error:', err);
-    });
+      return { success: false, error: err?.message };
+    }
   };
 
-  const updateArticle = (id, updatedData) => {
+  const updateArticle = async (id, updatedData) => {
     let fullArticle = null;
     setArticles((prev) =>
       prev.map((item) => {
@@ -853,9 +860,13 @@ export function NewsProvider({ children }) {
     }
 
     if (fullArticle) {
-      saveArticleToMariaDb(fullArticle).catch((err) => {
+      try {
+        const res = await saveArticleToMariaDb(fullArticle);
+        return res;
+      } catch (err) {
         console.warn('MariaDB update sync error:', err);
-      });
+        return { success: false, error: err?.message };
+      }
     }
   };
 

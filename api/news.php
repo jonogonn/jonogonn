@@ -1,7 +1,7 @@
 <?php
 /**
- * Jonogon News (জনগণ.নিউজ) - Master News CRUD REST API for MariaDB / cPanel
- * Table: `news_posts` (UTF-8 Multi-language schema)
+ * Jonogon News (জনগণ.নিউজ) - Bulletproof News CRUD REST API for MariaDB / cPanel
+ * Target Table: `news_posts` (Auto-migrating UTF-8 Multi-language Schema)
  */
 require_once __DIR__ . '/db.php';
 
@@ -17,19 +17,74 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-// Helper to determine active table name
-function getNewsTableName($pdo) {
-    static $tbl = null;
-    if ($tbl !== null) return $tbl;
+// -------------------------------------------------------------
+// HELPER: Auto-detect active table and ensure required columns
+// -------------------------------------------------------------
+function getAndEnsureNewsTable($pdo) {
+    static $activeTable = null;
+    if ($activeTable !== null) return $activeTable;
+
+    $targetTable = 'news_posts';
     try {
         $check = $pdo->query("SHOW TABLES LIKE 'news_posts'");
-        if ($check && $check->rowCount() > 0) {
-            $tbl = 'news_posts';
-            return $tbl;
+        if (!$check || $check->rowCount() === 0) {
+            $checkLegacy = $pdo->query("SHOW TABLES LIKE 'news'");
+            if ($checkLegacy && $checkLegacy->rowCount() > 0) {
+                $targetTable = 'news';
+            }
+        }
+    } catch (Exception $e) {
+        $targetTable = 'news_posts';
+    }
+
+    // Auto-migrate missing columns so MySQL never fails with "Unknown column"
+    try {
+        $existingCols = [];
+        $colStmt = $pdo->query("SHOW COLUMNS FROM `{$targetTable}`");
+        while ($c = $colStmt->fetch(PDO::FETCH_ASSOC)) {
+            $existingCols[strtolower($c['Field'])] = true;
+        }
+
+        $requiredCols = [
+            'blocks' => "LONGTEXT NULL COMMENT 'JSON array of editor blocks'",
+            'tags' => "LONGTEXT NULL COMMENT 'JSON array or comma separated tags'",
+            'categories' => "LONGTEXT NULL COMMENT 'JSON array of subcategories'",
+            'gallery_images' => "LONGTEXT NULL COMMENT 'JSON array of gallery image URLs'",
+            'is_highlighted' => "TINYINT(1) DEFAULT 0",
+            'is_featured' => "TINYINT(1) DEFAULT 0",
+            'is_lead_hero' => "TINYINT(1) DEFAULT 0",
+            'is_breaking' => "TINYINT(1) DEFAULT 0",
+            'is_video' => "TINYINT(1) DEFAULT 0",
+            'youtube_url' => "TEXT NULL",
+            'video_duration' => "VARCHAR(50) DEFAULT NULL",
+            'card_category' => "VARCHAR(200) DEFAULT NULL",
+            'image_caption' => "VARCHAR(500) DEFAULT 'ছবি: সংগৃহীত'",
+            'featured_image' => "TEXT DEFAULT NULL",
+            'author' => "VARCHAR(150) NOT NULL DEFAULT 'জনগণ নিউজ ডেস্ক'",
+            'author_id' => "VARCHAR(64) DEFAULT 'user-1'",
+            'author_avatar' => "TEXT DEFAULT NULL",
+            'reporter_name' => "VARCHAR(150) DEFAULT NULL",
+            'read_time' => "VARCHAR(50) DEFAULT '৪ মিনিট পড়তে'",
+            'status' => "VARCHAR(50) NOT NULL DEFAULT 'published'",
+            'status_note' => "TEXT DEFAULT NULL",
+            'views' => "BIGINT(20) UNSIGNED NOT NULL DEFAULT 0",
+            'shares_count' => "INT(11) UNSIGNED NOT NULL DEFAULT 0",
+            'seo_title' => "VARCHAR(300) DEFAULT NULL",
+            'seo_description' => "TEXT DEFAULT NULL",
+            'seo_keywords' => "VARCHAR(500) DEFAULT NULL"
+        ];
+
+        foreach ($requiredCols as $colName => $colDef) {
+            if (!isset($existingCols[strtolower($colName)])) {
+                try {
+                    $pdo->exec("ALTER TABLE `{$targetTable}` ADD COLUMN `{$colName}` {$colDef}");
+                } catch (Exception $alterEx) {}
+            }
         }
     } catch (Exception $e) {}
-    $tbl = 'news';
-    return $tbl;
+
+    $activeTable = $targetTable;
+    return $activeTable;
 }
 
 // -------------------------------------------------------------
@@ -38,10 +93,10 @@ function getNewsTableName($pdo) {
 if ($method === 'GET') {
     try {
         if (!$pdo) {
-            throw new Exception('ডাটাবেজ সংযোগ সক্রিয় নেই।');
+            throw new Exception('MariaDB ডাটাবেজ সংযোগ সক্রিয় নেই: ' . ($dbError ?? 'Unknown error'));
         }
 
-        $tableName = getNewsTableName($pdo);
+        $tableName = getAndEnsureNewsTable($pdo);
         $status = isset($_GET['status']) ? $_GET['status'] : null;
         $category = isset($_GET['category']) ? $_GET['category'] : null;
         $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
@@ -89,8 +144,10 @@ if ($method === 'GET') {
                 }
             }
 
+            $featuredImg = $row['featured_image'] ?? ($row['thumbnail_image'] ?? '');
+
             return [
-                'id' => $row['post_id'] ?? ('news-' . $row['id']),
+                'id' => $row['post_id'] ?? ('news-' . ($row['id'] ?? uniqid())),
                 'db_id' => (int)($row['id'] ?? 0),
                 'postId' => $row['post_id'] ?? '',
                 'slug' => $row['slug'] ?? '',
@@ -110,12 +167,12 @@ if ($method === 'GET') {
                 'categoryId' => $row['category_id'] ?? 'bangladesh',
                 'categoryBn' => $row['category_bn'] ?? 'বাংলাদেশ',
                 'categoryEn' => $row['category_en'] ?? 'Bangladesh',
-                'categories' => !empty($row['categories']) ? (json_decode($row['categories'], true) ?: []) : [],
+                'categories' => !empty($row['categories']) ? (is_array($row['categories']) ? $row['categories'] : (json_decode($row['categories'], true) ?: [])) : [],
                 'cardCategory' => $row['card_category'] ?? 'সারাদেশ । বাংলাদেশ',
                 'cardCaption' => $row['image_caption'] ?? ($row['card_caption'] ?? 'ছবি: সংগৃহীত'),
-                'imageUrl' => $row['featured_image'] ?? '',
-                'featuredImage' => $row['featured_image'] ?? '',
-                'galleryImages' => !empty($row['gallery_images']) ? (json_decode($row['gallery_images'], true) ?: []) : [],
+                'imageUrl' => $featuredImg,
+                'featuredImage' => $featuredImg,
+                'galleryImages' => !empty($row['gallery_images']) ? (is_array($row['gallery_images']) ? $row['gallery_images'] : (json_decode($row['gallery_images'], true) ?: [])) : [],
                 'author' => $row['author'] ?? 'জনগণ নিউজ ডেস্ক',
                 'authorId' => $row['author_id'] ?? 'user-1',
                 'authorAvatar' => $row['author_avatar'] ?? '',
@@ -132,7 +189,7 @@ if ($method === 'GET') {
                 'statusNote' => $row['status_note'] ?? ($row['revision_note'] ?? ''),
                 'views' => (int)($row['views'] ?? 0),
                 'sharesCount' => (int)($row['shares_count'] ?? 0),
-                'tags' => !empty($row['tags']) ? (json_decode($row['tags'], true) ?: $row['tags']) : [],
+                'tags' => !empty($row['tags']) ? (is_array($row['tags']) ? $row['tags'] : (json_decode($row['tags'], true) ?: $row['tags'])) : [],
                 'metaTitle' => $row['seo_title'] ?? ($row['meta_title'] ?? ''),
                 'metaDesc' => $row['seo_description'] ?? ($row['meta_desc'] ?? ''),
                 'seoKeywords' => $row['seo_keywords'] ?? ($row['focus_keyword'] ?? ''),
@@ -164,10 +221,10 @@ if ($method === 'GET') {
 if ($method === 'POST') {
     try {
         if (!$pdo) {
-            throw new Exception('ডাটাবেজ সংযোগ সক্রিয় নেই।');
+            throw new Exception('MariaDB ডাটাবেজ সংযোগ সক্রিয় নেই: ' . ($dbError ?? 'Unknown error'));
         }
 
-        $tableName = getNewsTableName($pdo);
+        $tableName = getAndEnsureNewsTable($pdo);
         $rawInput = file_get_contents('php://input');
         $data = json_decode($rawInput, true);
 
@@ -214,13 +271,14 @@ if ($method === 'POST') {
         $authorAvatar = $data['authorAvatar'] ?? ($data['author_avatar'] ?? '');
         $reporterName = $data['reporterName'] ?? ($data['reporter_name'] ?? '');
         $readTime = $data['readTime'] ?? ($data['read_time'] ?? '৪ মিনিট পড়তে');
-        $status = $data['status'] ?? 'published';
+        $status = strtolower($data['status'] ?? 'published');
         $statusNote = $data['statusNote'] ?? ($data['revisionNote'] ?? ($data['revision_note'] ?? null));
         $views = (int)($data['views'] ?? 0);
         $sharesCount = (int)($data['sharesCount'] ?? ($data['shares_count'] ?? 0));
         $isLeadHero = !empty($data['isLeadHero']) ? 1 : 0;
         $isBreaking = !empty($data['isBreaking']) ? 1 : 0;
         $isFeatured = !empty($data['isFeatured']) || !empty($data['isHighlighted']) ? 1 : 0;
+        $isHighlighted = !empty($data['isHighlighted']) ? 1 : 0;
         $isVideo = !empty($data['isVideo']) ? 1 : 0;
         $youtubeUrl = $data['youtubeUrl'] ?? ($data['youtube_url'] ?? '');
         $videoDuration = $data['videoDuration'] ?? ($data['video_duration'] ?? null);
@@ -229,147 +287,106 @@ if ($method === 'POST') {
         $seoDesc = $data['metaDesc'] ?? ($data['seo_description'] ?? $excerptBn);
         $seoKeywords = $data['focusKeyword'] ?? ($data['seo_keywords'] ?? '');
 
-        if ($tableName === 'news_posts') {
-            // Check if exists
-            $checkStmt = $pdo->prepare("SELECT `id` FROM `news_posts` WHERE `post_id` = ? OR `slug` = ? LIMIT 1");
-            $checkStmt->execute([$postId, $slug]);
-            $existing = $checkStmt->fetch();
+        // Fetch actual table columns to dynamically adapt query
+        $colStmt = $pdo->query("SHOW COLUMNS FROM `{$tableName}`");
+        $colsMap = [];
+        while ($c = $colStmt->fetch(PDO::FETCH_ASSOC)) {
+            $colsMap[strtolower($c['Field'])] = true;
+        }
 
-            if ($existing) {
-                $updateSql = "
-                    UPDATE `news_posts` SET
-                        `title_bn` = ?,
-                        `title_en` = ?,
-                        `kicker` = ?,
-                        `subtitle` = ?,
-                        `excerpt_bn` = ?,
-                        `excerpt_en` = ?,
-                        `content_bn` = ?,
-                        `content_en` = ?,
-                        `blocks` = ?,
-                        `category_id` = ?,
-                        `category_bn` = ?,
-                        `category_en` = ?,
-                        `categories` = ?,
-                        `card_category` = ?,
-                        `image_caption` = ?,
-                        `featured_image` = ?,
-                        `gallery_images` = ?,
-                        `author` = ?,
-                        `author_id` = ?,
-                        `author_avatar` = ?,
-                        `reporter_name` = ?,
-                        `read_time` = ?,
-                        `is_lead_hero` = ?,
-                        `is_breaking` = ?,
-                        `is_featured` = ?,
-                        `is_video` = ?,
-                        `youtube_url` = ?,
-                        `video_duration` = ?,
-                        `status` = ?,
-                        `status_note` = ?,
-                        `seo_title` = ?,
-                        `seo_description` = ?,
-                        `seo_keywords` = ?
-                    WHERE `id` = ?
-                ";
-                $stmt = $pdo->prepare($updateSql);
-                $stmt->execute([
-                    $titleBn, $titleEn, $kicker, $subtitle, $excerptBn, $excerptEn,
-                    $contentBn, $contentEn, $blocks, $categoryId, $categoryBn, $categoryEn,
-                    $categories, $cardCategory, $cardCaption, $featuredImage, $galleryImages,
-                    $author, $authorId, $authorAvatar, $reporterName, $readTime,
-                    $isLeadHero, $isBreaking, $isFeatured, $isVideo, $youtubeUrl,
-                    $videoDuration, $status, $statusNote, $seoTitle, $seoDesc,
-                    $seoKeywords, $existing['id']
-                ]);
-                $dbId = $existing['id'];
-                $msg = 'সংবাদটি cPanel MariaDB (`news_posts`) টেবিলে সফলভাবে আপডেট হয়েছে!';
-            } else {
-                $insertSql = "
-                    INSERT INTO `news_posts` (
-                        `post_id`, `slug`, `title_bn`, `title_en`, `kicker`, `subtitle`,
-                        `excerpt_bn`, `excerpt_en`, `content_bn`, `content_en`, `blocks`, `category_id`,
-                        `category_bn`, `category_en`, `categories`, `card_category`, `image_caption`,
-                        `featured_image`, `gallery_images`, `author`, `author_id`, `author_avatar`,
-                        `reporter_name`, `read_time`, `is_lead_hero`, `is_breaking`, `is_featured`,
-                        `is_video`, `youtube_url`, `video_duration`, `status`, `status_note`,
-                        `views`, `shares_count`, `seo_title`, `seo_description`, `seo_keywords`
-                    ) VALUES (
-                        ?, ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?
-                    )
-                ";
-                $stmt = $pdo->prepare($insertSql);
-                $stmt->execute([
-                    $postId, $slug, $titleBn, $titleEn, $kicker, $subtitle,
-                    $excerptBn, $excerptEn, $contentBn, $contentEn, $blocks, $categoryId,
-                    $categoryBn, $categoryEn, $categories, $cardCategory, $cardCaption,
-                    $featuredImage, $galleryImages, $author, $authorId, $authorAvatar,
-                    $reporterName, $readTime, $isLeadHero, $isBreaking, $isFeatured,
-                    $isVideo, $youtubeUrl, $videoDuration, $status, $statusNote,
-                    $views, $sharesCount, $seoTitle, $seoDesc, $seoKeywords
-                ]);
-                $dbId = $pdo->lastInsertId();
-                $msg = 'সংবাদটি cPanel MariaDB (`news_posts`) টেবিলে সফলভাবে সংরক্ষিত হয়েছে!';
+        // Map all candidate fields
+        $fieldsPayload = [
+            'post_id' => $postId,
+            'slug' => $slug,
+            'title_bn' => $titleBn,
+            'title_en' => $titleEn,
+            'title' => $titleBn,
+            'kicker' => $kicker,
+            'subtitle' => $subtitle,
+            'excerpt_bn' => $excerptBn,
+            'excerpt_en' => $excerptEn,
+            'excerpt' => $excerptBn,
+            'content_bn' => $contentBn,
+            'content_en' => $contentEn,
+            'content' => $contentBn,
+            'blocks' => $blocks,
+            'category_id' => $categoryId,
+            'category_bn' => $categoryBn,
+            'category_en' => $categoryEn,
+            'categories' => $categories,
+            'card_category' => $cardCategory,
+            'image_caption' => $cardCaption,
+            'card_caption' => $cardCaption,
+            'featured_image' => $featuredImage,
+            'thumbnail_image' => $featuredImage,
+            'gallery_images' => $galleryImages,
+            'author' => $author,
+            'author_id' => $authorId,
+            'author_avatar' => $authorAvatar,
+            'reporter_name' => $reporterName,
+            'read_time' => $readTime,
+            'is_lead_hero' => $isLeadHero,
+            'is_highlighted' => $isHighlighted,
+            'is_breaking' => $isBreaking,
+            'is_featured' => $isFeatured,
+            'is_video' => $isVideo,
+            'youtube_url' => $youtubeUrl,
+            'video_duration' => $videoDuration,
+            'status' => $status,
+            'status_note' => $statusNote,
+            'views' => $views,
+            'shares_count' => $sharesCount,
+            'tags' => $tags,
+            'seo_title' => $seoTitle,
+            'seo_description' => $seoDesc,
+            'seo_keywords' => $seoKeywords
+        ];
+
+        // Filter only existing columns
+        $validFields = [];
+        foreach ($fieldsPayload as $key => $val) {
+            if (isset($colsMap[strtolower($key)])) {
+                $validFields[$key] = $val;
             }
+        }
+
+        // Check if row already exists
+        $checkStmt = $pdo->prepare("SELECT `id` FROM `{$tableName}` WHERE `post_id` = ? OR `slug` = ? LIMIT 1");
+        $checkStmt->execute([$postId, $slug]);
+        $existing = $checkStmt->fetch();
+
+        if ($existing) {
+            $setClauses = [];
+            $values = [];
+            foreach ($validFields as $key => $val) {
+                if ($key !== 'id') {
+                    $setClauses[] = "`{$key}` = ?";
+                    $values[] = $val;
+                }
+            }
+            $values[] = $existing['id'];
+
+            $updateSql = "UPDATE `{$tableName}` SET " . implode(', ', $setClauses) . " WHERE `id` = ?";
+            $stmt = $pdo->prepare($updateSql);
+            $stmt->execute($values);
+            $dbId = $existing['id'];
+            $msg = "সংবাদটি cPanel MariaDB (`{$tableName}`) টেবিলে সফলভাবে আপডেট হয়েছে!";
         } else {
-            // Legacy `news` table fallback
-            $checkStmt = $pdo->prepare("SELECT `id` FROM `news` WHERE `post_id` = ? OR `slug` = ? LIMIT 1");
-            $checkStmt->execute([$postId, $slug]);
-            $existing = $checkStmt->fetch();
+            $colNames = array_keys($validFields);
+            $placeholders = array_fill(0, count($colNames), '?');
+            $values = array_values($validFields);
 
-            if ($existing) {
-                $stmt = $pdo->prepare("
-                    UPDATE `news` SET 
-                        `title` = ?, `slug` = ?, `kicker` = ?, `content` = ?, `blocks` = ?, 
-                        `excerpt` = ?, `featured_image` = ?, `card_category` = ?, `card_caption` = ?, 
-                        `author` = ?, `status` = ?, `category_id` = ?, `category_bn` = ?, 
-                        `is_lead_hero` = ?, `is_breaking` = ?, `is_video` = ?, `tags` = ? 
-                    WHERE `id` = ?
-                ");
-                $stmt->execute([
-                    $titleBn, $slug, $kicker, $contentBn, $blocks,
-                    $excerptBn, $featuredImage, $cardCategory, $cardCaption,
-                    $author, $status, $categoryId, $categoryBn,
-                    $isLeadHero, $isBreaking, $isVideo, $tags,
-                    $existing['id']
-                ]);
-                $dbId = $existing['id'];
-                $msg = 'সংবাদটি MariaDB টেবিলে আপডেট হয়েছে!';
-            } else {
-                $stmt = $pdo->prepare("
-                    INSERT INTO `news` (
-                        `post_id`, `slug`, `title`, `kicker`, `content`, `blocks`, 
-                        `excerpt`, `featured_image`, `card_category`, `card_caption`, 
-                        `author`, `status`, `category_id`, `category_bn`, 
-                        `is_lead_hero`, `is_breaking`, `is_video`, `tags`
-                    ) VALUES (
-                        ?, ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?,
-                        ?, ?, ?, ?,
-                        ?, ?, ?, ?
-                    )
-                ");
-                $stmt->execute([
-                    $postId, $slug, $titleBn, $kicker, $contentBn, $blocks,
-                    $excerptBn, $featuredImage, $cardCategory, $cardCaption,
-                    $author, $status, $categoryId, $categoryBn,
-                    $isLeadHero, $isBreaking, $isVideo, $tags
-                ]);
-                $dbId = $pdo->lastInsertId();
-                $msg = 'সংবাদটি MariaDB টেবিলে সংরক্ষিত হয়েছে!';
-            }
+            $insertSql = "INSERT INTO `{$tableName}` (" . implode(', ', array_map(fn($k) => "`$k`", $colNames)) . ") VALUES (" . implode(', ', $placeholders) . ")";
+            $stmt = $pdo->prepare($insertSql);
+            $stmt->execute($values);
+            $dbId = $pdo->lastInsertId();
+            $msg = "সংবাদটি cPanel MariaDB (`{$tableName}`) টেবিলে সফলভাবে সংরক্ষিত হয়েছে!";
         }
 
         echo json_encode([
             'success' => true,
             'message' => $msg,
+            'table' => $tableName,
             'id' => $dbId,
             'post_id' => $postId,
             'slug' => $slug,
@@ -395,7 +412,7 @@ if ($method === 'DELETE') {
             throw new Exception('ডাটাবেজ সংযোগ সক্রিয় নেই।');
         }
 
-        $tableName = getNewsTableName($pdo);
+        $tableName = getAndEnsureNewsTable($pdo);
         $id = $_GET['id'] ?? null;
         if (!$id) {
             http_response_code(400);
