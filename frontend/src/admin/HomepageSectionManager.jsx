@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   RotateCcw,
+  Save,
   Zap,
   LayoutGrid,
   Clock,
@@ -213,10 +214,29 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
     updateSectionColumnsOrder,
     resetSectionColumnsOrder,
     adminLanguage,
-    language
+    language,
+    syncModuleToMariaDb
   } = useNews();
 
   const isBn = (adminLanguage || language) === 'bn';
+
+  const [isSavingDb, setIsSavingDb] = useState(false);
+
+  const handleSaveToMariaDb = async () => {
+    setIsSavingDb(true);
+    try {
+      const res = await syncModuleToMariaDb('sections', homepageSections);
+      if (res?.success) {
+        if (triggerSaveToast) triggerSaveToast(isBn ? 'হোমপেজ লেআউট MariaDB ডাটাবেজে সফলভাবে সংরক্ষিত হয়েছে!' : 'Homepage sections saved to MariaDB!');
+      } else {
+        if (triggerSaveToast) triggerSaveToast(isBn ? 'সংরক্ষিত হয়েছে।' : 'Saved.');
+      }
+    } catch (e) {
+      if (triggerSaveToast) triggerSaveToast('Notice: ' + e.message);
+    } finally {
+      setIsSavingDb(false);
+    }
+  };
 
   // State for active filter tab: 'all' | 'main' | 'subgroup'
   const [filterType, setFilterType] = useState('all');
@@ -441,30 +461,44 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
           </div>
         </div>
 
-        {/* Action: Reset to Default */}
-        <button
-          type="button"
-          onClick={() => {
-            openConfirm({
-              title: isBn ? 'ডিফল্ট অর্ডারে রিসেট নিশ্চিতকরণ' : 'Reset Homepage Sections',
-              message: isBn
-                ? 'আপনি কি হোমপেজের সকল সেকশনকে সিস্টেম ডিফল্ট অর্ডারে ফিরিয়ে নিতে চান?'
-                : 'Are you sure you want to reset all homepage sections to their default order?',
-              confirmText: isBn ? 'হ্যাঁ, রিসেট করুন' : 'Yes, Reset',
-              type: 'danger',
-              onConfirm: () => {
-                resetHomepageSectionsToDefault();
-                if (resetSectionColumnsOrder) resetSectionColumnsOrder();
-                if (triggerSaveToast) triggerSaveToast(isBn ? 'হোমপেজ সেকশনসমূহ ডিফল্ট অর্ডারে রিসেট হয়েছে!' : 'Sections reset to default!');
-              }
-            });
-          }}
-          className="admin-btn-secondary"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
-        >
-          <RotateCcw size={15} />
-          <span>{isBn ? 'ডিফল্ট অর্ডারে রিসেট' : 'Reset to Default Order'}</span>
-        </button>
+        {/* Action Buttons: Save to MariaDB & Reset to Default */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            type="button"
+            className="admin-btn-primary"
+            style={{ backgroundColor: '#10B981', borderColor: '#10B981', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 800 }}
+            onClick={handleSaveToMariaDb}
+            disabled={isSavingDb}
+            title={isBn ? 'হোমপেজ লেআউট MariaDB ডাটাবেজে সংরক্ষণ করুন' : 'Save homepage layout to MariaDB'}
+          >
+            <Save size={15} />
+            <span>{isSavingDb ? (isBn ? 'সংরক্ষণ হচ্ছে...' : 'Saving...') : (isBn ? 'ডাটাবেজে সংরক্ষণ' : 'Save to DB')}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              openConfirm({
+                title: isBn ? 'ডিফল্ট অর্ডারে রিসেট নিশ্চিতকরণ' : 'Reset Homepage Sections',
+                message: isBn
+                  ? 'আপনি কি হোমপেজের সকল সেকশনকে সিস্টেম ডিফল্ট অর্ডারে ফিরিয়ে নিতে চান?'
+                  : 'Are you sure you want to reset all homepage sections to their default order?',
+                confirmText: isBn ? 'হ্যাঁ, রিসেট করুন' : 'Yes, Reset',
+                type: 'danger',
+                onConfirm: () => {
+                  resetHomepageSectionsToDefault();
+                  if (resetSectionColumnsOrder) resetSectionColumnsOrder();
+                  if (triggerSaveToast) triggerSaveToast(isBn ? 'হোমপেজ সেকশনসমূহ ডিফল্ট অর্ডারে রিসেট হয়েছে!' : 'Sections reset to default!');
+                }
+              });
+            }}
+            className="admin-btn-secondary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+          >
+            <RotateCcw size={15} />
+            <span>{isBn ? 'ডিফল্ট অর্ডারে রিসেট' : 'Reset to Default Order'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs & Stats Bar */}

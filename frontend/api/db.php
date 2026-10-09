@@ -364,27 +364,8 @@ if ($pdo) {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
 
-        // 13. Admin Members Table
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS `admin_members` (
-                `id` INT AUTO_INCREMENT PRIMARY KEY,
-                `user_code` VARCHAR(50) NOT NULL UNIQUE,
-                `username` VARCHAR(100) NOT NULL UNIQUE,
-                `password_hash` VARCHAR(255) NULL,
-                `temp_password` VARCHAR(255) NULL,
-                `name` VARCHAR(200) NOT NULL,
-                `designation` VARCHAR(200) NOT NULL,
-                `role` VARCHAR(100) NOT NULL DEFAULT 'Reporter',
-                `phone` VARCHAR(50) NOT NULL,
-                `email` VARCHAR(255) NOT NULL UNIQUE,
-                `avatar` TEXT NULL,
-                `status` VARCHAR(20) NOT NULL DEFAULT 'active',
-                `allowed_tabs` LONGTEXT NOT NULL,
-                `last_login` DATETIME NULL,
-                `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        ");
+        // 13. Admin Members Table: Removed (User ID details not stored in MariaDB)
+        $pdo->exec("DROP TABLE IF EXISTS `admin_members`;");
 
         // 14. Activity Logs & Backup Logs
         $pdo->exec("

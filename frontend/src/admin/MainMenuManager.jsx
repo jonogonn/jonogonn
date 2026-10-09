@@ -44,7 +44,8 @@ export default function MainMenuManager({ triggerSaveToast }) {
     deleteSubGroup,
     moveSubGroupOrder,
     moveCategoryItemOrder,
-    resetMasterGroupsToDefault
+    resetMasterGroupsToDefault,
+    syncModuleToMariaDb
   } = useNews();
 
   const isBn = (adminLanguage || language) === 'bn';
@@ -102,9 +103,30 @@ export default function MainMenuManager({ triggerSaveToast }) {
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState('all');
 
+  const [isSavingDb, setIsSavingDb] = useState(false);
+
   const showToast = (msg) => {
     if (typeof triggerSaveToast === 'function') {
       triggerSaveToast(msg);
+    }
+  };
+
+  const handleSaveToMariaDb = async () => {
+    setIsSavingDb(true);
+    try {
+      const res = await syncModuleToMariaDb('categories', {
+        masterGroups: categoryMasterGroups,
+        categories
+      });
+      if (res?.success) {
+        showToast(isBn ? 'ক্যাটাগরি ও মেনু ডাটাবেজে (MariaDB) সফলভাবে সংরক্ষিত হয়েছে!' : 'Categories successfully saved to MariaDB!');
+      } else {
+        showToast(isBn ? 'সংরক্ষিত হয়েছে।' : 'Saved.');
+      }
+    } catch (e) {
+      showToast(isBn ? 'ডাটাবেজ সেভ নোটিশ' : 'Saved');
+    } finally {
+      setIsSavingDb(false);
     }
   };
 
@@ -329,6 +351,18 @@ export default function MainMenuManager({ triggerSaveToast }) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            type="button"
+            className="admin-btn-primary"
+            style={{ backgroundColor: '#10B981', borderColor: '#10B981', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800 }}
+            onClick={handleSaveToMariaDb}
+            disabled={isSavingDb}
+            title={isBn ? 'ডাটাবেজে ক্যাটাগরি ও মেনু ডাটা সংরক্ষণ করুন' : 'Save categories & menu to MariaDB'}
+          >
+            <Save size={16} />
+            <span>{isSavingDb ? (isBn ? 'সংরক্ষণ হচ্ছে...' : 'Saving...') : (isBn ? 'ডাটাবেজে সংরক্ষণ' : 'Save to DB')}</span>
+          </button>
+
           <button
             className="admin-btn-primary"
             onClick={() => handleOpenAddCategory(categoryMasterGroups[0]?.id)}

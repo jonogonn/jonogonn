@@ -21,8 +21,12 @@ export default function SocialNewsCardPreview({
   category = 'সারাদেশ । বাংলাদেশ',
   dateBn = '',
   imagePosition = 'center center',
-  onPositionChange = null
+  onPositionChange = null,
+  isBn = true,
+  language = 'bn'
 }) {
+  const isBangla = isBn !== false && language !== 'en';
+
   // State for security / Anti-screenshot lockout
   const [isLockedOut, setIsLockedOut] = useState(false);
   const [lockoutReason, setLockoutReason] = useState('');
@@ -49,13 +53,13 @@ export default function SocialNewsCardPreview({
   const containerRef = useRef(null);
 
   // Formatting date
-  const displayDate = dateBn || new Date().toLocaleDateString('bn-BD', {
+  const displayDate = dateBn || new Date().toLocaleDateString(isBangla ? 'bn-BD' : 'en-GB', {
     day: '2-digit',
     month: 'long',
     year: 'numeric'
   });
 
-  const displayCaption = caption || 'ছবি: সংগৃহীত';
+  const displayCaption = caption || (isBangla ? 'ছবি: সংগৃহীত' : 'Photo: Collected');
   const displayImage = imageUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80';
 
   // Smart splitting for headline (Dual Color: Line 1 in Red, Line 2 in Navy Blue like the official sample)
@@ -507,7 +511,7 @@ export default function SocialNewsCardPreview({
             whiteSpace: 'nowrap'
           }}
         >
-          জনগণ.নিউজ • অফিসিয়াল প্রিভিউ • সংরক্ষিত
+          {isBangla ? 'জনগণ.নিউজ • অফিসিয়াল প্রিভিউ • সংরক্ষিত' : 'Jonogon.News • Official Preview • Protected'}
         </div>
 
         {/* Layer 9: AIR-TIGHT SCREENSHOT / FOCUS-LOSS BLACKOUT LOCKOUT SHIELD */}
@@ -551,11 +555,13 @@ export default function SocialNewsCardPreview({
 
             <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#EF4444', marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <Lock size={16} />
-              <span>স্ক্রিনশট ও স্ক্রিন ক্যাপচার নিষিদ্ধ</span>
+              <span>{isBangla ? 'স্ক্রিনশট ও স্ক্রিন ক্যাপচার নিষিদ্ধ' : 'Screenshot & Screen Capture Restricted'}</span>
             </div>
 
             <div style={{ fontSize: '0.8rem', color: '#9CA3AF', maxWidth: 320, lineHeight: 1.45, marginBottom: 14 }}>
-              সোশ্যাল ফটো কার্ডের সুরক্ষার্থে উইন্ডো ফোকাস ছাড়া বা স্ন্যাপিং টুল চালুর সাথে সাথেই কার্ডটি স্বয়ংক্রিয়ভাবে লক হয়ে যায়।
+              {isBangla
+                ? 'সোশ্যাল ফটো কার্ডের সুরক্ষার্থে উইন্ডো ফোকাস ছাড়া বা স্ন্যাপিং টুল চালুর সাথে সাথেই কার্ডটি স্বয়ংক্রিয়ভাবে লক হয়ে যায়।'
+                : 'To protect official news assets, the card automatically locks when window loses focus or screen capture is active.'}
             </div>
 
             {lockoutReason && (
@@ -569,7 +575,9 @@ export default function SocialNewsCardPreview({
                   marginBottom: 14
                 }}
               >
-                কারণ: {lockoutReason}
+                {isBangla
+                  ? `কারণ: ${lockoutReason}`
+                  : `Reason: ${lockoutReason === 'ট্যাব ব্যাকগ্রাউন্ডে চলে গেছে' ? 'Tab moved to background' : 'Window lost focus (screenshot or other app active)'}`}
               </div>
             )}
 
@@ -595,7 +603,7 @@ export default function SocialNewsCardPreview({
               }}
             >
               <Eye size={14} />
-              <span>আনলক করে কার্ড দেখুন</span>
+              <span>{isBangla ? 'আনলক করে কার্ড দেখুন' : 'Unlock to View Card'}</span>
             </button>
           </div>
         )}
@@ -625,7 +633,7 @@ export default function SocialNewsCardPreview({
         >
           <span style={{ fontWeight: 800, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Type size={14} color="var(--primary-red)" />
-            <span>কার্ডের ফন্ট সাইজ ও টেক্সট কন্ট্রোল</span>
+            <span>{isBangla ? 'কার্ডের ফন্ট সাইজ ও টেক্সট কন্ট্রোল' : 'Card Font Size & Text Controls'}</span>
           </span>
           <button
             type="button"
@@ -640,23 +648,25 @@ export default function SocialNewsCardPreview({
               alignItems: 'center',
               gap: 4
             }}
-            title="রিসেট করুন"
+            title={isBangla ? 'রিসেট করুন' : 'Reset Controls'}
           >
             <RotateCcw size={12} />
-            <span>রিসেট</span>
+            <span>{isBangla ? 'রিসেট' : 'Reset'}</span>
           </button>
         </div>
 
         {/* 1. Headline Font Size (+ / -) */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <span style={{ color: 'var(--text-secondary)' }}>মূল শিরোনাম ফন্ট সাইজ:</span>
+          <span style={{ color: 'var(--text-secondary)' }}>
+            {isBangla ? 'মূল শিরোনাম ফন্ট সাইজ:' : 'Headline Font Size:'}
+          </span>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <button
               type="button"
               className="admin-btn-action"
               onClick={() => setTitleFontSize((s) => Math.max(16, s - 2))}
               style={{ width: 28, height: 28, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              title="সাইজ ছোট করুন"
+              title={isBangla ? 'সাইজ ছোট করুন' : 'Decrease size'}
             >
               <Minus size={13} />
             </button>
@@ -668,7 +678,7 @@ export default function SocialNewsCardPreview({
               className="admin-btn-action"
               onClick={() => setTitleFontSize((s) => Math.min(42, s + 2))}
               style={{ width: 28, height: 28, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              title="সাইজ বড় করুন"
+              title={isBangla ? 'সাইজ বড় করুন' : 'Increase size'}
             >
               <Plus size={13} />
             </button>
@@ -678,7 +688,9 @@ export default function SocialNewsCardPreview({
         {/* 2. Kicker Font Size (+ / -) */}
         {kicker && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ color: 'var(--text-secondary)' }}>সাব-হেডলাইন ফন্ট সাইজ:</span>
+            <span style={{ color: 'var(--text-secondary)' }}>
+              {isBangla ? 'সাব-হেডলাইন ফন্ট সাইজ:' : 'Sub-Headline Font Size:'}
+            </span>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <button
                 type="button"
@@ -707,7 +719,7 @@ export default function SocialNewsCardPreview({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <span style={{ color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <Palette size={13} />
-            <span>কালার স্কিম:</span>
+            <span>{isBangla ? 'কালার স্কিম:' : 'Color Scheme:'}</span>
           </span>
           <div style={{ display: 'inline-flex', gap: 4 }}>
             <button
@@ -724,7 +736,7 @@ export default function SocialNewsCardPreview({
                 fontWeight: colorMode === 'dual' ? 800 : 500
               }}
             >
-              লাল + নীল
+              {isBangla ? 'লাল + নীল' : 'Red + Blue'}
             </button>
             <button
               type="button"
@@ -740,7 +752,7 @@ export default function SocialNewsCardPreview({
                 fontWeight: colorMode === 'red' ? 800 : 500
               }}
             >
-              সব লাল
+              {isBangla ? 'সব লাল' : 'All Red'}
             </button>
             <button
               type="button"
@@ -756,7 +768,7 @@ export default function SocialNewsCardPreview({
                 fontWeight: colorMode === 'blue' ? 800 : 500
               }}
             >
-              সব নীল
+              {isBangla ? 'সব নীল' : 'All Blue'}
             </button>
           </div>
         </div>
@@ -766,10 +778,12 @@ export default function SocialNewsCardPreview({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <span style={{ color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.76rem', fontWeight: 700 }}>
               <Crosshair size={13} color="var(--primary-red)" />
-              <span>ছবির পজিশন / ফোকাস (3×3 Grid):</span>
+              <span>{isBangla ? 'ছবির পজিশন / ফোকাস (3×3 Grid):' : 'Image Focus / Position (3×3 Grid):'}</span>
             </span>
             <span style={{ fontSize: '0.72rem', color: 'var(--primary-red)', fontWeight: 800 }}>
-              {GRID_POSITIONS.find((p) => p.id === currentImagePosition.toLowerCase())?.bn || currentImagePosition}
+              {isBangla
+                ? (GRID_POSITIONS.find((p) => p.id === currentImagePosition.toLowerCase())?.bn || currentImagePosition)
+                : (GRID_POSITIONS.find((p) => p.id === currentImagePosition.toLowerCase())?.label || currentImagePosition)}
             </span>
           </div>
 
@@ -800,7 +814,7 @@ export default function SocialNewsCardPreview({
                   title={`${pos.label} (${pos.bn})`}
                 >
                   <span style={{ fontSize: '0.78rem', lineHeight: 1 }}>{pos.arrow}</span>
-                  <span style={{ fontSize: '0.66rem', whiteSpace: 'nowrap' }}>{pos.bn}</span>
+                  <span style={{ fontSize: '0.66rem', whiteSpace: 'nowrap' }}>{isBangla ? pos.bn : pos.label}</span>
                 </button>
               );
             })}
@@ -811,13 +825,21 @@ export default function SocialNewsCardPreview({
         <div style={{ marginTop: 8 }}>
           <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
             <Lightbulb size={12} style={{ color: 'var(--primary-red)' }} />
-            <span>২ লাইনে আলাদা করতে চাইলে মাঝখানে `|` দিন (যেমন: ১ম অংশ | ২য় অংশ):</span>
+            <span>
+              {isBangla
+                ? '২ লাইনে আলাদা করতে চাইলে মাঝখানে `|` দিন (যেমন: ১ম অংশ | ২য় অংশ):'
+                : 'To split in 2 lines, add `|` in middle (e.g.: Part 1 | Part 2):'}
+            </span>
           </label>
           <input
             type="text"
             className="admin-input"
             style={{ fontSize: '0.78rem', padding: '5px 8px' }}
-            placeholder="ঐচ্ছিক কাস্টম স্প্লিট (যেমন: একবছরে গরিব জনগণ বেড়েছে | প্রায় ২১ লাখ !)"
+            placeholder={
+              isBangla
+                ? 'ঐচ্ছিক কাস্টম স্প্লিট (যেমন: একবছরে গরিব জনগণ বেড়েছে | প্রায় ২১ লাখ !)'
+                : 'Optional custom split (e.g.: Headline Part 1 | Headline Part 2)'
+            }
             value={manualLineBreak}
             onChange={(e) => setManualLineBreak(e.target.value)}
           />

@@ -68,6 +68,7 @@ import UserProfileManager from './UserProfileManager';
 import NewsCardMakerManager from './NewsCardMakerManager';
 import AdminNotificationDropdown from './AdminNotificationDropdown';
 import AdminLoginScreen from './AdminLoginScreen';
+import AdsManager from './AdsManager';
 import ConfirmModal from '../components/Modals/ConfirmModal';
 
 export default function AdminDashboard() {
@@ -161,6 +162,8 @@ export default function AdminDashboard() {
 
   // Active Tab State
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'create-post' | 'edit-post' | 'approve-post' | 'publish-post' | 'gallery' | 'main-menu' | 'homepage-sections' | 'podcasts' | 'emergency' | 'settings' | 'ads' | 'database' | 'setup-access'
+  const [dashboardEditingPostId, setDashboardEditingPostId] = useState(null);
+  const [dashboardEditingPost, setDashboardEditingPost] = useState(null);
   const [saveToast, setSaveToast] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
@@ -476,7 +479,11 @@ export default function AdminDashboard() {
           <button
             type="button"
             className={`admin-nav-item ${activeTab === 'create-post' ? 'active' : ''}`}
-            onClick={() => setActiveTab('create-post')}
+            onClick={() => {
+              setDashboardEditingPostId(null);
+              setDashboardEditingPost(null);
+              setActiveTab('create-post');
+            }}
             title={isBn ? 'নতুন সংবাদ তৈরি করুন' : 'Write News Article'}
             style={{
               justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
@@ -1490,8 +1497,14 @@ export default function AdminDashboard() {
           {/* TAB 2: VISUAL CREATE POST EDITOR */}
           {activeTab === 'create-post' && (
             <CreatePostManager
+              initialPostId={dashboardEditingPostId}
+              initialPost={dashboardEditingPost}
               triggerSaveToast={triggerSaveToast}
-              onSwitchToArticles={() => setActiveTab('edit-post')}
+              onSwitchToArticles={() => {
+                setDashboardEditingPostId(null);
+                setDashboardEditingPost(null);
+                setActiveTab('publish-post');
+              }}
             />
           )}
 
@@ -1500,7 +1513,11 @@ export default function AdminDashboard() {
             <EditPostManager
               triggerSaveToast={triggerSaveToast}
               onNavigateToApprove={() => setActiveTab('approve-post')}
-              onNavigateToCreate={() => setActiveTab('create-post')}
+              onNavigateToCreate={() => {
+                setDashboardEditingPostId(null);
+                setDashboardEditingPost(null);
+                setActiveTab('create-post');
+              }}
             />
           )}
 
@@ -1509,7 +1526,11 @@ export default function AdminDashboard() {
             <ApprovePostManager
               triggerSaveToast={triggerSaveToast}
               onNavigateToEdit={() => setActiveTab('edit-post')}
-              onNavigateToCreate={() => setActiveTab('create-post')}
+              onNavigateToCreate={() => {
+                setDashboardEditingPostId(null);
+                setDashboardEditingPost(null);
+                setActiveTab('create-post');
+              }}
             />
           )}
 
@@ -1517,7 +1538,11 @@ export default function AdminDashboard() {
           {activeTab === 'publish-post' && (
             <PublishPostManager
               triggerSaveToast={triggerSaveToast}
-              onNavigateToCreate={() => setActiveTab('create-post')}
+              onNavigateToCreate={() => {
+                setDashboardEditingPostId(null);
+                setDashboardEditingPost(null);
+                setActiveTab('create-post');
+              }}
               onNavigateToEdit={() => setActiveTab('edit-post')}
             />
           )}
@@ -1830,56 +1855,9 @@ export default function AdminDashboard() {
             <GlobalSettingsManager triggerSaveToast={triggerSaveToast} />
           )}
 
-          {/* TAB 10: GOOGLE ADSENSE */}
+          {/* TAB 10: GOOGLE ADSENSE & BANNER ADS MANAGER */}
           {activeTab === 'ads' && (
-            <div className="admin-card">
-              <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, marginBottom: 8 }}>
-                {isBn ? 'Google AdSense ও ব্যানার বিজ্ঞাপন' : 'Google AdSense & Ad Management'}
-              </h1>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 24 }}>
-                ওয়েবসাইটের বিভিন্ন পজিশনে Google AdSense স্ক্রিপ্ট ও ব্যানার কোড কনফিগার করুন।
-              </p>
-
-              <form onSubmit={handleSaveSettings}>
-                <div className="admin-form-group">
-                  <label className="admin-label">AdSense Client ID (Publisher ID)</label>
-                  <input
-                    type="text"
-                    className="admin-input"
-                    placeholder="ca-pub-XXXXXXXXXXXXXXXX"
-                    value={settingsForm.adsenseClientId || ''}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, adsenseClientId: e.target.value })}
-                  />
-                </div>
-
-                <div className="admin-form-group">
-                  <label className="admin-label">হেডার টপ ব্যানার স্লট কোড</label>
-                  <textarea
-                    className="admin-textarea"
-                    rows={3}
-                    placeholder="AdSense বা কাস্টম ব্যানার HTML কোড..."
-                    value={settingsForm.headerAdCode || ''}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, headerAdCode: e.target.value })}
-                  />
-                </div>
-
-                <div className="admin-form-group">
-                  <label className="admin-label">সংবাদ বিস্তারিত পেজ ব্যানার স্লট</label>
-                  <textarea
-                    className="admin-textarea"
-                    rows={3}
-                    placeholder="Article page ad script..."
-                    value={settingsForm.articleAdCode || ''}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, articleAdCode: e.target.value })}
-                  />
-                </div>
-
-                <button type="submit" className="admin-btn-primary">
-                  <Save size={18} />
-                  <span>বিজ্ঞাপন সেটিংস সংরক্ষণ করুন</span>
-                </button>
-              </form>
-            </div>
+            <AdsManager triggerSaveToast={triggerSaveToast} />
           )}
 
           {/* TAB 11: DATABASE & CLOUD EXPORTS (Requirement 1) */}

@@ -477,54 +477,46 @@ export default function SetupAccessManager({ triggerSaveToast }) {
 
     setIsSendingEmail(true);
 
-    // 1. Insert into Supabase (with fallback table checking)
-    let createdRecord = null;
+    // 1. Create real Supabase Auth user
+    let supabaseAuthUser = null;
     let supabaseInsertError = null;
 
     try {
-      const { data, error } = await supabase
-        .from('admin_users')
-        .insert([newMemberPayload])
-        .select();
+      const { data: authData, error: authErr } = await supabase.auth.signUp({
+        email: newMemberPayload.email,
+        password: finalPassword,
+        options: {
+          data: {
+            name: newMemberPayload.name,
+            username: finalUsername,
+            user_code: finalUserCode,
+            role: newMemberPayload.role,
+            designation: newMemberPayload.designation,
+            phone: cleanPhone,
+            allowed_tabs: newMemberPayload.allowed_tabs
+          }
+        }
+      });
 
-      if (!error && data && data.length > 0) {
-        createdRecord = {
-          ...data[0],
-          allowed_tabs: Array.isArray(data[0].allowed_tabs)
-            ? data[0].allowed_tabs
-            : typeof data[0].allowed_tabs === 'string'
-            ? JSON.parse(data[0].allowed_tabs || '[]')
-            : newMemberPayload.allowed_tabs
-        };
+      if (!authErr && authData?.user) {
+        supabaseAuthUser = authData.user;
         setSupabaseConnected(true);
-      } else {
-        if (error) {
-          supabaseInsertError = error;
-          console.warn('Supabase admin_users insert error:', error.message);
-        }
-        // Try fallback table admin_members if admin_users fails
-        const fbResult = await supabase
-          .from('admin_members')
-          .insert([newMemberPayload])
-          .select();
-
-        if (!fbResult.error && fbResult.data && fbResult.data.length > 0) {
-          createdRecord = fbResult.data[0];
-          setSupabaseConnected(true);
-          supabaseInsertError = null;
-        }
+      } else if (authErr) {
+        supabaseInsertError = authErr;
+        console.warn('Supabase Auth warning:', authErr.message);
       }
     } catch (err) {
       supabaseInsertError = err;
-      console.warn('Supabase insert exception:', err);
+      console.warn('Supabase Auth exception:', err);
     }
 
-    const localItem = createdRecord || {
-      id: `user-${Date.now()}`,
+    const localItem = {
+      id: supabaseAuthUser?.id || `user-${Date.now()}`,
+      supabase_id: supabaseAuthUser?.id || null,
       ...newMemberPayload
     };
 
-    // Update local state and localStorage immediately
+    // Update local state and localStorage immediately (No MariaDB member storage per user privacy policy)
     setMembers((prev) => {
       const filtered = prev.filter((m) => m.username !== localItem.username && m.email !== localItem.email);
       const updated = [localItem, ...filtered];
@@ -533,20 +525,6 @@ export default function SetupAccessManager({ triggerSaveToast }) {
       } catch (e) {}
       return updated;
     });
-
-    // 2. Also persist to MariaDB admin_sync API
-    try {
-      await fetch('/api/admin_sync.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          module: 'members',
-          data: [newMemberPayload]
-        })
-      });
-    } catch (dbErr) {
-      console.warn('MariaDB admin_sync notice:', dbErr);
-    }
 
     // 3. Dispatch Automated Email via backend API
     let emailSentResult = false;
@@ -611,22 +589,16 @@ export default function SetupAccessManager({ triggerSaveToast }) {
       message: isBn
         ? `আপনি কি নিশ্চিত যে "${member.name}" (${member.username}) এর অ্যাডমিন এক্সেস স্থায়ীভাবে মুছে ফেলতে চান?`
         : `Permanently delete access for "${member.name}" (${member.username})?`,
+      subMessage: isBn
+        ? 'এই সদস্যের অ্যাকাউন্ট মুছে ফেলা হলে তিনি আর অ্যাডমিন প্যানেলে প্রবেশ করতে পারবেন না।'
+        : 'Once deleted, this user will lose all admin access privileges.',
       confirmText: isBn ? 'হ্যাঁ, এক্সেস মুছুন' : 'Yes, Delete',
+      cancelText: isBn ? 'বাতিল' : 'Cancel',
       type: 'danger'
     });
 
     if (confirmed) {
-      // 1. Delete from Supabase
-      try {
-        const res1 = await supabase.from('admin_users').delete().eq('id', member.id);
-        if (res1.error) {
-          await supabase.from('admin_members').delete().eq('id', member.id);
-        }
-      } catch (err) {
-        console.warn('Supabase delete error:', err);
-      }
-
-      // 2. Delete from local state
+      // 1. Delete from local state & cache
       setMembers((prev) => {
         const updated = prev.filter((m) => m.id !== member.id);
         try {

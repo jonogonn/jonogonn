@@ -167,7 +167,7 @@ if ($requestMethod === 'POST') {
             @unlink($tempWebpPath);
         }
 
-        // 4. Save Record to MariaDB `media_uploads` table
+        // 4. Save Record to MariaDB `media_uploads` and `media_gallery` tables
         try {
             if ($pdo) {
                 $stmt = $pdo->prepare("
@@ -179,6 +179,18 @@ if ($requestMethod === 'POST') {
                 $stmt->execute([
                     $originalName, $storageKey, $publicUrl, $finalFormat,
                     $width, $height, $finalSize, $provider
+                ]);
+
+                // Also insert into media_gallery for phpMyAdmin and Media Gallery manager
+                $dim = "{$width}x{$height}";
+                $gStmt = $pdo->prepare("
+                    INSERT INTO `media_gallery` (
+                        `file_name`, `storage_key`, `public_url`, `file_type`, `file_size`, `dimensions`
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE `public_url` = VALUES(`public_url`)
+                ");
+                $gStmt->execute([
+                    $originalName, $storageKey, $publicUrl, 'image/' . $finalFormat, $finalSize, $dim
                 ]);
             }
         } catch (Exception $dbEx) {

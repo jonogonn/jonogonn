@@ -27,6 +27,7 @@ import {
 import { generateSocialCardJpg } from '../utils/generateSocialCardJpg';
 import { getCardCategoryLabel } from '../utils/cardCategoryHelper';
 import { fetchArticlesFromMariaDb } from '../utils/mariaDbSync';
+import CreatePostManager from './CreatePostManager';
 
 export default function PublishPostManager({ triggerSaveToast, onNavigateToCreate, onNavigateToEdit }) {
   const {
@@ -64,6 +65,29 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
   // Downloading state for card JPG
   const [downloadingId, setDownloadingId] = useState(null);
 
+  // Edit Published Article inline state
+  const [editingArticleId, setEditingArticleId] = useState(null);
+  const [editingArticle, setEditingArticle] = useState(null);
+
+  const handleStartEdit = (art) => {
+    if (!art) return;
+    if (typeof setArticles === 'function') {
+      try {
+        setArticles((prev) => {
+          if (!Array.isArray(prev)) return [art];
+          if (!prev.some((a) => String(a.id) === String(art.id))) {
+            return [art, ...prev];
+          }
+          return prev.map((a) => (String(a.id) === String(art.id) ? { ...a, ...art } : a));
+        });
+      } catch (e) {
+        console.warn('setArticles error:', e);
+      }
+    }
+    setEditingArticle(art);
+    setEditingArticleId(art.id);
+  };
+
   // Sync / Refresh with MariaDB database
   const handleRefreshDb = async () => {
     setIsRefreshing(true);
@@ -89,15 +113,17 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
           dateEn: p.date_en || p.dateEn
         }));
 
-        setArticles((prev) => {
-          // Merge unique by id/slug
-          const map = new Map();
-          normalized.forEach((item) => map.set(item.id, item));
-          prev.forEach((item) => {
-            if (!map.has(item.id)) map.set(item.id, item);
+        if (typeof setArticles === 'function') {
+          setArticles((prev) => {
+            // Merge unique by id/slug
+            const map = new Map();
+            normalized.forEach((item) => map.set(item.id, item));
+            (Array.isArray(prev) ? prev : []).forEach((item) => {
+              if (!map.has(item.id)) map.set(item.id, item);
+            });
+            return Array.from(map.values());
           });
-          return Array.from(map.values());
-        });
+        }
 
         showSuccess(
           isBn
@@ -197,7 +223,11 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
       message: isCurrentlyPublished
         ? (isBn ? `"${article.titleBn}" সংবাদটি সাইট থেকে সরিয়ে ড্রাফট হিসেবে রাখতে চান?` : `Move "${article.titleBn}" to drafts?`)
         : (isBn ? `"${article.titleBn}" সংবাদটি ওয়েবসাইটে সরাসরি লাইভ প্রকাশ করতে চান?` : `Publish "${article.titleBn}" to live site?`),
+      subMessage: isCurrentlyPublished
+        ? (isBn ? 'আনপাবলিশ করার পর এটি সাধারণ পাঠকদের জন্য আর দৃশ্যমান থাকবে না।' : 'After unpublishing, it will no longer be visible to readers.')
+        : (isBn ? 'পাবলিশ করার সাথে সাথে এটি মূল ওয়েবসাইটে সরাসরি দৃশ্যমান হবে।' : 'Once published, it will be immediately live on the website.'),
       confirmText: isCurrentlyPublished ? (isBn ? 'হ্যাঁ, আনপাবলিশ করুন' : 'Yes, Unpublish') : (isBn ? 'হ্যাঁ, পাবলিশ করুন' : 'Yes, Publish'),
+      cancelText: isBn ? 'বাতিল' : 'Cancel',
       type: isCurrentlyPublished ? 'warning' : 'primary'
     });
 
@@ -205,11 +235,12 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
       updateArticle(article.id, { status: newStatus });
       showSuccess(
         isCurrentlyPublished
-          ? (isBn ? 'পোস্টটি আনপাবলিশ করে ড্রাফট তালিকায় রাখা হয়েছে।' : 'Post unpublished and moved to drafts.')
-          : (isBn ? 'পোস্টটি সফলভাবে ওয়েবসাইটে লাইভ প্রকাশ করা হয়েছে!' : 'Post published to live website!')
+          ? (isBn ? 'সংবাদটি আনপাবলিশ করে ড্রাফট তালিকায় রাখা হয়েছে।' : 'Post unpublished and moved to drafts.')
+          : (isBn ? 'সংবাদটি সফলভাবে ওয়েবসাইটে লাইভ প্রকাশ করা হয়েছে!' : 'Post published to live website!'),
+        isCurrentlyPublished ? (isBn ? 'ড্রাফট সম্পন্ন' : 'Unpublished') : (isBn ? 'লাইভ পাবলিশ সম্পন্ন' : 'Published Live')
       );
       if (triggerSaveToast) {
-        triggerSaveToast(isCurrentlyPublished ? 'পোস্ট ড্রাফট হিসেবে সংরক্ষিত' : 'পোস্ট লাইভ পাবলিশ সম্পন্ন!');
+        triggerSaveToast(isCurrentlyPublished ? 'সংবাদ ড্রাফট হিসেবে সংরক্ষিত' : 'সংবাদ লাইভ পাবলিশ সম্পন্ন!');
       }
     }
   };
@@ -217,18 +248,22 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
   // Delete Article
   const handleDelete = async (article) => {
     const confirmed = await showConfirm({
-      title: isBn ? 'পোস্ট স্থায়ীভাবে মুছে ফেলার নিশ্চিতকরণ' : 'Confirm Delete Post',
+      title: isBn ? 'সংবাদ স্থায়ীভাবে মুছে ফেলার নিশ্চিতকরণ' : 'Confirm Delete Post',
       message: isBn
-        ? `আপনি কি নিশ্চিত যে "${article.titleBn || article.titleEn}" পোস্টটি MariaDB ও সাইট থেকে স্থায়ীভাবে মুছে ফেলতে চান?`
-        : `Permanently delete "${article.titleBn || article.titleEn}" from database?`,
+        ? `আপনি কি নিশ্চিত যে "${article.titleBn || article.titleEn}" সংবাদটি ওয়েবসাইট থেকে স্থায়ীভাবে মুছে ফেলতে চান?`
+        : `Permanently delete "${article.titleBn || article.titleEn}"?`,
+      subMessage: isBn
+        ? 'এই সংবাদটি মুছে ফেললে তা আর ডাটাবেজ থেকে পুনরুদ্ধার করা সম্ভব হবে না।'
+        : 'Once deleted, this post cannot be recovered.',
       confirmText: isBn ? 'হ্যাঁ, মুছে ফেলুন' : 'Yes, Delete',
+      cancelText: isBn ? 'বাতিল' : 'Cancel',
       type: 'danger'
     });
 
     if (confirmed) {
       deleteArticle(article.id);
-      showSuccess(isBn ? 'পোস্টটি ডাটাবেজ থেকে মুছে ফেলা হয়েছে।' : 'Post deleted successfully.');
-      if (triggerSaveToast) triggerSaveToast(isBn ? 'পোস্ট মুছে ফেলা হয়েছে!' : 'Post deleted!');
+      showSuccess(isBn ? 'সংবাদটি সফলভাবে মুছে ফেলা হয়েছে।' : 'Post deleted successfully.', isBn ? 'মুছে ফেলা সম্পন্ন' : 'Deleted');
+      if (triggerSaveToast) triggerSaveToast(isBn ? 'সংবাদটি মুছে ফেলা হয়েছে!' : 'Post deleted!');
       if (previewArticle && previewArticle.id === article.id) setPreviewArticle(null);
     }
   };
@@ -250,7 +285,7 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
       await generateSocialCardJpg({
         title: article.titleBn || article.titleEn,
         kicker: article.kicker || '',
-        imageUrl: article.imageUrl,
+        imageUrl: article.imageUrl || article.featuredImage || article.thumbnail_image,
         caption: article.cardCaption || 'ছবি: সংগৃহীত',
         category: cardCat,
         dateBn: article.dateBn,
@@ -258,10 +293,12 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
         kickerFontSize: 26,
         lineHeight: 1.18,
         colorMode: 'dual',
+        imagePosition: article.cardImagePosition || article.imagePosition || 'center center',
         fileName: `jonogon-card-${cleanSlug}.jpg`
       });
 
       if (triggerSaveToast) triggerSaveToast(isBn ? 'ফটোকার্ড .JPG ডাউনলোড সম্পন্ন!' : 'Card downloaded!');
+      showSuccess(isBn ? 'সোশ্যাল ফটোকার্ড (.JPG) ডাউনলোড সম্পন্ন হয়েছে!' : 'Card .JPG downloaded successfully!');
     } catch (e) {
       showError(isBn ? 'ফটোকার্ড তৈরি করতে সমস্যা হয়েছে।' : 'Failed to generate card.');
     } finally {
@@ -279,6 +316,54 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
       }
     }
   };
+
+  // If editing a post, render the visual CreatePostManager with back navigation
+  if (editingArticleId) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 18px',
+            backgroundColor: 'var(--bg-card)',
+            borderRadius: 8,
+            border: '1px solid var(--border-color)',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+          }}
+        >
+          <button
+            type="button"
+            className="admin-btn-secondary"
+            onClick={() => {
+              setEditingArticleId(null);
+              setEditingArticle(null);
+              handleRefreshDb();
+            }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+          >
+            <ChevronLeft size={16} />
+            <span>{isBn ? '← প্রকাশিত সংবাদ তালিকায় ফিরে যান' : '← Back to Published Posts'}</span>
+          </button>
+          <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+            {isBn ? `পোস্ট সম্পাদনা মোড (ID: ${editingArticleId})` : `Editing Post (ID: ${editingArticleId})`}
+          </div>
+        </div>
+
+        <CreatePostManager
+          initialPostId={editingArticleId}
+          initialPost={editingArticle}
+          triggerSaveToast={triggerSaveToast}
+          onSwitchToArticles={() => {
+            setEditingArticleId(null);
+            setEditingArticle(null);
+            handleRefreshDb();
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -630,6 +715,21 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
                             <ExternalLink size={14} color="#10B981" />
                           </button>
 
+                          {/* Edit Post Button */}
+                          <button
+                            type="button"
+                            className="admin-btn-action"
+                            style={{
+                              padding: '5px 8px',
+                              color: '#3B82F6',
+                              backgroundColor: 'rgba(59, 130, 246, 0.1)'
+                            }}
+                            onClick={() => handleStartEdit(art)}
+                            title={isBn ? 'এই সংবাদটি সম্পাদনা করুন' : 'Edit this post'}
+                          >
+                            <Edit size={14} />
+                          </button>
+
                           {/* Preview Modal */}
                           <button
                             type="button"
@@ -860,6 +960,25 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
                 onClick={() => setPreviewArticle(null)}
               >
                 {isBn ? 'বন্ধ করুন' : 'Close'}
+              </button>
+              <button
+                type="button"
+                className="admin-btn-primary"
+                style={{
+                  backgroundColor: '#2563EB',
+                  borderColor: '#2563EB',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+                onClick={() => {
+                  const artToEdit = previewArticle;
+                  setPreviewArticle(null);
+                  handleStartEdit(artToEdit);
+                }}
+              >
+                <Edit size={14} />
+                <span>{isBn ? 'সংবাদ সম্পাদনা করুন' : 'Edit Post'}</span>
               </button>
               <button
                 type="button"

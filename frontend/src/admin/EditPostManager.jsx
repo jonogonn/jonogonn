@@ -119,14 +119,15 @@ export default function EditPostManager({ triggerSaveToast, onNavigateToApprove,
   // Request For Approval Handler (Moves to Approve Post Tab & disappears from Edit Post)
   const handleRequestApproval = async (article) => {
     const confirmed = await showConfirm({
-      title: isBn ? 'অনুমোদনের জন্য আবেদন নিশ্চিতকরণ' : 'Confirm Request For Approval',
+      title: isBn ? 'অনুমোদনের জন্য প্রেরণ' : 'Submit for Editorial Review',
       message: isBn
-        ? `"${article.titleBn || article.titleEn}" পোস্টটি অনুমোদনের জন্য "Approve Post" ট্যাবে পাঠাতে চান?`
-        : `Send "${article.titleBn || article.titleEn}" for review to the Approve Post tab?`,
+        ? `"${article.titleBn || article.titleEn}" সংবাদটি কি পর্যালোচনার জন্য জমা দিতে চান?`
+        : `Are you sure you want to submit "${article.titleBn || article.titleEn}" for editorial review?`,
       subMessage: isBn
-        ? 'অনুমোদনের আবেদনের পর এটি "Approve Post" ট্যাবে জমা হবে এবং এই তালিকা থেকে সরে যাবে।'
-        : 'Once submitted, it will move to Approve Post tab and be removed from this editable list.',
-      confirmText: isBn ? 'হ্যাঁ, অনুমোদনের জন্য পাঠান' : 'Yes, Request Approval',
+        ? 'অনুমোদন সম্পন্ন হলে সংবাদটি মূল ওয়েবসাইটে সরাসরি প্রকাশিত হবে।'
+        : 'Once approved by the editorial team, this post will be published live.',
+      confirmText: isBn ? 'হ্যাঁ, অনুমোদনের জন্য পাঠান' : 'Yes, Submit for Review',
+      cancelText: isBn ? 'বাতিল' : 'Cancel',
       type: 'warning'
     });
 
@@ -137,13 +138,14 @@ export default function EditPostManager({ triggerSaveToast, onNavigateToApprove,
       });
 
       if (triggerSaveToast) {
-        triggerSaveToast(isBn ? 'পোস্টটি অনুমোদনের জন্য পাঠানো হয়েছে!' : 'Request for approval sent successfully!');
+        triggerSaveToast(isBn ? 'সংবাদটি পর্যালোচনার জন্য পাঠানো হয়েছে!' : 'Submitted for review successfully!');
       }
 
       showSuccess(
         isBn
-          ? 'পোস্টটি সফলভাবে "Approve Post" ট্যাবে পাঠানো হয়েছে! অ্যাডমিন অনুমোদনের পর তা সাইটে প্রকাশিত হবে।'
-          : 'Post submitted to Approve Post tab! It will be published once approved.'
+          ? 'সংবাদটি সফলভাবে অনুমোদনের জন্য জমা দেওয়া হয়েছে। সম্পাদকীয় পর্যালোচনার পর এটি প্রকাশিত হবে।'
+          : 'Post successfully submitted for review. It will be published upon approval.',
+        isBn ? 'অনুমোদনের আবেদন সম্পন্ন' : 'Submitted for Approval'
       );
     }
   };
@@ -151,17 +153,21 @@ export default function EditPostManager({ triggerSaveToast, onNavigateToApprove,
   // Delete Article Handler
   const handleDeleteArticle = async (article) => {
     const confirmed = await showConfirm({
-      title: isBn ? 'পোস্ট মুছে ফেলার নিশ্চিতকরণ' : 'Confirm Delete Post',
+      title: isBn ? 'সংবাদ মুছে ফেলার নিশ্চিতকরণ' : 'Confirm Delete Post',
       message: isBn
-        ? `আপনি কি নিশ্চিত যে "${article.titleBn || article.titleEn}" পোস্টটি স্থায়ীভাবে মুছে ফেলতে চান?`
+        ? `আপনি কি নিশ্চিত যে "${article.titleBn || article.titleEn}" সংবাদটি স্থায়ীভাবে মুছে ফেলতে চান?`
         : `Are you sure you want to delete "${article.titleBn || article.titleEn}"?`,
+      subMessage: isBn
+        ? 'এই সংবাদটি মুছে ফেললে তা আর পুনরুদ্ধার করা সম্ভব হবে না।'
+        : 'This action cannot be undone.',
       confirmText: isBn ? 'হ্যাঁ, মুছে ফেলুন' : 'Yes, Delete',
+      cancelText: isBn ? 'বাতিল' : 'Cancel',
       type: 'danger'
     });
 
     if (confirmed) {
       deleteArticle(article.id);
-      if (triggerSaveToast) triggerSaveToast(isBn ? 'পোস্ট মুছে ফেলা হয়েছে!' : 'Post deleted!');
+      if (triggerSaveToast) triggerSaveToast(isBn ? 'সংবাদটি মুছে ফেলা হয়েছে!' : 'Post deleted!');
     }
   };
 
@@ -937,10 +943,12 @@ export default function EditPostManager({ triggerSaveToast, onNavigateToApprove,
                   </div>
 
                   <SocialNewsCardPreview
+                    isBn={isBn}
+                    language={isBn ? 'bn' : 'en'}
                     title={previewArticle.titleBn || previewArticle.titleEn}
                     kicker={previewArticle.kicker}
                     imageUrl={previewArticle.imageUrl}
-                    caption={previewArticle.cardCaption || 'ছবি: সংগৃহীত'}
+                    caption={previewArticle.cardCaption || (isBn ? 'ছবি: সংগৃহীত' : 'Photo: Collected')}
                     category={previewArticle.cardCategory || getCardCategoryLabel(previewArticle.category || (previewArticle.categories && previewArticle.categories[0]), categoryMasterGroups, categories)}
                     dateBn={previewArticle.dateBn}
                   />

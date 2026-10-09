@@ -397,7 +397,11 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
       message: isBn
         ? `আপনি কি নিশ্চিত যে "${item.original_name}" ছবিটি গ্যালারি থেকে মুছে ফেলতে চান?`
         : `Are you sure you want to remove "${item.original_name}" from gallery?`,
+      subMessage: isBn
+        ? 'গ্যালারি থেকে ছবিটি মুছে ফেললে তা আর পুনরুদ্ধার করা যাবে না।'
+        : 'Once deleted from gallery, this image cannot be recovered.',
       confirmText: isBn ? 'হ্যাঁ, মুছে ফেলুন' : 'Yes, Delete',
+      cancelText: isBn ? 'বাতিল' : 'Cancel',
       type: 'danger'
     });
 

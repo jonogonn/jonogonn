@@ -1,8 +1,11 @@
 <?php
 /**
  * Jonogon News (জনগণ.নিউজ) - Team Member Credential Email Dispatcher
- * Sends automated welcome & access credentials email to newly created admin/staff members.
+ * Sends automated welcome & access credentials email to newly created admin/staff members
+ * Powered by Resend Transactional Email API (https://resend.com)
  */
+
+require_once __DIR__ . '/config.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -38,6 +41,7 @@ $username = htmlspecialchars(trim($data['username']));
 $password = htmlspecialchars(trim($data['password']));
 $userCode = !empty($data['userCode']) ? htmlspecialchars(trim($data['userCode'])) : 'JNG-' . rand(1000, 9999);
 $role = !empty($data['role']) ? htmlspecialchars(trim($data['role'])) : 'Reporter';
+$designation = !empty($data['designation']) ? htmlspecialchars(trim($data['designation'])) : 'টিম সদস্য';
 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
 $serverHost = $_SERVER['HTTP_HOST'] ?? 'jonogon.news';
 $loginUrl = !empty($data['loginUrl']) ? htmlspecialchars(trim($data['loginUrl'])) : ($protocol . $serverHost . '/#admin');
@@ -57,7 +61,8 @@ $tabNamesBn = [
     'setup-access' => 'টিম ও এক্সেস কন্ট্রোল',
     'ads' => 'বিজ্ঞাপন ও মনিটাইজেশন',
     'settings' => 'সাইট ও ব্র্যান্ডিং সেটিংস',
-    'database' => 'ডাটাবেজ ও ক্লাউড ব্যাকআপ'
+    'database' => 'ডাটাবেজ ও ক্লাউড ব্যাকআপ',
+    'news-card-maker' => 'নিউজ কার্ড মেকার'
 ];
 
 $tabBadgesHtml = '';
@@ -89,7 +94,7 @@ $htmlMessage = <<<HTML
         <table role="presentation" width="100%" style="max-width:600px; background-color:#FFFFFF; border-radius:12px; overflow:hidden; box-shadow:0 10px 25px rgba(0,0,0,0.3);" cellspacing="0" cellpadding="0">
           <!-- Header Banner -->
           <tr>
-            <td style="background:linear-gradient(135deg, #E50914 0%, #990000 100%); padding:28px 30px; text-align:center;">
+            <td style="background:linear-gradient(135deg, #E60012 0%, #99000C 100%); padding:28px 30px; text-align:center;">
               <h1 style="color:#FFFFFF; margin:0 0 4px 0; font-size:26px; font-weight:900; letter-spacing:-0.5px;">জনগণ.নিউজ</h1>
               <p style="color:#FEE2E2; margin:0; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:1px;">JONOGON NEWS • এডমিনিস্ট্রেটিভ পোর্টাল</p>
             </td>
@@ -114,7 +119,7 @@ $htmlMessage = <<<HTML
                       </tr>
                       <tr>
                         <td style="color:#64748B; font-size:13px; font-weight:600;">ইউজারনেম (Username):</td>
-                        <td style="color:#E50914; font-size:14px; font-weight:800; font-family:monospace; background-color:#FFFFFF; padding:4px 8px; border-radius:4px; border:1px solid #CBD5E1;">{$username}</td>
+                        <td style="color:#E60012; font-size:14px; font-weight:800; font-family:monospace; background-color:#FFFFFF; padding:4px 8px; border-radius:4px; border:1px solid #CBD5E1;">{$username}</td>
                       </tr>
                       <tr>
                         <td style="color:#64748B; font-size:13px; font-weight:600;">পাসওয়ার্ড (Password):</td>
@@ -139,7 +144,7 @@ $htmlMessage = <<<HTML
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0 24px 0;">
                 <tr>
                   <td align="center">
-                    <a href="{$loginUrl}" target="_blank" style="display:inline-block; background-color:#E50914; color:#FFFFFF; text-decoration:none; font-size:15px; font-weight:800; padding:12px 28px; border-radius:6px; box-shadow:0 4px 12px rgba(229,9,20,0.3);">লগইন পোর্টালে প্রবেশ করুন →</a>
+                    <a href="{$loginUrl}" target="_blank" style="display:inline-block; background-color:#E60012; color:#FFFFFF; text-decoration:none; font-size:15px; font-weight:800; padding:12px 28px; border-radius:6px; box-shadow:0 4px 12px rgba(230,0,18,0.3);">লগইন পোর্টালে প্রবেশ করুন →</a>
                   </td>
                 </tr>
               </table>
@@ -172,36 +177,88 @@ $htmlMessage = <<<HTML
 </html>
 HTML;
 
-$headers = [
-    'MIME-Version: 1.0',
-    'Content-Type: text/html; charset=UTF-8',
-    'From: Jonogon News Admin <noreply@jonogon.news>',
-    'Reply-To: brandbiplob1234@gmail.com',
-    'X-Mailer: PHP/' . phpversion()
-];
+// Send via Resend REST API
+$mailSent = false;
+$resendResponse = null;
+$deliveryMethod = 'none';
 
-// Attempt delivery
-$mailSent = @mail($email, $encodedSubject, $htmlMessage, implode("\r\n", $headers));
+if (defined('RESEND_API_KEY') && !empty(RESEND_API_KEY)) {
+    try {
+        $fromEmail = defined('RESEND_FROM_EMAIL') && !empty(RESEND_FROM_EMAIL)
+            ? RESEND_FROM_EMAIL
+            : 'Jonogon News <noreply@jonogon.news>';
+
+        $resendPayload = [
+            'from' => $fromEmail,
+            'to' => [$email],
+            'subject' => $subject,
+            'html' => $htmlMessage
+        ];
+
+        $ch = curl_init('https://api.resend.com/emails');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($resendPayload));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . RESEND_API_KEY,
+            'Content-Type: application/json'
+        ]);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $resendData = json_decode($response, true);
+        if ($httpCode >= 200 && $httpCode < 300) {
+            $mailSent = true;
+            $deliveryMethod = 'resend_api';
+            $resendResponse = $resendData;
+        } else {
+            $resendResponse = $resendData;
+        }
+    } catch (Exception $e) {
+        $resendResponse = ['error' => $e->getMessage()];
+    }
+}
+
+// Fallback to PHP mail() if Resend was not used
+if (!$mailSent) {
+    $headers = [
+        'MIME-Version: 1.0',
+        'Content-Type: text/html; charset=UTF-8',
+        'From: Jonogon News Admin <noreply@jonogon.news>',
+        'Reply-To: brandbiplob1234@gmail.com',
+        'X-Mailer: PHP/' . phpversion()
+    ];
+    $mailSent = @mail($email, $encodedSubject, $htmlMessage, implode("\r\n", $headers));
+    if ($mailSent) {
+        $deliveryMethod = 'php_mail';
+    }
+}
 
 // Log to sent_emails.log for testing/verification
 $logEntry = sprintf(
-    "[%s] To: %s <%s> | Username: %s | UserCode: %s | Sent: %s\n",
+    "[%s] To: %s <%s> | Method: %s | Sent: %s\n",
     date('Y-m-d H:i:s'),
     $name,
     $email,
-    $username,
-    $userCode,
-    $mailSent ? 'SUCCESS' : 'LOCAL_LOGGED'
+    $deliveryMethod,
+    $mailSent ? 'SUCCESS' : 'FAILED'
 );
 @file_put_contents(__DIR__ . '/sent_emails.log', $logEntry, FILE_APPEND);
 
 echo json_encode([
     'success' => true,
-    'message' => $mailSent ? "Email sent successfully to {$email}" : "Email queued and logged for {$email}",
+    'message' => $mailSent ? "ইমেইল সফলভাবে পাঠানো হয়েছে ({$email})" : "ইমেইল পাঠানো প্রক্রিয়া সম্পন্ন হয়েছে।",
     'mail_sent' => (bool)$mailSent,
+    'delivery_method' => $deliveryMethod,
+    'resend_response' => $resendResponse,
     'recipient' => $email,
     'userCode' => $userCode,
     'username' => $username,
     'password' => $password,
     'html_preview' => $htmlMessage
-]);
+], JSON_UNESCAPED_UNICODE);

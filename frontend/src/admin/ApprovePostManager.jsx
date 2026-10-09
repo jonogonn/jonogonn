@@ -118,14 +118,15 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
   // 1. Approve & Publish Post Handler
   const handleApproveAndPublish = async (article) => {
     const confirmed = await showConfirm({
-      title: isBn ? 'সংবাদ অনুমোদন ও প্রকাশনা নিশ্চিতকরণ' : 'Confirm Post Approval & Publication',
+      title: isBn ? 'সংবাদ অনুমোদন ও প্রকাশনা' : 'Confirm Post Approval & Publication',
       message: isBn
-        ? `আপনি কি নিশ্চিত যে "${article.titleBn || article.titleEn}" পোস্টটি অনুমোদন করে মূল ওয়েবসাইটে প্রকাশ করতে চান?`
+        ? `"${article.titleBn || article.titleEn}" সংবাদটি কি অনুমোদন করে মূল ওয়েবসাইটে প্রকাশ করতে চান?`
         : `Approve and publish "${article.titleBn || article.titleEn}" to live website?`,
       subMessage: isBn
-        ? 'অনুমোদনের সাথে সাথে এটি সাইটে প্রদর্শিত হবে এবং সোশ্যাল পোস্টার .JPG ফরম্যাটে ডাউনলোড করার সুবিধা উন্মুক্ত হবে।'
-        : 'Upon approval, the article goes live and the social poster JPG download becomes available.',
+        ? 'অনুমোদনের সাথে সাথে সংবাদটি মূল ওয়েবসাইটে লাইভ প্রকাশিত হবে এবং সোশ্যাল ফটোকার্ড প্রস্তুত হবে।'
+        : 'Upon approval, the article will be published live and the social card will be available.',
       confirmText: isBn ? 'হ্যাঁ, অনুমোদন ও প্রকাশ করুন' : 'Yes, Approve & Publish',
+      cancelText: isBn ? 'বাতিল' : 'Cancel',
       type: 'success'
     });
 
@@ -158,14 +159,16 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
       if (syncRes && syncRes.success === false) {
         showWarning(
           isBn
-            ? `সংবাদটি সাইটে প্রকাশিত হয়েছে, তবে MariaDB ডাটাবেজে সিঙ্ক সতর্কতা: ${syncRes.error || 'Server error'}`
-            : `Post published, but MariaDB notice: ${syncRes.error || 'Server error'}`
+            ? `সংবাদটি ওয়েবসাইটে প্রকাশিত হয়েছে, তবে সার্ভার নোটিশ: ${syncRes.error || 'Server error'}`
+            : `Post published, but server notice: ${syncRes.error || 'Server error'}`,
+          isBn ? 'প্রকাশনা নোটিশ' : 'Publish Notice'
         );
       } else {
         showSuccess(
           isBn
-            ? 'সংবাদটি সফলভাবে অনুমোদিত হয়েছে, MariaDB ডাটাবেজে সংরক্ষিত হয়েছে এবং মূল ওয়েবসাইটে প্রকাশিত হয়েছে! আপনি এখন নিচে থেকে সোশ্যাল ফটোকার্ড .JPG ডাউনলোড করতে পারেন।'
-            : 'Post approved and saved to MariaDB! You can now download the social poster JPG.'
+            ? 'সংবাদটি সফলভাবে অনুমোদিত হয়েছে এবং মূল ওয়েবসাইটে লাইভ প্রকাশিত হয়েছে।'
+            : 'The news post has been approved and published live to the website.',
+          isBn ? 'অনুমোদন ও প্রকাশনা সম্পন্ন' : 'Publication Complete'
         );
       }
 
@@ -214,11 +217,12 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
         .slice(0, 50);
 
       const cardCat = article.cardCategory || getCardCategoryLabel(article.category || (article.categories && article.categories[0]), categoryMasterGroups, categories);
+      const targetImg = article.imageUrl || article.featuredImage || article.thumbnail_image || '';
 
       await generateSocialCardJpg({
         title: article.titleBn || article.titleEn,
         kicker: article.kicker || '',
-        imageUrl: article.imageUrl,
+        imageUrl: targetImg,
         caption: article.cardCaption || 'ছবি: সংগৃহীত',
         category: cardCat,
         dateBn: article.dateBn,
@@ -226,15 +230,17 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
         kickerFontSize: 26,
         lineHeight: 1.18,
         colorMode: 'dual',
+        imagePosition: article.cardImagePosition || article.imagePosition || 'center center',
         fileName: `jonogon-card-${cleanSlug}.jpg`
       });
 
       if (triggerSaveToast) {
         triggerSaveToast(isBn ? 'সোশ্যাল পোস্টার .JPG ডাউনলোড সম্পন্ন!' : 'Poster .JPG downloaded successfully!');
       }
+      showSuccess(isBn ? 'সোশ্যাল ফটোকার্ড (.JPG) ডাউনলোড সম্পন্ন হয়েছে!' : 'Social card downloaded successfully!');
     } catch (err) {
       console.error('Error generating card JPG:', err);
-      showError(isBn ? 'পোস্টার জেনারেট করতে সমস্যা হয়েছে।' : 'Failed to generate poster JPG.');
+      showError(isBn ? 'পোস্টার ডাউনলোড করতে সমস্যা হয়েছে: ' + (err.message || '') : 'Failed to generate poster JPG.');
     } finally {
       setDownloadingId(null);
     }
@@ -253,12 +259,13 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
         .slice(0, 50);
 
       const cardCat = article.cardCategory || getCardCategoryLabel(article.category || (article.categories && article.categories[0]), categoryMasterGroups, categories);
+      const targetImg = article.imageUrl || article.featuredImage || article.thumbnail_image || '';
 
       // 1. Generate Social Card Blob via HTML5 Canvas
       const cardBlob = await generateSocialCardJpg({
         title: article.titleBn || article.titleEn,
         kicker: article.kicker || '',
-        imageUrl: article.imageUrl,
+        imageUrl: targetImg,
         caption: article.cardCaption || 'ছবি: সংগৃহীত',
         category: cardCat,
         dateBn: article.dateBn,
@@ -266,6 +273,7 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
         kickerFontSize: 26,
         lineHeight: 1.18,
         colorMode: 'dual',
+        imagePosition: article.cardImagePosition || article.imagePosition || 'center center',
         fileName: `jonogon-card-${cleanSlug}.jpg`,
         returnBlob: true
       });
@@ -312,17 +320,21 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
   // 4. Delete / Reject Post
   const handleDeletePost = async (article) => {
     const confirmed = await showConfirm({
-      title: isBn ? 'পোস্ট বাতিল ও মুছে ফেলার নিশ্চিতকরণ' : 'Confirm Delete Post',
+      title: isBn ? 'সংবাদ মুছে ফেলার নিশ্চিতকরণ' : 'Confirm Delete Post',
       message: isBn
-        ? `আপনি কি নিশ্চিত যে "${article.titleBn || article.titleEn}" পোস্টটি বাতিল করে মুছে ফেলতে চান?`
+        ? `আপনি কি নিশ্চিত যে "${article.titleBn || article.titleEn}" সংবাদটি বাতিল ও মুছে ফেলতে চান?`
         : `Are you sure you want to permanently delete "${article.titleBn || article.titleEn}"?`,
+      subMessage: isBn
+        ? 'এই সংবাদটি মুছে ফেললে তা আর পুনরুদ্ধার করা সম্ভব হবে না।'
+        : 'Once deleted, this news post cannot be recovered.',
       confirmText: isBn ? 'হ্যাঁ, মুছে ফেলুন' : 'Yes, Delete',
+      cancelText: isBn ? 'বাতিল' : 'Cancel',
       type: 'danger'
     });
 
     if (confirmed) {
       deleteArticle(article.id);
-      if (triggerSaveToast) triggerSaveToast(isBn ? 'পোস্ট মুছে ফেলা হয়েছে!' : 'Post deleted!');
+      if (triggerSaveToast) triggerSaveToast(isBn ? 'সংবাদটি মুছে ফেলা হয়েছে!' : 'Post deleted!');
       if (previewArticle && previewArticle.id === article.id) setPreviewArticle(null);
     }
   };
@@ -1008,12 +1020,15 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
                   </div>
 
                   <SocialNewsCardPreview
+                    isBn={isBn}
+                    language={isBn ? 'bn' : 'en'}
                     title={previewArticle.titleBn || previewArticle.titleEn}
                     kicker={previewArticle.kicker}
-                    imageUrl={previewArticle.imageUrl}
-                    caption={previewArticle.cardCaption || 'ছবি: সংগৃহীত'}
+                    imageUrl={previewArticle.imageUrl || previewArticle.featuredImage || previewArticle.thumbnail_image}
+                    caption={previewArticle.cardCaption || (isBn ? 'ছবি: সংগৃহীত' : 'Photo: Collected')}
                     category={previewArticle.cardCategory || getCardCategoryLabel(previewArticle.category || (previewArticle.categories && previewArticle.categories[0]), categoryMasterGroups, categories)}
                     dateBn={previewArticle.dateBn}
+                    imagePosition={previewArticle.cardImagePosition || previewArticle.imagePosition || 'center center'}
                   />
 
                   {/* Direct Download Button Below Card */}

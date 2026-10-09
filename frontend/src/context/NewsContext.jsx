@@ -16,7 +16,13 @@ import { supabase, configureSupabase } from '../supabase';
 import { fetchLiveGoogleWeather, getDefaultWeather } from '../services/weatherService';
 import AppDialogModal from '../components/Modals/AppDialogModal';
 import UploadProgressModal from '../components/Modals/UploadProgressModal';
-import { saveArticleToMariaDb, deleteArticleFromMariaDb, fetchArticlesFromMariaDb } from '../utils/mariaDbSync';
+import {
+  saveArticleToMariaDb,
+  deleteArticleFromMariaDb,
+  fetchArticlesFromMariaDb,
+  fetchModuleFromMariaDb,
+  syncModuleToMariaDb
+} from '../utils/mariaDbSync';
 import { safeSetLocalStorage, safeGetLocalStorage, safeRemoveLocalStorage } from '../utils/safeStorage';
 
 const NewsContext = createContext();
@@ -25,6 +31,7 @@ export function NewsProvider({ children }) {
   // Global Branded Modal & Alert Dialog System
   const [dialogConfig, setDialogConfig] = useState({
     isOpen: false,
+    isConfirm: false,
     type: 'info',
     title: '',
     message: '',
@@ -39,14 +46,17 @@ export function NewsProvider({ children }) {
     setDialogConfig((prev) => ({ ...prev, isOpen: false }));
   };
 
-  const showAlert = ({ title = '', message = '', type = 'info', confirmText = '' } = {}) => {
+  const showAlert = ({ title = '', message = '', subMessage = '', type = 'info', confirmText = '' } = {}) => {
     return new Promise((resolve) => {
       setDialogConfig({
         isOpen: true,
+        isConfirm: false,
         type,
         title,
         message,
+        subMessage,
         confirmText,
+        cancelText: '',
         onConfirm: () => resolve(true),
         onCancel: () => resolve(false)
       });
@@ -64,6 +74,7 @@ export function NewsProvider({ children }) {
     return new Promise((resolve) => {
       setDialogConfig({
         isOpen: true,
+        isConfirm: true,
         type,
         title,
         message,
@@ -76,9 +87,9 @@ export function NewsProvider({ children }) {
     });
   };
 
-  const showError = (message, title = '') => showAlert({ title, message, type: 'error' });
-  const showSuccess = (message, title = '') => showAlert({ title, message, type: 'success' });
-  const showWarning = (message, title = '') => showAlert({ title, message, type: 'warning' });
+  const showError = (message, title = '', subMessage = '') => showAlert({ title, message, subMessage, type: 'error' });
+  const showSuccess = (message, title = '', subMessage = '') => showAlert({ title, message, subMessage, type: 'success' });
+  const showWarning = (message, title = '', subMessage = '') => showAlert({ title, message, subMessage, type: 'warning' });
 
   // 1. Public Website Language State (Bangla Default)
   const [language, setLanguage] = useState(() => {
@@ -296,10 +307,57 @@ export function NewsProvider({ children }) {
     } catch (e) {}
   };
 
+  const isHydratedFromDbRef = React.useRef(false);
+
+  // Fetch and hydrate all settings, categories, homepage sections, podcasts, and emergency services from MariaDB
+  const refreshAllModulesFromDb = async () => {
+    try {
+      const data = await fetchModuleFromMariaDb('all');
+      if (data) {
+        if (data.siteSettings && typeof data.siteSettings === 'object' && Object.keys(data.siteSettings).length > 0) {
+          setSettings((prev) => {
+            const merged = { ...prev, ...data.siteSettings };
+            safeSetLocalStorage('jonogon_settings', merged);
+            return merged;
+          });
+        }
+        if (Array.isArray(data.masterGroups) && data.masterGroups.length > 0) {
+          setCategoryMasterGroups(data.masterGroups);
+          safeSetLocalStorage('jonogon_master_groups', data.masterGroups);
+        }
+        if (Array.isArray(data.categories) && data.categories.length > 0) {
+          setCategories(data.categories);
+          safeSetLocalStorage('jonogon_categories', data.categories);
+        }
+        if (Array.isArray(data.homepageSections) && data.homepageSections.length > 0) {
+          setHomepageSections(data.homepageSections);
+          safeSetLocalStorage('jonogon_homepage_sections', data.homepageSections);
+        }
+        if (Array.isArray(data.podcasts) && data.podcasts.length > 0) {
+          setPodcasts(data.podcasts);
+          safeSetLocalStorage('jonogon_podcasts', data.podcasts);
+        }
+        if (Array.isArray(data.emergencyServices) && data.emergencyServices.length > 0) {
+          setEmergencyServices(data.emergencyServices);
+          safeSetLocalStorage('jonogon_emergency_services', data.emergencyServices);
+        }
+        if (Array.isArray(data.breakingNews) && data.breakingNews.length > 0) {
+          setBreakingNews(data.breakingNews);
+          safeSetLocalStorage('jonogon_breaking', data.breakingNews);
+        }
+      }
+    } catch (e) {
+      console.warn('MariaDB module hydration notice:', e);
+    } finally {
+      isHydratedFromDbRef.current = true;
+    }
+  };
+
   // Ensure Probashi & Expatriates sync in state on startup + fetch categories & articles from DB
   useEffect(() => {
     refreshCategories();
     refreshArticles();
+    refreshAllModulesFromDb();
 
     setCategoryMasterGroups((prevGroups) => {
       let needsUpdate = false;
@@ -794,10 +852,22 @@ export function NewsProvider({ children }) {
 
   useEffect(() => {
     safeSetLocalStorage('jonogon_master_groups', categoryMasterGroups);
+    if (isHydratedFromDbRef.current && categoryMasterGroups?.length > 0) {
+      syncModuleToMariaDb('categories', {
+        masterGroups: categoryMasterGroups,
+        categories
+      }).catch(() => {});
+    }
   }, [categoryMasterGroups]);
 
   useEffect(() => {
     safeSetLocalStorage('jonogon_categories', categories);
+    if (isHydratedFromDbRef.current && categories?.length > 0) {
+      syncModuleToMariaDb('categories', {
+        masterGroups: categoryMasterGroups,
+        categories
+      }).catch(() => {});
+    }
   }, [categories]);
 
   useEffect(() => {
@@ -806,14 +876,23 @@ export function NewsProvider({ children }) {
 
   useEffect(() => {
     safeSetLocalStorage('jonogon_podcasts', podcasts);
+    if (isHydratedFromDbRef.current && podcasts?.length > 0) {
+      syncModuleToMariaDb('podcasts', podcasts).catch(() => {});
+    }
   }, [podcasts]);
 
   useEffect(() => {
     safeSetLocalStorage('jonogon_emergency_services', emergencyServices);
+    if (isHydratedFromDbRef.current && emergencyServices?.length > 0) {
+      syncModuleToMariaDb('emergency', emergencyServices).catch(() => {});
+    }
   }, [emergencyServices]);
 
   useEffect(() => {
     safeSetLocalStorage('jonogon_homepage_sections', homepageSections);
+    if (isHydratedFromDbRef.current && homepageSections?.length > 0) {
+      syncModuleToMariaDb('sections', homepageSections).catch(() => {});
+    }
   }, [homepageSections]);
 
   useEffect(() => {
@@ -1416,7 +1495,14 @@ export function NewsProvider({ children }) {
   };
 
   const updateSiteSettings = (newSettings) => {
-    setSettings((prev) => ({ ...prev, ...newSettings }));
+    setSettings((prev) => {
+      const merged = { ...prev, ...newSettings };
+      safeSetLocalStorage('jonogon_settings', merged);
+      syncModuleToMariaDb('settings', merged).catch((err) => {
+        console.warn('MariaDB site_settings sync notice:', err);
+      });
+      return merged;
+    });
   };
 
   const toggleLanguage = () => {
@@ -1460,6 +1546,7 @@ export function NewsProvider({ children }) {
         settings,
         updateSiteSettings,
         articles,
+        setArticles,
         addArticle,
         updateArticle,
         deleteArticle,
@@ -1546,7 +1633,9 @@ export function NewsProvider({ children }) {
         showUploadProgress,
         updateUploadProgress,
         closeUploadProgress,
-        refreshCategories
+        refreshCategories,
+        refreshAllModulesFromDb,
+        syncModuleToMariaDb
       }}
     >
       {children}

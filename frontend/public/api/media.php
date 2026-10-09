@@ -24,6 +24,38 @@ $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $action = $_GET['action'] ?? '';
 
 // -------------------------------------------------------------
+// PROXY IMAGE FOR CORS-SAFE CANVAS EXPORT
+// -------------------------------------------------------------
+if ($action === 'proxy_image') {
+    $targetUrl = $_GET['url'] ?? '';
+    if (empty($targetUrl) || !filter_var($targetUrl, FILTER_VALIDATE_URL)) {
+        http_response_code(400);
+        exit(json_encode(['error' => 'Invalid or missing image URL']));
+    }
+    $ch = curl_init($targetUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    $imgData = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $cType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'image/jpeg';
+    curl_close($ch);
+
+    if ($httpCode === 200 && $imgData) {
+        header('Content-Type: ' . $cType);
+        header('Access-Control-Allow-Origin: *');
+        header('Cache-Control: public, max-age=86400');
+        echo $imgData;
+        exit;
+    }
+    http_response_code(404);
+    exit(json_encode(['error' => 'Failed to retrieve image']));
+}
+
+
+// -------------------------------------------------------------
 // HELPER: BACKBLAZE B2 AUTHORIZE
 // -------------------------------------------------------------
 function b2Auth() {
@@ -249,6 +281,60 @@ if ($requestMethod === 'GET') {
     try {
         $mediaList = getB2FilesList();
 
+        // 1. Sync B2 files into media_gallery in MariaDB if connected
+        if ($pdo && !empty($mediaList)) {
+            $mStmt = $pdo->prepare("
+                INSERT INTO `media_gallery` (`file_name`, `storage_key`, `public_url`, `file_type`, `file_size`, `dimensions`)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE `public_url` = VALUES(`public_url`)
+            ");
+            foreach ($mediaList as $f) {
+                $chk = $pdo->prepare("SELECT id FROM `media_gallery` WHERE `storage_key` = ?");
+                $chk->execute([$f['storage_key']]);
+                if (!$chk->fetch()) {
+                    $mStmt->execute([
+                        $f['original_name'],
+                        $f['storage_key'],
+                        $f['public_url'],
+                        'image/' . ($f['file_format'] ?? 'webp'),
+                        $f['size_bytes'] ?? 0,
+                        ($f['width'] ?? 1200) . 'x' . ($f['height'] ?? 630)
+                    ]);
+                }
+            }
+        }
+
+        // 2. Fetch and return from MariaDB `media_gallery` table
+        if ($pdo) {
+            $stmt = $pdo->query("SELECT * FROM `media_gallery` ORDER BY `id` DESC LIMIT 500");
+            $galleryRows = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            if (!empty($galleryRows)) {
+                $formattedList = [];
+                foreach ($galleryRows as $row) {
+                    $formattedList[] = [
+                        'id' => $row['id'],
+                        'original_name' => $row['file_name'],
+                        'file_name' => $row['file_name'],
+                        'storage_key' => $row['storage_key'],
+                        'public_url' => $row['public_url'],
+                        'file_format' => str_replace('image/', '', $row['file_type'] ?: 'webp'),
+                        'size_bytes' => (int)$row['file_size'],
+                        'dimensions' => $row['dimensions'] ?: '1200x630',
+                        'provider' => 'backblaze',
+                        'created_at' => $row['created_at']
+                    ];
+                }
+
+                echo json_encode([
+                    'success' => true,
+                    'total' => count($formattedList),
+                    'data' => $formattedList,
+                    'source' => 'mariadb_gallery'
+                ], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+        }
+
         if (!empty($mediaList)) {
             echo json_encode([
                 'success' => true,
@@ -320,9 +406,17 @@ if ($requestMethod === 'DELETE') {
             }
         }
 
-        if ($pdo && is_numeric($fileId)) {
-            $stmt = $pdo->prepare("DELETE FROM `media_uploads` WHERE `id` = ?");
-            $stmt->execute([$fileId]);
+        if ($pdo) {
+            if (is_numeric($fileId)) {
+                $stmt = $pdo->prepare("DELETE FROM `media_uploads` WHERE `id` = ?");
+                $stmt->execute([$fileId]);
+                $stmt2 = $pdo->prepare("DELETE FROM `media_gallery` WHERE `id` = ?");
+                $stmt2->execute([$fileId]);
+            }
+            if ($fileName) {
+                $stmt3 = $pdo->prepare("DELETE FROM `media_gallery` WHERE `file_name` = ? OR `storage_key` LIKE ?");
+                $stmt3->execute([$fileName, "%$fileName%"]);
+            }
         }
 
         echo json_encode(['success' => true, 'message' => 'মিডিয়া ফাইল সফলভাবে মুছে ফেলা হয়েছে।'], JSON_UNESCAPED_UNICODE);

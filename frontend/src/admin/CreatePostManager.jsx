@@ -61,11 +61,24 @@ import {
   CheckCircle,
   Filter,
   Grid,
-  RefreshCw
+  RefreshCw,
+  Crosshair
 } from 'lucide-react';
 import { uploadImageToStorage } from '../utils/imageUploader';
 import SocialNewsCardPreview from './SocialNewsCardPreview';
 import { getCardCategoryLabel } from '../utils/cardCategoryHelper';
+
+const GRID_POSITIONS = [
+  { id: 'top left', label: 'Top Left', bn: 'উপর-বাম', arrow: '↖' },
+  { id: 'top center', label: 'Top Center', bn: 'উপর-মাঝ', arrow: '⬆' },
+  { id: 'top right', label: 'Top Right', bn: 'উপর-ডান', arrow: '↗' },
+  { id: 'center left', label: 'Center Left', bn: 'মাঝ-বাম', arrow: '⬅' },
+  { id: 'center center', label: 'Center Center', bn: 'মাঝখান', arrow: '⏺' },
+  { id: 'center right', label: 'Center Right', bn: 'মাঝ-ডান', arrow: '➡️' },
+  { id: 'bottom left', label: 'Bottom Left', bn: 'নিচে-বাম', arrow: '↙' },
+  { id: 'bottom center', label: 'Bottom Center', bn: 'নিচে-মাঝ', arrow: '⬇' },
+  { id: 'bottom right', label: 'Bottom Right', bn: 'নিচে-ডান', arrow: '↘' }
+];
 
 // Helper: Format any YouTube / Vimeo / web video URL to valid embed iframe URL
 export function formatVideoEmbedUrl(url) {
@@ -219,6 +232,27 @@ export function parseHtmlToBlocks(html, defaultTitle = '', defaultImage = '', de
     });
 
     if (parsedBlocks.length > 0) {
+      const hasHeading = parsedBlocks.some((b) => b.type === 'heading');
+      if (!hasHeading && defaultTitle) {
+        parsedBlocks.unshift({
+          id: `block-heading-${uid}-head`,
+          type: 'heading',
+          level: 'h1',
+          content: defaultTitle
+        });
+      }
+      const hasImage = parsedBlocks.some((b) => b.type === 'image');
+      if (!hasImage && defaultImage) {
+        const headingIdx = parsedBlocks.findIndex((b) => b.type === 'heading');
+        const insertIdx = headingIdx >= 0 ? headingIdx + 1 : 0;
+        parsedBlocks.splice(insertIdx, 0, {
+          id: `block-image-${uid}-thumb`,
+          type: 'image',
+          url: defaultImage,
+          caption: defaultCaption || 'ছবি: সংগৃহীত',
+          isThumbnail: true
+        });
+      }
       return parsedBlocks;
     }
   } catch (err) {
@@ -227,12 +261,12 @@ export function parseHtmlToBlocks(html, defaultTitle = '', defaultImage = '', de
 
   return [
     { id: `heading-${Date.now()}-1`, type: 'heading', level: 'h1', content: defaultTitle || '' },
-    { id: `image-${Date.now()}-2`, type: 'image', url: defaultImage || '', caption: defaultCaption },
+    { id: `image-${Date.now()}-2`, type: 'image', url: defaultImage || '', caption: defaultCaption, isThumbnail: true },
     { id: `paragraph-${Date.now()}-3`, type: 'paragraph', content: html }
   ];
 }
 
-export default function CreatePostManager({ initialPostId = null, triggerSaveToast, onSwitchToArticles }) {
+export default function CreatePostManager({ initialPostId = null, initialPost = null, triggerSaveToast, onSwitchToArticles }) {
   const {
     adminLanguage,
     language,
@@ -273,8 +307,10 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
 
   // Post Meta State
-  const [postId, setPostId] = useState(initialPostId || null);
-  const [postStatus, setPostStatus] = useState('review'); // Default 'review' (জমা দিন / পর্যালোচনায়)
+  const [postId, setPostId] = useState(initialPost?.id || initialPostId || null);
+  const existingArticle = initialPost || (postId ? articles.find((a) => String(a.id) === String(postId) || a.slug === postId) : null);
+  const isAlreadyPublished = existingArticle?.status === 'published';
+  const [postStatus, setPostStatus] = useState(existingArticle?.status || 'review');
   const [slug, setSlug] = useState('');
   const [publishDate, setPublishDate] = useState(new Date().toISOString().slice(0, 10));
   const [excerpt, setExcerpt] = useState('');
@@ -325,66 +361,79 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
     }
   ]);
 
-  // Load existing article if initialPostId provided
+  // Load existing article if initialPost or initialPostId provided
   useEffect(() => {
-    if (initialPostId) {
-      const art = articles.find((a) => a.id === initialPostId);
-      if (art) {
-        setPostId(art.id);
-        setSlug(art.slug || '');
-        setKicker(art.kicker || '');
-        setPostStatus(art.status || 'review');
-        setExcerpt(art.excerptBn || art.excerptEn || '');
-        setSelectedCategories(art.categories || (art.category ? [art.category] : ['bangladesh']));
-        setTags(art.tags || ['জাতীয়']);
-        setMetaTitle(art.metaTitle || art.titleBn || '');
-        setMetaDesc(art.metaDesc || art.excerptBn || '');
-        setFocusKeyword(art.focusKeyword || '');
-        setAuthor(art.author || 'জনগণ নিউজ ডেস্ক');
-        setIsLeadHero(Boolean(art.isLeadHero));
-        setIsHighlighted(Boolean(art.isHighlighted));
-        setIsBreaking(Boolean(art.isBreaking));
-        setIsVideo(Boolean(art.isVideo));
-        setVideoDuration(art.videoDuration || '');
-        setCardCaption(art.cardCaption || 'ছবি: সংগৃহীত');
-        setCardCategory(art.cardCategory || '');
-        if (art.cardImagePosition) setCardImagePosition(art.cardImagePosition);
+    const art = initialPost || (initialPostId ? articles.find((a) => String(a.id) === String(initialPostId) || a.slug === initialPostId) : null);
+    if (art) {
+      setPostId(art.id);
+      setSlug(art.slug || '');
+      setKicker(art.kicker || '');
+      setPostStatus(art.status || 'published');
+      setExcerpt(art.excerptBn || art.excerptEn || art.excerpt || '');
+      setSelectedCategories(
+        Array.isArray(art.categories) && art.categories.length > 0
+          ? art.categories
+          : (art.category ? [art.category] : ['bangladesh'])
+      );
+      setTags(Array.isArray(art.tags) && art.tags.length > 0 ? art.tags : ['জাতীয়', 'তাজা খবর']);
+      setMetaTitle(art.metaTitle || art.titleBn || art.title || '');
+      setMetaDesc(art.metaDesc || art.excerptBn || art.excerpt || '');
+      setFocusKeyword(art.focusKeyword || '');
+      setAuthor(art.author || 'জনগণ নিউজ ডেস্ক');
+      setIsLeadHero(Boolean(art.isLeadHero));
+      setIsHighlighted(Boolean(art.isHighlighted));
+      setIsBreaking(Boolean(art.isBreaking));
+      setIsVideo(Boolean(art.isVideo));
+      setVideoDuration(art.videoDuration || '');
+      setCardCaption(art.cardCaption || 'ছবি: সংগৃহীত');
+      setCardCategory(art.cardCategory || '');
+      if (art.cardImagePosition) setCardImagePosition(art.cardImagePosition);
 
-        let articleBlocks = null;
-        if (art.blocks) {
-          if (Array.isArray(art.blocks) && art.blocks.length > 0) {
-            articleBlocks = art.blocks;
-          } else if (typeof art.blocks === 'string') {
-            try {
-              const parsed = JSON.parse(art.blocks);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                articleBlocks = parsed;
-              }
-            } catch (e) {}
-          }
-        }
-
-        if (articleBlocks && articleBlocks.length > 0) {
-          setBlocks(articleBlocks);
-        } else if (art.contentBn || art.content || art.contentEn) {
-          // Parse HTML content into structured blocks (Headings, Paragraphs, Images, Blockquotes, Tables, Lists, Videos)
-          const parsedFromHtml = parseHtmlToBlocks(
-            art.contentBn || art.content || art.contentEn,
-            art.titleBn || art.title || '',
-            art.imageUrl || art.featuredImage || '',
-            art.cardCaption || 'ছবি: সংগৃহীত'
-          );
-          setBlocks(parsedFromHtml);
-        } else {
-          setBlocks([
-            { id: `heading-${Date.now()}`, type: 'heading', level: 'h1', content: art.titleBn || art.titleEn || '' },
-            { id: `image-${Date.now()}`, type: 'image', url: art.imageUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80', caption: art.cardCaption || 'ছবি: সংগৃহীত', isThumbnail: true },
-            { id: `paragraph-${Date.now()}`, type: 'paragraph', content: art.excerptBn || '' }
-          ]);
+      let articleBlocks = null;
+      if (art.blocks) {
+        if (Array.isArray(art.blocks) && art.blocks.length > 0) {
+          articleBlocks = art.blocks;
+        } else if (typeof art.blocks === 'string') {
+          try {
+            const parsed = JSON.parse(art.blocks);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              articleBlocks = parsed;
+            }
+          } catch (e) {}
         }
       }
+
+      const postTitle = art.titleBn || art.title || art.titleEn || '';
+      const postImage = art.imageUrl || art.featuredImage || art.featured_image || '';
+      const postContent = art.contentBn || art.content || art.contentEn || '';
+
+      if (articleBlocks && articleBlocks.length > 0) {
+        const hasHeading = articleBlocks.some((b) => b.type === 'heading');
+        if (!hasHeading && postTitle) {
+          articleBlocks = [
+            { id: `heading-${Date.now()}-head`, type: 'heading', level: 'h1', content: postTitle },
+            ...articleBlocks
+          ];
+        }
+        setBlocks(articleBlocks);
+      } else if (postContent) {
+        // Parse HTML content into structured blocks (Headings, Paragraphs, Images, Blockquotes, Tables, Lists, Videos)
+        const parsedFromHtml = parseHtmlToBlocks(
+          postContent,
+          postTitle,
+          postImage,
+          art.cardCaption || 'ছবি: সংগৃহীত'
+        );
+        setBlocks(parsedFromHtml);
+      } else {
+        setBlocks([
+          { id: `heading-${Date.now()}-1`, type: 'heading', level: 'h1', content: postTitle },
+          { id: `image-${Date.now()}-2`, type: 'image', url: postImage || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80', caption: art.cardCaption || 'ছবি: সংগৃহীত', isThumbnail: true },
+          { id: `paragraph-${Date.now()}-3`, type: 'paragraph', content: art.excerptBn || art.excerpt || '' }
+        ]);
+      }
     }
-  }, [initialPostId, articles]);
+  }, [initialPostId, initialPost, articles]);
 
   // Tags State
   const [tags, setTags] = useState(['জাতীয়', 'তাজা খবর']);
@@ -981,7 +1030,12 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       message: isBn
         ? 'আপনি কি নিশ্চিত যে বর্তমান লেখা মুছে ফেলে নতুনভাবে শুরু করতে চান?'
         : 'Are you sure you want to discard all current progress and start fresh?',
-      confirmText: isBn ? 'হ্যাঁ, মুছে ফেলুন' : 'Yes, Discard'
+      subMessage: isBn
+        ? 'বর্তমান এডিটর রিসেট করা হলে অসংরক্ষিত কোনো তথ্য থাকলে তা মুছে যাবে।'
+        : 'Any unsaved progress in the editor will be cleared.',
+      confirmText: isBn ? 'হ্যাঁ, রিসেট করুন' : 'Yes, Discard',
+      cancelText: isBn ? 'বাতিল' : 'Cancel',
+      type: 'warning'
     });
 
     if (confirmed) {
@@ -1053,7 +1107,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
             return b.url ? `<div class="post-audio"><audio controls src="${b.url}"></audio></div>` : '';
           case 'file':
             return b.url
-              ? `<div class="post-file-download" style="margin: 20px 0;"><a href="${b.url}" target="_blank" rel="noopener noreferrer" class="post-download-btn" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; background-color: #E60012; color: #ffffff !important; padding: 10px 22px; border-radius: 6px; font-weight: 700; text-decoration: none; font-size: 0.95rem; box-shadow: 0 3px 8px rgba(230,0,18,0.35);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #ffffff;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span style="color: #ffffff !important; font-weight: 700;">${b.label || (isBn ? 'ফাইল ডাউনলোড করুন' : 'Download File')}</span></a></div>`
+              ? `<div class="post-file-download" style="margin: 24px auto; display: flex; justify-content: center; align-items: center; text-align: center; width: 100%;"><a href="${b.url}" target="_blank" rel="noopener noreferrer" class="post-download-btn" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin: 0 auto; background-color: #E60012; color: #ffffff !important; padding: 11px 24px; border-radius: 6px; font-weight: 700; text-decoration: none; font-size: 0.95rem; box-shadow: 0 3px 8px rgba(230,0,18,0.35); text-align: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #ffffff;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span style="color: #ffffff !important; font-weight: 700;">${b.label || (isBn ? 'ডকুমেন্ট বা ফাইল ডাউনলোড (PDF)' : 'Download File')}</span></a></div>`
               : '';
           case 'video': {
             const embedUrl = formatVideoEmbedUrl(b.url);
@@ -1108,7 +1162,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
       metaTitle: metaTitle || mainTitle,
       metaDesc: metaDesc || excerpt,
       focusKeyword: focusKeyword || '',
-      status: 'draft' // Saved as draft in Edit Post tab until 'Request Approval'
+      status: postId ? (existingArticle?.status || postStatus || 'published') : 'draft'
     };
 
     let syncRes = null;
@@ -1121,15 +1175,19 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
     if (syncRes && syncRes.success === false) {
       showWarning(
         isBn
-          ? `সংবাদটি সংরক্ষিত হয়েছে, তবে MariaDB ডাটাবেজে সিঙ্ক ত্রুটি: ${syncRes.error || 'Server error'}`
-          : `Post saved, but MariaDB notice: ${syncRes.error || 'Server error'}`
+          ? `সংবাদটি সংরক্ষিত হয়েছে, তবে সার্ভার নোটিশ: ${syncRes.error || 'Server notice'}`
+          : `Post saved, but server notice: ${syncRes.error || 'Server notice'}`
       );
     } else {
       showSuccess(
         isBn
-          ? 'আপনার সংবাদটি সফলভাবে তৈরি ও cPanel MariaDB ডাটাবেজে সংরক্ষিত হয়েছে! "পোস্ট সম্পাদনা" (Edit Post) ট্যাবে গিয়ে এটি দেখতে ও অনুমোদনের জন্য পাঠাতে পারবেন।'
-          : 'Your post has been created and saved to MariaDB database!',
-        isBn ? 'সফলভাবে তৈরি হয়েছে' : 'Saved to Edit Post'
+          ? (postId
+              ? (isAlreadyPublished
+                  ? 'সংবাদের পরিবর্তনসমূহ সংরক্ষিত হয়েছে এবং ওয়েবসাইটে সরাসরি লাইভ আপডেট সম্পন্ন হয়েছে।'
+                  : 'সংবাদের পরিবর্তনসমূহ সফলভাবে সংরক্ষণ করা হয়েছে।')
+              : 'সংবাদটি সফলভাবে সংরক্ষণ করা হয়েছে এবং সম্পাদকীয় পর্যালোচনার তালিকায় যুক্ত হয়েছে।')
+          : (postId ? 'News post changes saved and updated live.' : 'News post saved successfully.'),
+        isBn ? (postId ? 'আপডেট সম্পন্ন' : 'সংবাদ সংরক্ষণ সম্পন্ন') : 'Post Saved'
       );
     }
 
@@ -1192,15 +1250,15 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
     if (syncRes && syncRes.success === false) {
       showWarning(
         isBn
-          ? `অনুমোদনের আবেদন জমা হয়েছে, তবে MariaDB ডাটাবেজ নোটিশ: ${syncRes.error || 'Server error'}`
-          : `Submitted for review, but DB notice: ${syncRes.error || 'Server error'}`
+          ? `অনুমোদনের আবেদন জমা হয়েছে, তবে সার্ভার নোটিশ: ${syncRes.error || 'Server notice'}`
+          : `Submitted for review, but server notice: ${syncRes.error || 'Server notice'}`
       );
     } else {
       showSuccess(
         isBn
-          ? 'পোস্টটি সফলভাবে MariaDB ডাটাবেজে সংরক্ষিত হয়েছে এবং "Approve Post" ট্যাবে অনুমোদনের জন্য পাঠানো হয়েছে!'
-          : 'Post saved to MariaDB and submitted to Approve Post tab for review!',
-        isBn ? 'অনুমোদনের আবেদন সফল' : 'Request Submitted'
+          ? 'সংবাদটি সফলভাবে সংরক্ষণ করা হয়েছে এবং অনুমোদনের জন্য সম্পাদকীয় প্যানেলে পাঠানো হয়েছে।'
+          : 'Post successfully saved and submitted for editorial review.',
+        isBn ? 'অনুমোদনের আবেদন সম্পন্ন' : 'Submitted for Approval'
       );
     }
 
@@ -1274,23 +1332,43 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
               {mainTitle || (isBn ? 'নতুন পোস্ট তৈরি' : 'New Post')}
             </h2>
 
-            <span
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: 800,
-                padding: '2px 8px',
-                borderRadius: 20,
-                backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                color: '#3B82F6',
-                border: '1px solid rgba(59, 130, 246, 0.35)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4
-              }}
-            >
-              <Clock size={11} />
-              <span>{isBn ? 'পর্যালোচনায় (Under Review)' : 'Under Review'}</span>
-            </span>
+            {isAlreadyPublished ? (
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: 20,
+                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                  color: '#10B981',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4
+                }}
+              >
+                <CheckCircle size={11} />
+                <span>{isBn ? 'লাইভ প্রকাশিত' : 'Published Live'}</span>
+              </span>
+            ) : (
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: 20,
+                  backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                  color: '#3B82F6',
+                  border: '1px solid rgba(59, 130, 246, 0.35)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4
+                }}
+              >
+                <Clock size={11} />
+                <span>{isBn ? 'পর্যালোচনায় (Under Review)' : 'Under Review'}</span>
+              </span>
+            )}
           </div>
         </div>
 
@@ -1425,7 +1503,13 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
             }}
           >
             <Send size={16} />
-            <span>{postId ? (isBn ? 'আপডেট জমা দিন' : 'Submit Update') : (isBn ? 'জমা দিন' : 'Submit Post')}</span>
+            <span>
+              {postId
+                ? (isAlreadyPublished
+                    ? (isBn ? 'আপডেট সংরক্ষণ করুন' : 'Save Updates')
+                    : (isBn ? 'আপডেট জমা দিন' : 'Submit Update'))
+                : (isBn ? 'জমা দিন' : 'Submit Post')}
+            </span>
           </button>
 
           {/* Toggle Right Settings Sidebar */}
@@ -2165,6 +2249,115 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
               paddingBottom: 60
             }}
           >
+            {/* Card 0: Live 16:9 Thumbnail Preview & 3x3 Grid Position Selector (Task 6) */}
+            <div className="admin-card" style={{ padding: '16px 18px', border: '2px solid var(--border-color)', margin: 0, flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <h3 style={{ fontFamily: 'var(--font-headline)', fontSize: '0.96rem', fontWeight: 800, margin: 0, color: 'var(--primary-red)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <ImageIcon size={16} />
+                  <span>{isBn ? 'থাম্বনেইল প্রিভিউ ও পজিশন' : 'Thumbnail Preview & Position'}</span>
+                </h3>
+                <span style={{ fontSize: '0.72rem', color: 'var(--primary-red)', fontWeight: 800, backgroundColor: 'rgba(230,0,18,0.1)', padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(230,0,18,0.2)' }}>
+                  {isBn
+                    ? (GRID_POSITIONS.find((p) => p.id === (cardImagePosition || 'center center').toLowerCase())?.bn || cardImagePosition)
+                    : (GRID_POSITIONS.find((p) => p.id === (cardImagePosition || 'center center').toLowerCase())?.label || cardImagePosition)}
+                </span>
+              </div>
+
+              {/* 16:9 Live Thumbnail Display */}
+              <div
+                style={{
+                  position: 'relative',
+                  width: '100%',
+                  aspectRatio: '16 / 9',
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  backgroundColor: '#1E1E1E',
+                  border: '1px solid var(--border-color)',
+                  marginBottom: 12,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.25)'
+                }}
+              >
+                <img
+                  src={featuredImageUrl}
+                  alt="Post Thumbnail"
+                  crossOrigin="anonymous"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    objectPosition: cardImagePosition || 'center center',
+                    display: 'block',
+                    transition: 'object-position 0.2s ease'
+                  }}
+                  onError={(e) => {
+                    e.target.src = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80';
+                  }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 6,
+                    left: 6,
+                    backgroundColor: 'rgba(0,0,0,0.7)',
+                    color: '#fff',
+                    fontSize: '0.68rem',
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    fontWeight: 700,
+                    backdropFilter: 'blur(4px)'
+                  }}
+                >
+                  {isBn ? '16:9 থাম্বনেইল' : '16:9 Thumbnail'}
+                </div>
+              </div>
+
+              {/* 3x3 Grid Position Controls for Thumbnail Focus */}
+              <div style={{ marginTop: 6, paddingTop: 8, borderTop: '1px dashed var(--border-color)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.78rem', fontWeight: 700 }}>
+                    <Crosshair size={13} color="var(--primary-red)" />
+                    <span>{isBn ? 'থাম্বনেইল ফোকাস (3×3 Grid):' : 'Thumbnail Focus (3×3 Grid):'}</span>
+                  </span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {isBn ? 'পজিশন বেছে নিন' : 'Select Position'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 5, width: '100%', marginTop: 4 }}>
+                  {GRID_POSITIONS.map((pos) => {
+                    const isSelected = (cardImagePosition || 'center center').toLowerCase() === pos.id.toLowerCase();
+                    return (
+                      <button
+                        key={pos.id}
+                        type="button"
+                        onClick={() => setCardImagePosition(pos.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 3,
+                          padding: '6px 3px',
+                          fontSize: '0.72rem',
+                          fontWeight: isSelected ? 800 : 500,
+                          borderRadius: 6,
+                          border: isSelected ? '1px solid var(--primary-red)' : '1px solid var(--border-color)',
+                          backgroundColor: isSelected ? 'rgba(230, 0, 18, 0.18)' : 'var(--bg-subtle, #232731)',
+                          color: isSelected ? 'var(--primary-red)' : 'var(--text-secondary)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          boxShadow: isSelected ? '0 0 6px rgba(230,0,18,0.35)' : 'none'
+                        }}
+                        title={`${pos.label} (${pos.bn})`}
+                      >
+                        <span style={{ fontSize: '0.78rem', lineHeight: 1 }}>{pos.arrow}</span>
+                        <span style={{ fontSize: '0.66rem', whiteSpace: 'nowrap' }}>{isBn ? pos.bn : pos.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
             {/* Card 1: Live Auto-Generated Social News Card (Strictly View-Only) */}
             <div className="admin-card" style={{ padding: '16px 18px', border: '2px solid var(--border-color)', margin: 0, flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -2181,12 +2374,14 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
               {/* Live Rendered Card Component */}
               <div style={{ marginBottom: 14 }}>
                 <SocialNewsCardPreview
+                  isBn={isBn}
+                  language={isBn ? 'bn' : 'en'}
                   title={mainTitle}
                   kicker={kicker}
                   imageUrl={featuredImageUrl}
                   caption={cardCaption}
                   category={cardCategoryDisplay}
-                  dateBn={new Date(publishDate).toLocaleDateString('bn-BD', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  dateBn={new Date(publishDate).toLocaleDateString(isBn ? 'bn-BD' : 'en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
                   imagePosition={cardImagePosition}
                   onPositionChange={setCardImagePosition}
                 />
@@ -2194,7 +2389,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
 
               {/* Card Sub-headline (Kicker) Input */}
               <div className="admin-form-group" style={{ marginBottom: 10 }}>
-                <label className="admin-label">{isBn ? 'কার্ড সাব-হেডলাইন / কিকার (ঐচ্ছিক)' : 'Card Kicker / Subtitle (Optional)'}</label>
+                <label className="admin-label">{isBn ? 'কার্ড সাব-হেডলাইন / কিকার (ঐচ্ছিক)' : 'Card Sub-Headline / Kicker (Optional)'}</label>
                 <input
                   type="text"
                   className="admin-input"
@@ -2206,7 +2401,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
 
               {/* Card Footer Category ({sub_group} | {category}) Input */}
               <div className="admin-form-group" style={{ marginBottom: 10 }}>
-                <label className="admin-label">{isBn ? 'কার্ড ফুটার ক্যাটাগরি ({সাব-গ্রুপ} । {ক্যাটাগরি})' : 'Card Footer Category ({Sub-Group} | {Category})'}</label>
+                <label className="admin-label">{isBn ? 'কার্ড ফুটার ক্যাটাগরি (সাব-গ্রুপ । ক্যাটাগরি)' : 'Card Footer Category (Sub-Group | Category)'}</label>
                 <input
                   type="text"
                   className="admin-input"
@@ -2223,7 +2418,7 @@ export default function CreatePostManager({ initialPostId = null, triggerSaveToa
                   className="admin-input"
                   value={cardCaption}
                   onChange={(e) => setCardCaption(e.target.value)}
-                  placeholder="ছবি: সংগৃহীত"
+                  placeholder={isBn ? 'ছবি: সংগৃহীত' : 'Photo: Collected'}
                 />
               </div>
             </div>

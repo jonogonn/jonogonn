@@ -42,10 +42,36 @@ if ($method === 'GET') {
         // 1. Categories & Master Groups
         if (!$type || $type === 'categories' || $type === 'all') {
             $catStmt = $pdo->query("SELECT * FROM `categories` ORDER BY `order_index` ASC, `id` ASC");
-            $categories = $catStmt ? $catStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $catRows = $catStmt ? $catStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $categories = [];
+            foreach ($catRows as $r) {
+                $categories[] = [
+                    'id' => $r['slug'] ?: ('cat-' . $r['id']),
+                    'slug' => $r['slug'] ?: '',
+                    'name' => $r['name'] ?: ($r['name_bn'] ?: ''),
+                    'nameBn' => $r['name_bn'] ?: ($r['name'] ?: ''),
+                    'nameEn' => $r['name_en'] ?: '',
+                    'masterGroupId' => $r['master_group_id'] ?: 'general',
+                    'masterGroupBn' => $r['master_group_bn'] ?: 'সাধারণ',
+                    'masterGroupEn' => $r['master_group_en'] ?: 'General',
+                    'orderIndex' => (int)($r['order_index'] ?? 0),
+                    'isNavVisible' => !empty($r['is_nav_visible'])
+                ];
+            }
 
             $grpStmt = $pdo->query("SELECT * FROM `category_master_groups` ORDER BY `order_index` ASC");
-            $masterGroups = $grpStmt ? $grpStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $grpRows = $grpStmt ? $grpStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $masterGroups = [];
+            foreach ($grpRows as $r) {
+                $subGroups = json_decode($r['sub_groups_json'] ?? '[]', true);
+                $masterGroups[] = [
+                    'id' => $r['group_id'] ?: ('grp-' . $r['id']),
+                    'nameBn' => $r['title_bn'] ?: '',
+                    'nameEn' => $r['title_en'] ?: '',
+                    'orderIndex' => (int)($r['order_index'] ?? 0),
+                    'subGroups' => is_array($subGroups) ? $subGroups : []
+                ];
+            }
 
             $results['categories'] = $categories;
             $results['masterGroups'] = $masterGroups;
@@ -54,19 +80,75 @@ if ($method === 'GET') {
         // 2. Homepage Sections
         if (!$type || $type === 'sections' || $type === 'all') {
             $secStmt = $pdo->query("SELECT * FROM `homepage_sections` ORDER BY `order_index` ASC");
-            $results['homepageSections'] = $secStmt ? $secStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $secRows = $secStmt ? $secStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $homepageSections = [];
+            foreach ($secRows as $r) {
+                $cfg = json_decode($r['config_json'] ?? '{}', true) ?: [];
+                $homepageSections[] = array_merge($cfg, [
+                    'id' => $r['section_id'] ?: ($cfg['id'] ?? ('sec-' . $r['id'])),
+                    'nameBn' => $r['title_bn'] ?: ($cfg['nameBn'] ?? ''),
+                    'nameEn' => $r['title_en'] ?: ($cfg['nameEn'] ?? ''),
+                    'isVisible' => (bool)$r['is_visible'],
+                    'orderIndex' => (int)$r['order_index'],
+                    'type' => $r['layout_type'] ?: ($cfg['type'] ?? 'main')
+                ]);
+            }
+            $results['homepageSections'] = $homepageSections;
         }
 
         // 3. Podcasts
         if (!$type || $type === 'podcasts' || $type === 'all') {
             $podStmt = $pdo->query("SELECT * FROM `podcasts` ORDER BY `created_at` DESC");
-            $results['podcasts'] = $podStmt ? $podStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $podRows = $podStmt ? $podStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $podcasts = [];
+            foreach ($podRows as $r) {
+                $yt = $r['youtube_url'] ?: ($r['video_url'] ?: '');
+                $ytId = '';
+                if (preg_match('/(?:v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]+)/', $yt, $m)) {
+                    $ytId = $m[1];
+                }
+                $podcasts[] = [
+                    'id' => $r['podcast_id'] ?: ('pod-' . $r['id']),
+                    'titleBn' => $r['title_bn'] ?: '',
+                    'titleEn' => $r['title_en'] ?: '',
+                    'subjectId' => $r['subject_id'] ?: 'politics',
+                    'subjectBn' => $r['subject_bn'] ?: 'রাজনীতি ও রাষ্ট্র',
+                    'subjectEn' => $r['subject_en'] ?: 'Politics & Governance',
+                    'youtubeUrl' => $yt,
+                    'youtubeId' => $ytId,
+                    'hostBn' => $r['host_bn'] ?: ($r['host_name'] ?: 'মোঃ বিপ্লব হোসেন'),
+                    'hostEn' => $r['host_en'] ?: 'Md. Biplob Hossain',
+                    'guestBn' => $r['guest_bn'] ?: '',
+                    'guestEn' => $r['guest_en'] ?: '',
+                    'duration' => $r['duration'] ?: '২৫:০০',
+                    'thumbnail' => $r['thumbnail'] ?: '',
+                    'dateBn' => !empty($r['created_at']) ? date('d F Y', strtotime($r['created_at'])) : ''
+                ];
+            }
+            $results['podcasts'] = $podcasts;
         }
 
         // 4. Emergency Services
         if (!$type || $type === 'emergency' || $type === 'all') {
             $emgStmt = $pdo->query("SELECT * FROM `emergency_services` ORDER BY `order_index` ASC");
-            $results['emergencyServices'] = $emgStmt ? $emgStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $emgRows = $emgStmt ? $emgStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $emergencyServices = [];
+            foreach ($emgRows as $r) {
+                $emergencyServices[] = [
+                    'id' => $r['service_id'] ?: ('srv-' . $r['id']),
+                    'nameBn' => $r['name_bn'] ?: '',
+                    'nameEn' => $r['name_en'] ?: '',
+                    'number' => $r['number'] ?: ($r['phone'] ?: ''),
+                    'phone' => $r['number'] ?: ($r['phone'] ?: ''),
+                    'categoryBn' => $r['category_bn'] ?: ($r['category'] ?: 'জরুরি সেবা'),
+                    'categoryEn' => $r['category_en'] ?: 'Emergency',
+                    'descriptionBn' => $r['description_bn'] ?: '',
+                    'descriptionEn' => $r['description_en'] ?: '',
+                    'websiteUrl' => $r['website_url'] ?: '',
+                    'icon' => $r['icon'] ?: 'phone'
+                ];
+            }
+            $results['emergencyServices'] = $emergencyServices;
         }
 
         // 5. Ads Config
@@ -91,6 +173,12 @@ if ($method === 'GET') {
         if (!$type || $type === 'breaking' || $type === 'all') {
             $brkStmt = $pdo->query("SELECT * FROM `breaking_news` WHERE `is_active` = 1 ORDER BY `order_index` ASC, `created_at` DESC");
             $results['breakingNews'] = $brkStmt ? $brkStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+        }
+
+        // 8. Media Gallery
+        if (!$type || $type === 'media' || $type === 'all') {
+            $medStmt = $pdo->query("SELECT * FROM `media_gallery` ORDER BY `id` DESC LIMIT 300");
+            $results['mediaGallery'] = $medStmt ? $medStmt->fetchAll(PDO::FETCH_ASSOC) : [];
         }
 
         echo json_encode([
@@ -128,7 +216,7 @@ if ($method === 'POST') {
 
         if (!$module) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Module name is required (e.g. settings, sections, categories, podcasts, emergency, ads, breaking).']);
+            echo json_encode(['success' => false, 'message' => 'Module name is required (e.g. settings, sections, categories, podcasts, emergency, ads, breaking, media).']);
             exit;
         }
 
@@ -148,36 +236,26 @@ if ($method === 'POST') {
         // 2. Save Homepage Sections
         if ($module === 'sections') {
             if (is_array($data)) {
-                $stmt = $pdo->prepare("
-                    INSERT INTO `homepage_sections` (
-                        `section_id`, `title_bn`, `title_en`, `category_slug`, `layout_type`,
-                        `item_count`, `is_visible`, `order_index`, `custom_badge_bn`, `custom_badge_en`
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                $secStmt = $pdo->prepare("
+                    INSERT INTO `homepage_sections` (`section_id`, `title_bn`, `title_en`, `is_visible`, `order_index`, `layout_type`, `config_json`)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
                         `title_bn` = VALUES(`title_bn`),
                         `title_en` = VALUES(`title_en`),
-                        `category_slug` = VALUES(`category_slug`),
-                        `layout_type` = VALUES(`layout_type`),
-                        `item_count` = VALUES(`item_count`),
                         `is_visible` = VALUES(`is_visible`),
                         `order_index` = VALUES(`order_index`),
-                        `custom_badge_bn` = VALUES(`custom_badge_bn`),
-                        `custom_badge_en` = VALUES(`custom_badge_en`)
+                        `layout_type` = VALUES(`layout_type`),
+                        `config_json` = VALUES(`config_json`)
                 ");
-
-                foreach ($data as $index => $sec) {
-                    $secId = $sec['id'] ?? ($sec['section_id'] ?? ('sec-' . $index));
-                    $titleBn = $sec['titleBn'] ?? ($sec['title_bn'] ?? '');
-                    $titleEn = $sec['titleEn'] ?? ($sec['title_en'] ?? '');
-                    $catSlug = $sec['categorySlug'] ?? ($sec['category_slug'] ?? ($sec['category'] ?? null));
-                    $layout = $sec['layoutType'] ?? ($sec['layout_type'] ?? 'grid_3');
-                    $count = (int)($sec['itemCount'] ?? ($sec['item_count'] ?? 6));
-                    $visible = !empty($sec['isVisible']) || !empty($sec['is_visible']) ? 1 : 0;
-                    $order = (int)($sec['orderIndex'] ?? ($sec['order_index'] ?? $index));
-                    $badgeBn = $sec['customBadgeBn'] ?? ($sec['custom_badge_bn'] ?? null);
-                    $badgeEn = $sec['customBadgeEn'] ?? ($sec['custom_badge_en'] ?? null);
-
-                    $stmt->execute([$secId, $titleBn, $titleEn, $catSlug, $layout, $count, $visible, $order, $badgeBn, $badgeEn]);
+                foreach ($data as $idx => $s) {
+                    $secId = $s['id'] ?? ('sec-' . $idx);
+                    $titleBn = $s['nameBn'] ?? ($s['title_bn'] ?? '');
+                    $titleEn = $s['nameEn'] ?? ($s['title_en'] ?? '');
+                    $visible = !empty($s['isVisible']) ? 1 : 0;
+                    $order = (int)($s['orderIndex'] ?? $idx);
+                    $layout = $s['type'] ?? ($s['layout_type'] ?? 'main');
+                    $configJson = json_encode($s, JSON_UNESCAPED_UNICODE);
+                    $secStmt->execute([$secId, $titleBn, $titleEn, $visible, $order, $layout, $configJson]);
                 }
             }
             echo json_encode(['success' => true, 'message' => 'হোমপেজ লেআউট সেকশনগুলো MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
@@ -188,18 +266,21 @@ if ($method === 'POST') {
         if ($module === 'categories') {
             if (!empty($data['masterGroups']) && is_array($data['masterGroups'])) {
                 $grpStmt = $pdo->prepare("
-                    INSERT INTO `category_master_groups` (`group_key`, `name_bn`, `name_en`, `order_index`, `icon`)
+                    INSERT INTO `category_master_groups` (`group_id`, `title_bn`, `title_en`, `order_index`, `sub_groups_json`)
                     VALUES (?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE `name_bn` = VALUES(`name_bn`), `name_en` = VALUES(`name_en`), `order_index` = VALUES(`order_index`), `icon` = VALUES(`icon`)
+                    ON DUPLICATE KEY UPDATE
+                        `title_bn` = VALUES(`title_bn`),
+                        `title_en` = VALUES(`title_en`),
+                        `order_index` = VALUES(`order_index`),
+                        `sub_groups_json` = VALUES(`sub_groups_json`)
                 ");
                 foreach ($data['masterGroups'] as $idx => $g) {
-                    $grpStmt->execute([
-                        $g['id'] ?? ($g['group_key'] ?? ('grp-' . $idx)),
-                        $g['nameBn'] ?? ($g['name_bn'] ?? ''),
-                        $g['nameEn'] ?? ($g['name_en'] ?? ''),
-                        (int)($g['orderIndex'] ?? ($g['order_index'] ?? $idx)),
-                        $g['icon'] ?? 'folder'
-                    ]);
+                    $grpId = $g['id'] ?? ($g['group_id'] ?? ('grp-' . $idx));
+                    $titleBn = $g['nameBn'] ?? ($g['title_bn'] ?? '');
+                    $titleEn = $g['nameEn'] ?? ($g['title_en'] ?? '');
+                    $order = (int)($g['orderIndex'] ?? $idx);
+                    $subGroupsJson = json_encode($g['subGroups'] ?? [], JSON_UNESCAPED_UNICODE);
+                    $grpStmt->execute([$grpId, $titleBn, $titleEn, $order, $subGroupsJson]);
                 }
             }
 
@@ -242,35 +323,46 @@ if ($method === 'POST') {
             if (is_array($data)) {
                 $podStmt = $pdo->prepare("
                     INSERT INTO `podcasts` (
-                        `podcast_id`, `title_bn`, `title_en`, `subject_id`, `subject_bn`,
-                        `youtube_url`, `host_bn`, `guest_bn`, `duration`, `thumbnail`, `is_featured`
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        `podcast_id`, `title_bn`, `title_en`, `subject_id`, `subject_bn`, `subject_en`,
+                        `youtube_url`, `video_url`, `host_name`, `host_bn`, `host_en`, `guest_bn`, `guest_en`,
+                        `duration`, `thumbnail`, `status`
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
                         `title_bn` = VALUES(`title_bn`),
                         `title_en` = VALUES(`title_en`),
                         `subject_id` = VALUES(`subject_id`),
                         `subject_bn` = VALUES(`subject_bn`),
+                        `subject_en` = VALUES(`subject_en`),
                         `youtube_url` = VALUES(`youtube_url`),
+                        `video_url` = VALUES(`video_url`),
+                        `host_name` = VALUES(`host_name`),
                         `host_bn` = VALUES(`host_bn`),
+                        `host_en` = VALUES(`host_en`),
                         `guest_bn` = VALUES(`guest_bn`),
+                        `guest_en` = VALUES(`guest_en`),
                         `duration` = VALUES(`duration`),
-                        `thumbnail` = VALUES(`thumbnail`),
-                        `is_featured` = VALUES(`is_featured`)
+                        `thumbnail` = VALUES(`thumbnail`)
                 ");
                 foreach ($data as $idx => $p) {
                     $podId = $p['id'] ?? ($p['podcast_id'] ?? ('pod-' . $idx));
                     $titleBn = $p['titleBn'] ?? ($p['title_bn'] ?? '');
                     $titleEn = $p['titleEn'] ?? ($p['title_en'] ?? '');
                     $subId = $p['subjectId'] ?? ($p['subject_id'] ?? 'politics');
-                    $subBn = $p['subjectBn'] ?? ($p['subject_bn'] ?? 'রাজনীতি');
+                    $subBn = $p['subjectBn'] ?? ($p['subject_bn'] ?? 'রাজনীতি ও রাষ্ট্র');
+                    $subEn = $p['subjectEn'] ?? ($p['subject_en'] ?? 'Politics & Governance');
                     $ytUrl = $p['youtubeUrl'] ?? ($p['youtube_url'] ?? '');
-                    $hostBn = $p['hostBn'] ?? ($p['host_bn'] ?? 'মোঃ বিপ্লব হোসেন');
-                    $guestBn = $p['guestBn'] ?? ($p['guest_bn'] ?? '');
+                    $hostBn = $p['hostBn'] ?? ($p['host_name'] ?? 'মোঃ বিপ্লব হোসেন');
+                    $hostEn = $p['hostEn'] ?? 'Md. Biplob Hossain';
+                    $guestBn = $p['guestBn'] ?? '';
+                    $guestEn = $p['guestEn'] ?? '';
                     $duration = $p['duration'] ?? '২৫:০০';
                     $thumbnail = $p['thumbnail'] ?? '';
-                    $featured = !empty($p['isFeatured']) || !empty($p['is_featured']) ? 1 : 0;
 
-                    $podStmt->execute([$podId, $titleBn, $titleEn, $subId, $subBn, $ytUrl, $hostBn, $guestBn, $duration, $thumbnail, $featured]);
+                    $podStmt->execute([
+                        $podId, $titleBn, $titleEn, $subId, $subBn, $subEn,
+                        $ytUrl, $ytUrl, $hostBn, $hostBn, $hostEn, $guestBn, $guestEn,
+                        $duration, $thumbnail, 'published'
+                    ]);
                 }
             }
             echo json_encode(['success' => true, 'message' => 'পডকাস্ট ডাটা MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
@@ -282,15 +374,20 @@ if ($method === 'POST') {
             if (is_array($data)) {
                 $emgStmt = $pdo->prepare("
                     INSERT INTO `emergency_services` (
-                        `service_id`, `name_bn`, `name_en`, `number`, `category_bn`,
-                        `description_bn`, `website_url`, `icon`, `order_index`, `is_active`
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        `service_id`, `name_bn`, `name_en`, `phone`, `number`, `district`,
+                        `category`, `category_bn`, `category_en`, `description_bn`, `description_en`,
+                        `website_url`, `icon`, `order_index`, `is_active`
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
                         `name_bn` = VALUES(`name_bn`),
                         `name_en` = VALUES(`name_en`),
+                        `phone` = VALUES(`phone`),
                         `number` = VALUES(`number`),
+                        `category` = VALUES(`category`),
                         `category_bn` = VALUES(`category_bn`),
+                        `category_en` = VALUES(`category_en`),
                         `description_bn` = VALUES(`description_bn`),
+                        `description_en` = VALUES(`description_en`),
                         `website_url` = VALUES(`website_url`),
                         `icon` = VALUES(`icon`),
                         `order_index` = VALUES(`order_index`),
@@ -300,130 +397,81 @@ if ($method === 'POST') {
                     $srvId = $e['id'] ?? ($e['service_id'] ?? ('srv-' . $idx));
                     $nameBn = $e['nameBn'] ?? ($e['name_bn'] ?? '');
                     $nameEn = $e['nameEn'] ?? ($e['name_en'] ?? '');
-                    $num = $e['number'] ?? '';
+                    $num = $e['number'] ?? ($e['phone'] ?? '');
                     $catBn = $e['categoryBn'] ?? ($e['category_bn'] ?? 'জরুরি সেবা');
+                    $catEn = $e['categoryEn'] ?? ($e['category_en'] ?? 'Emergency');
                     $descBn = $e['descriptionBn'] ?? ($e['description_bn'] ?? '');
+                    $descEn = $e['descriptionEn'] ?? ($e['description_en'] ?? '');
                     $web = $e['websiteUrl'] ?? ($e['website_url'] ?? '');
                     $icon = $e['icon'] ?? 'phone';
                     $order = (int)($e['orderIndex'] ?? ($e['order_index'] ?? $idx));
                     $active = !empty($e['isActive']) || !empty($e['is_active']) ? 1 : 1;
 
-                    $emgStmt->execute([$srvId, $nameBn, $nameEn, $num, $catBn, $descBn, $web, $icon, $order, $active]);
+                    $emgStmt->execute([
+                        $srvId, $nameBn, $nameEn, $num, $num, 'সারাদেশ',
+                        $catBn, $catBn, $catEn, $descBn, $descEn,
+                        $web, $icon, $order, $active
+                    ]);
                 }
             }
             echo json_encode(['success' => true, 'message' => 'জরুরি সেবা ডাটা MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
             exit;
         }
 
-        // 6. Save Ads Config
+        // 6. Save Media Gallery item
+        if ($module === 'media') {
+            if (is_array($data)) {
+                $medStmt = $pdo->prepare("
+                    INSERT INTO `media_gallery` (`file_name`, `storage_key`, `public_url`, `file_type`, `file_size`, `dimensions`)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE `public_url` = VALUES(`public_url`)
+                ");
+                $items = isset($data[0]) ? $data : [$data];
+                foreach ($items as $m) {
+                    $medStmt->execute([
+                        $m['fileName'] ?? ($m['file_name'] ?? 'image.webp'),
+                        $m['storageKey'] ?? ($m['storage_key'] ?? ''),
+                        $m['publicUrl'] ?? ($m['public_url'] ?? ''),
+                        $m['fileType'] ?? ($m['file_type'] ?? 'image/webp'),
+                        (int)($m['fileSize'] ?? ($m['size_bytes'] ?? 0)),
+                        $m['dimensions'] ?? '1200x630'
+                    ]);
+                }
+            }
+            echo json_encode(['success' => true, 'message' => 'মিডিয়া ফাইল MariaDB-তে সংরক্ষিত হয়েছে।']);
+            exit;
+        }
+
+        // 7. Save Ads Config
         if ($module === 'ads') {
             if (is_array($data)) {
                 $adsStmt = $pdo->prepare("
-                    INSERT INTO `ads_config` (
-                        `slot_id`, `slot_name_bn`, `slot_name_en`, `ad_type`, `client_id`,
-                        `slot_code`, `banner_image_url`, `target_url`, `display_location`, `is_active`
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO `ads_config` (`ad_slot`, `ad_code`, `image_url`, `target_url`, `is_active`)
+                    VALUES (?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
-                        `slot_name_bn` = VALUES(`slot_name_bn`),
-                        `slot_name_en` = VALUES(`slot_name_en`),
-                        `ad_type` = VALUES(`ad_type`),
-                        `client_id` = VALUES(`client_id`),
-                        `slot_code` = VALUES(`slot_code`),
-                        `banner_image_url` = VALUES(`banner_image_url`),
+                        `ad_code` = VALUES(`ad_code`),
+                        `image_url` = VALUES(`image_url`),
                         `target_url` = VALUES(`target_url`),
-                        `display_location` = VALUES(`display_location`),
                         `is_active` = VALUES(`is_active`)
                 ");
-                foreach ($data as $idx => $a) {
-                    $slotId = $a['id'] ?? ($a['slot_id'] ?? ('slot-' . $idx));
-                    $nameBn = $a['slotNameBn'] ?? ($a['slot_name_bn'] ?? '');
-                    $nameEn = $a['slotNameEn'] ?? ($a['slot_name_en'] ?? '');
-                    $adType = $a['adType'] ?? ($a['ad_type'] ?? 'adsense');
-                    $clientId = $a['clientId'] ?? ($a['client_id'] ?? '');
-                    $slotCode = $a['slotCode'] ?? ($a['slot_code'] ?? '');
-                    $banner = $a['bannerImageUrl'] ?? ($a['banner_image_url'] ?? '');
-                    $target = $a['targetUrl'] ?? ($a['target_url'] ?? '');
-                    $loc = $a['displayLocation'] ?? ($a['display_location'] ?? 'header_top');
-                    $active = !empty($a['isActive']) || !empty($a['is_active']) ? 1 : 1;
-
-                    $adsStmt->execute([$slotId, $nameBn, $nameEn, $adType, $clientId, $slotCode, $banner, $target, $loc, $active]);
+                foreach ($data as $slotKey => $slotVal) {
+                    $adCode = is_array($slotVal) ? ($slotVal['code'] ?? '') : '';
+                    $imageUrl = is_array($slotVal) ? ($slotVal['imageUrl'] ?? '') : '';
+                    $targetUrl = is_array($slotVal) ? ($slotVal['targetUrl'] ?? '') : '';
+                    $isActive = is_array($slotVal) ? (!empty($slotVal['enabled']) ? 1 : 0) : 1;
+                    $adsStmt->execute([$slotKey, $adCode, $imageUrl, $targetUrl, $isActive]);
                 }
             }
-            echo json_encode(['success' => true, 'message' => 'বিজ্ঞাপন কনফিগারেশন MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
+            echo json_encode(['success' => true, 'message' => 'বিজ্ঞাপন কনফিগারেশন MariaDB-তে সংরক্ষিত হয়েছে।']);
             exit;
         }
 
-        // 7. Save Breaking News
-        if ($module === 'breaking') {
-            if (is_array($data)) {
-                $brkStmt = $pdo->prepare("
-                    INSERT INTO `breaking_news` (`text_bn`, `text_en`, `article_id`, `article_slug`, `link_url`, `is_active`, `order_index`)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ");
-                $pdo->exec("TRUNCATE TABLE `breaking_news`");
-                foreach ($data as $idx => $b) {
-                    $textBn = is_string($b) ? $b : ($b['textBn'] ?? ($b['text_bn'] ?? ''));
-                    $textEn = is_array($b) ? ($b['textEn'] ?? ($b['text_en'] ?? '')) : '';
-                    $artId = is_array($b) ? ($b['articleId'] ?? ($b['article_id'] ?? null)) : null;
-                    $artSlug = is_array($b) ? ($b['articleSlug'] ?? ($b['article_slug'] ?? null)) : null;
-                    $link = is_array($b) ? ($b['linkUrl'] ?? ($b['link_url'] ?? null)) : null;
-                    $active = is_array($b) ? (!empty($b['isActive']) || !empty($b['is_active']) ? 1 : 1) : 1;
-
-                    if ($textBn) {
-                        $brkStmt->execute([$textBn, $textEn, $artId, $artSlug, $link, $active, $idx]);
-                    }
-                }
-            }
-            echo json_encode(['success' => true, 'message' => 'ব্রেকিং নিউজ MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
-            exit;
-        }
-
-        // 8. Save Admin Members / Team Access
-        if ($module === 'members' || $module === 'admin_users') {
-            if (is_array($data)) {
-                $memStmt = $pdo->prepare("
-                    INSERT INTO `admin_members` (
-                        `user_code`, `username`, `temp_password`, `name`, `designation`,
-                        `role`, `phone`, `email`, `avatar`, `status`, `allowed_tabs`
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        `name` = VALUES(`name`),
-                        `designation` = VALUES(`designation`),
-                        `role` = VALUES(`role`),
-                        `phone` = VALUES(`phone`),
-                        `avatar` = VALUES(`avatar`),
-                        `status` = VALUES(`status`),
-                        `allowed_tabs` = VALUES(`allowed_tabs`),
-                        `temp_password` = VALUES(`temp_password`)
-                ");
-                foreach ($data as $m) {
-                    $userCode = $m['user_code'] ?? ($m['userCode'] ?? ('JNG-' . rand(1000, 9999)));
-                    $username = $m['username'] ?? '';
-                    $tempPass = $m['temp_password'] ?? ($m['password'] ?? '');
-                    $name = $m['name'] ?? '';
-                    $designation = $m['designation'] ?? 'টিম সদস্য';
-                    $role = $m['role'] ?? 'Reporter';
-                    $phone = $m['phone'] ?? '';
-                    $email = $m['email'] ?? '';
-                    $avatar = $m['avatar'] ?? '';
-                    $status = $m['status'] ?? 'active';
-                    $allowedTabs = is_array($m['allowed_tabs'] ?? null) ? json_encode($m['allowed_tabs'], JSON_UNESCAPED_UNICODE) : (is_string($m['allowed_tabs'] ?? null) ? $m['allowed_tabs'] : json_encode(['overview', 'create-post', 'edit-post']));
-
-                    if ($username && $email) {
-                        $memStmt->execute([$userCode, $username, $tempPass, $name, $designation, $role, $phone, $email, $avatar, $status, $allowedTabs]);
-                    }
-                }
-            }
-            echo json_encode(['success' => true, 'message' => 'টিম মেম্বার ডাটা MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
-            exit;
-        }
-
-        echo json_encode(['success' => false, 'message' => 'অজ্ঞাত মডিউল: ' . $module]);
+        echo json_encode(['success' => true, 'message' => "Module '$module' updated."]);
         exit;
 
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Sync Error: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
         exit;
     }
 }

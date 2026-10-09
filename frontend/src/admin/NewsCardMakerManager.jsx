@@ -18,8 +18,21 @@ import {
   Loader2,
   Trash2,
   Lock,
-  Eye
+  Eye,
+  Crosshair
 } from 'lucide-react';
+
+const GRID_POSITIONS = [
+  { id: 'top left', label: 'Top Left', bn: 'উপর-বাম', arrow: '↖' },
+  { id: 'top center', label: 'Top Center', bn: 'উপর-মাঝ', arrow: '⬆' },
+  { id: 'top right', label: 'Top Right', bn: 'উপর-ডান', arrow: '↗' },
+  { id: 'center left', label: 'Center Left', bn: 'মাঝ-বাম', arrow: '⬅' },
+  { id: 'center center', label: 'Center Center', bn: 'মাঝখান', arrow: '⏺' },
+  { id: 'center right', label: 'Center Right', bn: 'মাঝ-ডান', arrow: '➡️' },
+  { id: 'bottom left', label: 'Bottom Left', bn: 'নিচে-বাম', arrow: '↙' },
+  { id: 'bottom center', label: 'Bottom Center', bn: 'নিচে-মাঝ', arrow: '⬇' },
+  { id: 'bottom right', label: 'Bottom Right', bn: 'নিচে-ডান', arrow: '↘' }
+];
 
 export default function NewsCardMakerManager({ triggerSaveToast }) {
   const { articles, categories, settings, adminLanguage, language, showSuccess, showError } = useNews();
@@ -43,6 +56,7 @@ export default function NewsCardMakerManager({ triggerSaveToast }) {
   const [titleFontSize, setTitleFontSize] = useState(24);
   const [colorMode, setColorMode] = useState('dual'); // 'dual' | 'red' | 'blue'
   const [displayImage, setDisplayImage] = useState('https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80');
+  const [cardImagePosition, setCardImagePosition] = useState('center center');
 
   // Export & Upload State
   const [isExporting, setIsExporting] = useState(false);
@@ -118,6 +132,9 @@ export default function NewsCardMakerManager({ triggerSaveToast }) {
       if (post.kicker) setKicker(post.kicker);
       if (post.cardCaption) setCaption(post.cardCaption);
       if (post.dateBn) setDateBn(post.dateBn);
+      if (post.cardImagePosition || post.imagePosition) {
+        setCardImagePosition(post.cardImagePosition || post.imagePosition);
+      }
       setManualSplit('');
       showSuccess(isBn ? 'সংবাদের তথ্য কার্ডে লোড হয়েছে!' : 'Loaded article into card!');
     }
@@ -171,6 +188,7 @@ export default function NewsCardMakerManager({ triggerSaveToast }) {
         lineHeight: 1.18,
         colorMode: colorMode,
         manualLineBreak: manualSplit,
+        imagePosition: cardImagePosition,
         fileName: filename,
         returnBlob: false
       });
@@ -206,6 +224,7 @@ export default function NewsCardMakerManager({ triggerSaveToast }) {
         lineHeight: 1.18,
         colorMode: colorMode,
         manualLineBreak: manualSplit,
+        imagePosition: cardImagePosition,
         fileName: `social-card-${cleanSlug}-${Date.now()}.jpg`,
         returnBlob: true
       });
@@ -494,7 +513,9 @@ export default function NewsCardMakerManager({ triggerSaveToast }) {
                 width: '100%',
                 height: '100%',
                 objectFit: 'cover',
-                display: 'block'
+                objectPosition: cardImagePosition || 'center center',
+                display: 'block',
+                transition: 'object-position 0.2s ease'
               }}
             />
           </div>
@@ -796,6 +817,52 @@ export default function NewsCardMakerManager({ triggerSaveToast }) {
                 value={manualSplit}
                 onChange={(e) => setManualSplit(e.target.value)}
               />
+            </div>
+
+            {/* 3x3 Grid Position Alignment */}
+            <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px dashed var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.84rem', fontWeight: 700 }}>
+                  <Crosshair size={14} color="var(--primary-red)" />
+                  <span>{isBn ? 'ছবির পজিশন / ফোকাস (3×3 Grid):' : 'Image Position / Focus (3×3 Grid):'}</span>
+                </span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--primary-red)', fontWeight: 800 }}>
+                  {GRID_POSITIONS.find((p) => p.id === (cardImagePosition || 'center center').toLowerCase())?.bn || cardImagePosition}
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, width: '100%', margin: '4px auto 6px' }}>
+                {GRID_POSITIONS.map((pos) => {
+                  const isSelected = (cardImagePosition || 'center center').toLowerCase() === pos.id.toLowerCase();
+                  return (
+                    <button
+                      key={pos.id}
+                      type="button"
+                      onClick={() => setCardImagePosition(pos.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 4,
+                        padding: '7px 4px',
+                        fontSize: '0.76rem',
+                        fontWeight: isSelected ? 800 : 500,
+                        borderRadius: 6,
+                        border: isSelected ? '1px solid var(--primary-red)' : '1px solid var(--border-color)',
+                        backgroundColor: isSelected ? 'rgba(230, 0, 18, 0.18)' : 'var(--bg-subtle, #232731)',
+                        color: isSelected ? 'var(--primary-red)' : 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        boxShadow: isSelected ? '0 0 8px rgba(230,0,18,0.35)' : 'none'
+                      }}
+                      title={`${pos.label} (${pos.bn})`}
+                    >
+                      <span style={{ fontSize: '0.82rem', lineHeight: 1 }}>{pos.arrow}</span>
+                      <span style={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>{pos.bn}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
