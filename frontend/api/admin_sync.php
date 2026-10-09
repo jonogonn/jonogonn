@@ -221,7 +221,7 @@ if ($method === 'POST') {
         }
 
         // 1. Save Site Settings
-        if ($module === 'settings') {
+        if ($module === 'settings' || $module === 'siteSettings' || $module === 'site_settings') {
             $stmt = $pdo->prepare("INSERT INTO `site_settings` (`setting_key`, `setting_value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)");
             if (is_array($data)) {
                 foreach ($data as $k => $v) {
@@ -234,7 +234,7 @@ if ($method === 'POST') {
         }
 
         // 2. Save Homepage Sections
-        if ($module === 'sections') {
+        if ($module === 'sections' || $module === 'homepageSections' || $module === 'homepage_sections') {
             if (is_array($data)) {
                 $secStmt = $pdo->prepare("
                     INSERT INTO `homepage_sections` (`section_id`, `title_bn`, `title_en`, `is_visible`, `order_index`, `layout_type`, `config_json`)
@@ -263,7 +263,7 @@ if ($method === 'POST') {
         }
 
         // 3. Save Categories & Master Groups
-        if ($module === 'categories') {
+        if ($module === 'categories' || $module === 'categoryMasterGroups') {
             if (!empty($data['masterGroups']) && is_array($data['masterGroups'])) {
                 $grpStmt = $pdo->prepare("
                     INSERT INTO `category_master_groups` (`group_id`, `title_bn`, `title_en`, `order_index`, `sub_groups_json`)
@@ -319,7 +319,7 @@ if ($method === 'POST') {
         }
 
         // 4. Save Podcasts
-        if ($module === 'podcasts') {
+        if ($module === 'podcasts' || $module === 'podcastSubjects') {
             if (is_array($data)) {
                 $podStmt = $pdo->prepare("
                     INSERT INTO `podcasts` (
@@ -370,7 +370,7 @@ if ($method === 'POST') {
         }
 
         // 5. Save Emergency Helplines
-        if ($module === 'emergency') {
+        if ($module === 'emergency' || $module === 'emergencyServices' || $module === 'emergency_services') {
             if (is_array($data)) {
                 $emgStmt = $pdo->prepare("
                     INSERT INTO `emergency_services` (
@@ -419,7 +419,7 @@ if ($method === 'POST') {
         }
 
         // 6. Save Media Gallery item
-        if ($module === 'media') {
+        if ($module === 'media' || $module === 'mediaGallery' || $module === 'media_gallery') {
             if (is_array($data)) {
                 $medStmt = $pdo->prepare("
                     INSERT INTO `media_gallery` (`file_name`, `storage_key`, `public_url`, `file_type`, `file_size`, `dimensions`)
@@ -443,7 +443,7 @@ if ($method === 'POST') {
         }
 
         // 7. Save Ads Config
-        if ($module === 'ads') {
+        if ($module === 'ads' || $module === 'adsConfig' || $module === 'ads_config') {
             if (is_array($data)) {
                 $adsStmt = $pdo->prepare("
                     INSERT INTO `ads_config` (`ad_slot`, `ad_code`, `image_url`, `target_url`, `is_active`)

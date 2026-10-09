@@ -301,8 +301,18 @@ export function NewsProvider({ children }) {
     try {
       const dbPosts = await fetchArticlesFromMariaDb();
       if (Array.isArray(dbPosts) && dbPosts.length > 0) {
-        setArticles(dbPosts);
-        safeSetLocalStorage('jonogon_articles', dbPosts);
+        setArticles((prev) => {
+          const dbMap = new Map();
+          dbPosts.forEach((p) => dbMap.set(String(p.id), p));
+          const merged = [...dbPosts];
+          (Array.isArray(prev) ? prev : []).forEach((item) => {
+            if (!dbMap.has(String(item.id))) {
+              merged.push(item);
+            }
+          });
+          safeSetLocalStorage('jonogon_articles', merged);
+          return merged;
+        });
       }
     } catch (e) {}
   };
@@ -925,27 +935,34 @@ export function NewsProvider({ children }) {
 
   const updateArticle = async (id, updatedData) => {
     let fullArticle = null;
-    setArticles((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          fullArticle = { ...item, ...updatedData };
+    setArticles((prev) => {
+      let found = false;
+      const next = (Array.isArray(prev) ? prev : []).map((item) => {
+        if (String(item.id) === String(id) || item.slug === id) {
+          found = true;
+          fullArticle = { ...item, ...updatedData, id };
           return fullArticle;
         }
         return item;
-      })
-    );
-    if (currentArticle && currentArticle.id === id) {
+      });
+      if (!found) {
+        fullArticle = { ...updatedData, id };
+        return [fullArticle, ...next];
+      }
+      return next;
+    });
+
+    if (currentArticle && (String(currentArticle.id) === String(id) || currentArticle.slug === id)) {
       setCurrentArticle((prev) => ({ ...prev, ...updatedData }));
     }
 
-    if (fullArticle) {
-      try {
-        const res = await saveArticleToMariaDb(fullArticle);
-        return res;
-      } catch (err) {
-        console.warn('MariaDB update sync error:', err);
-        return { success: false, error: err?.message };
-      }
+    const payloadToSave = fullArticle || { ...updatedData, id };
+    try {
+      const res = await saveArticleToMariaDb(payloadToSave);
+      return res;
+    } catch (err) {
+      console.warn('MariaDB update sync error:', err);
+      return { success: false, error: err?.message };
     }
   };
 
