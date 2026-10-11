@@ -3,25 +3,33 @@
  * Compatible with cPanel Hosting, Local XAMPP, and Cloud Production Servers.
  */
 
+function isLocalEnvironment() {
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname || '';
+  return h === 'localhost' || h === '127.0.0.1' || h.startsWith('192.168.');
+}
+
 function getNewsEndpoints() {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
   const isJanogon = pathname.includes('/janogon');
-  const list = [
-    isJanogon ? '/janogon/api/news.php' : '/api/news.php',
-    '/janogon/api/news.php',
-    '/api/news.php',
-    'api/news.php',
-    './api/news.php',
-    'http://localhost/janogon/api/news.php',
-    'http://127.0.0.1/janogon/api/news.php',
-    'https://jonogon.news/api/news.php'
-  ];
+  const isLocal = isLocalEnvironment();
+
+  const list = [];
   if (origin) {
     if (isJanogon) {
-      list.unshift(`${origin}/janogon/api/news.php`);
+      list.push(`${origin}/janogon/api/news.php`);
     }
-    list.unshift(`${origin}/api/news.php`);
+    list.push(`${origin}/api/news.php`);
+  }
+  list.push(isJanogon ? '/janogon/api/news.php' : '/api/news.php');
+  list.push('/api/news.php');
+
+  if (isLocal) {
+    list.push('http://localhost/janogon/api/news.php');
+    list.push('http://127.0.0.1/janogon/api/news.php');
+  } else {
+    list.push('https://jonogon.news/api/news.php');
   }
   return [...new Set(list)];
 }
@@ -30,21 +38,23 @@ function getSyncEndpoints() {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
   const isJanogon = pathname.includes('/janogon');
-  const list = [
-    isJanogon ? '/janogon/api/admin_sync.php' : '/api/admin_sync.php',
-    '/janogon/api/admin_sync.php',
-    '/api/admin_sync.php',
-    'api/admin_sync.php',
-    './api/admin_sync.php',
-    'http://localhost/janogon/api/admin_sync.php',
-    'http://127.0.0.1/janogon/api/admin_sync.php',
-    'https://jonogon.news/api/admin_sync.php'
-  ];
+  const isLocal = isLocalEnvironment();
+
+  const list = [];
   if (origin) {
     if (isJanogon) {
-      list.unshift(`${origin}/janogon/api/admin_sync.php`);
+      list.push(`${origin}/janogon/api/admin_sync.php`);
     }
-    list.unshift(`${origin}/api/admin_sync.php`);
+    list.push(`${origin}/api/admin_sync.php`);
+  }
+  list.push(isJanogon ? '/janogon/api/admin_sync.php' : '/api/admin_sync.php');
+  list.push('/api/admin_sync.php');
+
+  if (isLocal) {
+    list.push('http://localhost/janogon/api/admin_sync.php');
+    list.push('http://127.0.0.1/janogon/api/admin_sync.php');
+  } else {
+    list.push('https://jonogon.news/api/admin_sync.php');
   }
   return [...new Set(list)];
 }
@@ -178,21 +188,23 @@ export function getPodcastEndpoints() {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
   const isJanogon = pathname.includes('/janogon');
-  const list = [
-    isJanogon ? '/janogon/api/podcasts.php' : '/api/podcasts.php',
-    '/janogon/api/podcasts.php',
-    '/api/podcasts.php',
-    'api/podcasts.php',
-    './api/podcasts.php',
-    'http://localhost/janogon/api/podcasts.php',
-    'http://127.0.0.1/janogon/api/podcasts.php',
-    'https://jonogon.news/api/podcasts.php'
-  ];
+  const isLocal = isLocalEnvironment();
+
+  const list = [];
   if (origin) {
     if (isJanogon) {
-      list.unshift(`${origin}/janogon/api/podcasts.php`);
+      list.push(`${origin}/janogon/api/podcasts.php`);
     }
-    list.unshift(`${origin}/api/podcasts.php`);
+    list.push(`${origin}/api/podcasts.php`);
+  }
+  list.push(isJanogon ? '/janogon/api/podcasts.php' : '/api/podcasts.php');
+  list.push('/api/podcasts.php');
+
+  if (isLocal) {
+    list.push('http://localhost/janogon/api/podcasts.php');
+    list.push('http://127.0.0.1/janogon/api/podcasts.php');
+  } else {
+    list.push('https://jonogon.news/api/podcasts.php');
   }
   return [...new Set(list)];
 }
@@ -285,22 +297,24 @@ function getCommentsEndpoints(query = '') {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
   const isJanogon = pathname.includes('/janogon');
+  const isLocal = isLocalEnvironment();
   const q = query ? (query.startsWith('?') ? query : `?${query}`) : '';
-  const list = [
-    isJanogon ? `/janogon/api/comments.php${q}` : `/api/comments.php${q}`,
-    `/janogon/api/comments.php${q}`,
-    `/api/comments.php${q}`,
-    `api/comments.php${q}`,
-    `./api/comments.php${q}`,
-    `http://localhost/janogon/api/comments.php${q}`,
-    `http://127.0.0.1/janogon/api/comments.php${q}`,
-    `https://jonogon.news/api/comments.php${q}`
-  ];
+
+  const list = [];
   if (origin) {
     if (isJanogon) {
-      list.unshift(`${origin}/janogon/api/comments.php${q}`);
+      list.push(`${origin}/janogon/api/comments.php${q}`);
     }
-    list.unshift(`${origin}/api/comments.php${q}`);
+    list.push(`${origin}/api/comments.php${q}`);
+  }
+  list.push(isJanogon ? `/janogon/api/comments.php${q}` : `/api/comments.php${q}`);
+  list.push(`/api/comments.php${q}`);
+
+  if (isLocal) {
+    list.push(`http://localhost/janogon/api/comments.php${q}`);
+    list.push(`http://127.0.0.1/janogon/api/comments.php${q}`);
+  } else {
+    list.push(`https://jonogon.news/api/comments.php${q}`);
   }
   return [...new Set(list)];
 }

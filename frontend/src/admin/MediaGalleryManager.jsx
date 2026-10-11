@@ -133,16 +133,20 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
   // Endpoint resolver helper for Media API
   const getMediaEndpoints = (action = '') => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
     const q = action ? `?action=${action}` : '';
     const list = [
       `/janogon/api/media.php${q}`,
-      `http://localhost/janogon/api/media.php${q}`,
-      `http://127.0.0.1/janogon/api/media.php${q}`,
       `/api/media.php${q}`,
-      `api/media.php${q}`,
-      `./api/media.php${q}`,
-      `https://jonogon.news/api/media.php${q}`
+      `api/media.php${q}`
     ];
+    if (isLocal) {
+      list.push(`http://localhost/janogon/api/media.php${q}`);
+      list.push(`http://127.0.0.1/janogon/api/media.php${q}`);
+    } else {
+      list.push(`https://jonogon.news/api/media.php${q}`);
+    }
     if (origin) {
       list.unshift(`${origin}/janogon/api/media.php${q}`);
       list.push(`${origin}/api/media.php${q}`);

@@ -127,15 +127,19 @@ export async function uploadImageToStorage(rawFile, options = {}) {
 
   // 2. Upload via backend /api/upload.php using XMLHttpRequest for real progress
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
   const endpoints = [
     '/janogon/api/upload.php',
-    'http://localhost/janogon/api/upload.php',
-    'http://127.0.0.1/janogon/api/upload.php',
     '/api/upload.php',
-    'api/upload.php',
-    './api/upload.php',
-    'https://jonogon.news/api/upload.php'
+    'api/upload.php'
   ];
+  if (isLocal) {
+    endpoints.push('http://localhost/janogon/api/upload.php');
+    endpoints.push('http://127.0.0.1/janogon/api/upload.php');
+  } else {
+    endpoints.push('https://jonogon.news/api/upload.php');
+  }
   if (origin) {
     endpoints.unshift(`${origin}/janogon/api/upload.php`);
     endpoints.push(`${origin}/api/upload.php`);

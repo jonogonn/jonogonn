@@ -699,15 +699,19 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
   const fetchMediaForPicker = async () => {
     setIsMediaGalleryLoading(true);
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
     const endpoints = [
       '/janogon/api/media.php',
-      'http://localhost/janogon/api/media.php',
-      'http://127.0.0.1/janogon/api/media.php',
       '/api/media.php',
-      'api/media.php',
-      './api/media.php',
-      'https://jonogon.news/api/media.php'
+      'api/media.php'
     ];
+    if (isLocal) {
+      endpoints.push('http://localhost/janogon/api/media.php');
+      endpoints.push('http://127.0.0.1/janogon/api/media.php');
+    } else {
+      endpoints.push('https://jonogon.news/api/media.php');
+    }
     if (origin) {
       endpoints.unshift(`${origin}/janogon/api/media.php`);
       endpoints.push(`${origin}/api/media.php`);
