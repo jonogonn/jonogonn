@@ -21,6 +21,30 @@ import {
 
 const FALLBACK_POD_THUMB = 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=600&q=80';
 
+// Helper to reliably get the real YouTube video thumbnail
+export const getPodcastThumbnail = (pod) => {
+  if (!pod) return FALLBACK_POD_THUMB;
+
+  let ytId = pod.youtubeId || pod.youtube_id;
+  if (!ytId) {
+    const url = pod.youtubeUrl || pod.youtube_url || pod.videoUrl || pod.video_url;
+    if (url) {
+      const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+      if (match) ytId = match[1];
+    }
+  }
+
+  // If YouTube ID exists, prioritize the actual YouTube video thumbnail!
+  if (ytId) {
+    if (!pod.thumbnail || pod.thumbnail.includes('unsplash.com') || pod.thumbnail.includes('photo-1590602847861')) {
+      return `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+    }
+    return pod.thumbnail;
+  }
+
+  return pod.thumbnail || FALLBACK_POD_THUMB;
+};
+
 // Helper to render crisp Lucide SVG Icon for each subject
 export const renderSubjectIcon = (iconType, size = 14) => {
   switch (iconType) {
@@ -220,13 +244,18 @@ export default function PodcastSection() {
               >
                 <div className="podcast-thumb-wrap">
                   <img
-                    src={pod.thumbnail || FALLBACK_POD_THUMB}
+                    src={getPodcastThumbnail(pod)}
                     alt={isBn ? pod.titleBn : pod.titleEn}
                     className="podcast-thumb-img"
                     loading="lazy"
                     onError={(e) => {
                       e.target.onerror = null;
-                      e.target.src = FALLBACK_POD_THUMB;
+                      const ytId = pod.youtubeId || pod.youtube_id;
+                      if (ytId && !e.target.src.includes('hqdefault.jpg')) {
+                        e.target.src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+                      } else {
+                        e.target.src = FALLBACK_POD_THUMB;
+                      }
                     }}
                   />
 
@@ -277,13 +306,18 @@ export default function PodcastSection() {
               >
                 <div className="podcast-thumb-wrap">
                   <img
-                    src={pod.thumbnail || FALLBACK_POD_THUMB}
+                    src={getPodcastThumbnail(pod)}
                     alt={isBn ? pod.titleBn : pod.titleEn}
                     className="podcast-thumb-img"
                     loading="lazy"
                     onError={(e) => {
                       e.target.onerror = null;
-                      e.target.src = FALLBACK_POD_THUMB;
+                      const ytId = pod.youtubeId || pod.youtube_id;
+                      if (ytId && !e.target.src.includes('hqdefault.jpg')) {
+                        e.target.src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+                      } else {
+                        e.target.src = FALLBACK_POD_THUMB;
+                      }
                     }}
                   />
 

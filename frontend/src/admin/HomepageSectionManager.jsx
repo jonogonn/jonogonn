@@ -226,6 +226,9 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
     setIsSavingDb(true);
     try {
       const res = await syncModuleToMariaDb('sections', homepageSections);
+      if (sectionColumnsOrder) {
+        await syncModuleToMariaDb('siteSettings', { sectionColumnsOrder }).catch(() => {});
+      }
       if (res?.success) {
         if (triggerSaveToast) triggerSaveToast(isBn ? 'হোমপেজ লেআউট MariaDB ডাটাবেজে সফলভাবে সংরক্ষিত হয়েছে!' : 'Homepage sections saved to MariaDB!');
       } else {
@@ -269,6 +272,12 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
     });
   };
 
+  // Strip any old static numbers like "১. ", "২. ", "1. " from section title
+  const getCleanSectionName = (name) => {
+    if (!name) return '';
+    return String(name).replace(/^[০-৯0-9]+[.\s\-:]+\s*/u, '');
+  };
+
   // Convert English number to Bengali digits
   const toBnNumber = (num) => {
     if (!isBn) return num;
@@ -302,17 +311,32 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
   const visibleCount = (homepageSections || []).filter((s) => s.isVisible !== false).length;
   const hiddenCount = totalCount - visibleCount;
 
+  // Unified Reorder Handler: moves secId either 'before' or 'after' targetSecId
+  const reorderSections = (secId, targetSecId, placement) => {
+    const list = [...(homepageSections || [])];
+    const fromIdx = list.findIndex((s) => s.id === secId);
+    if (fromIdx === -1) return;
+    const [movedItem] = list.splice(fromIdx, 1);
+    const targetIdx = list.findIndex((s) => s.id === targetSecId);
+    if (targetIdx === -1) return;
+
+    if (placement === 'before') {
+      list.splice(targetIdx, 0, movedItem);
+    } else {
+      list.splice(targetIdx + 1, 0, movedItem);
+    }
+
+    const reindexed = list.map((sec, idx) => ({ ...sec, orderIndex: idx }));
+    setHomepageSectionsOrder(reindexed);
+  };
+
   // Handler: Move Section Up (works seamlessly in all tabs and filtered views)
   const handleMoveUp = (secId) => {
     const viewIdx = filteredSections.findIndex((s) => s.id === secId);
     if (viewIdx > 0) {
       const prevSecId = filteredSections[viewIdx - 1].id;
-      const globalFrom = (homepageSections || []).findIndex((s) => s.id === secId);
-      const globalTo = (homepageSections || []).findIndex((s) => s.id === prevSecId);
-      if (globalFrom !== -1 && globalTo !== -1) {
-        moveHomepageSection(globalFrom, globalTo);
-        if (triggerSaveToast) triggerSaveToast(isBn ? 'সেকশন ১ ধাপ উপরে স্থানান্তরিত হয়েছে!' : 'Section moved up!');
-      }
+      reorderSections(secId, prevSecId, 'before');
+      if (triggerSaveToast) triggerSaveToast(isBn ? 'সেকশন ১ ধাপ উপরে স্থানান্তর ও সংরক্ষণ করা হয়েছে!' : 'Section moved up and saved!');
     }
   };
 
@@ -321,12 +345,8 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
     const viewIdx = filteredSections.findIndex((s) => s.id === secId);
     if (viewIdx >= 0 && viewIdx < filteredSections.length - 1) {
       const nextSecId = filteredSections[viewIdx + 1].id;
-      const globalFrom = (homepageSections || []).findIndex((s) => s.id === secId);
-      const globalTo = (homepageSections || []).findIndex((s) => s.id === nextSecId);
-      if (globalFrom !== -1 && globalTo !== -1) {
-        moveHomepageSection(globalFrom, globalTo);
-        if (triggerSaveToast) triggerSaveToast(isBn ? 'সেকশন ১ ধাপ নিচে স্থানান্তরিত হয়েছে!' : 'Section moved down!');
-      }
+      reorderSections(secId, nextSecId, 'after');
+      if (triggerSaveToast) triggerSaveToast(isBn ? 'সেকশন ১ ধাপ নিচে স্থানান্তর ও সংরক্ষণ করা হয়েছে!' : 'Section moved down and saved!');
     }
   };
 
@@ -334,13 +354,9 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
   const handleMoveToTop = (secId) => {
     const viewIdx = filteredSections.findIndex((s) => s.id === secId);
     if (viewIdx > 0) {
-      const targetSecId = filteredSections[0].id;
-      const globalFrom = (homepageSections || []).findIndex((s) => s.id === secId);
-      const globalTo = (homepageSections || []).findIndex((s) => s.id === targetSecId);
-      if (globalFrom !== -1 && globalTo !== -1) {
-        moveHomepageSection(globalFrom, globalTo);
-        if (triggerSaveToast) triggerSaveToast(isBn ? 'সেকশন শীর্ষে স্থানান্তরিত হয়েছে!' : 'Section moved to top!');
-      }
+      const firstSecId = filteredSections[0].id;
+      reorderSections(secId, firstSecId, 'before');
+      if (triggerSaveToast) triggerSaveToast(isBn ? 'সেকশন শীর্ষে স্থানান্তর ও সংরক্ষণ করা হয়েছে!' : 'Section moved to top and saved!');
     }
   };
 
@@ -348,13 +364,9 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
   const handleMoveToBottom = (secId) => {
     const viewIdx = filteredSections.findIndex((s) => s.id === secId);
     if (viewIdx >= 0 && viewIdx < filteredSections.length - 1) {
-      const targetSecId = filteredSections[filteredSections.length - 1].id;
-      const globalFrom = (homepageSections || []).findIndex((s) => s.id === secId);
-      const globalTo = (homepageSections || []).findIndex((s) => s.id === targetSecId);
-      if (globalFrom !== -1 && globalTo !== -1) {
-        moveHomepageSection(globalFrom, globalTo);
-        if (triggerSaveToast) triggerSaveToast(isBn ? 'সেকশন নিচে স্থানান্তরিত হয়েছে!' : 'Section moved to bottom!');
-      }
+      const lastSecId = filteredSections[filteredSections.length - 1].id;
+      reorderSections(secId, lastSecId, 'after');
+      if (triggerSaveToast) triggerSaveToast(isBn ? 'সেকশন নিচে স্থানান্তর ও সংরক্ষণ করা হয়েছে!' : 'Section moved to bottom and saved!');
     }
   };
 
@@ -362,11 +374,12 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
   const handleToggleVisibility = (sec) => {
     toggleHomepageSectionVisibility(sec.id);
     const willBeVisible = sec.isVisible === false;
+    const cleanName = getCleanSectionName(isBn ? sec.nameBn : (sec.nameEn || sec.nameBn));
     if (triggerSaveToast) {
       triggerSaveToast(
         willBeVisible
-          ? isBn ? `"${sec.nameBn}" হোমপেজে প্রদর্শন সক্রিয় করা হয়েছে!` : `"${sec.nameEn || sec.nameBn}" is now visible!`
-          : isBn ? `"${sec.nameBn}" হোমপেজে আড়াল করা হয়েছে` : `"${sec.nameEn || sec.nameBn}" is now hidden`
+          ? isBn ? `"${cleanName}" প্রদর্শন সক্রিয় ও সংরক্ষিত হয়েছে!` : `"${cleanName}" is now visible and saved!`
+          : isBn ? `"${cleanName}" আড়াল ও সংরক্ষিত হয়েছে` : `"${cleanName}" is now hidden and saved`
       );
     }
   };
@@ -403,7 +416,7 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
     const updateFn = updateSectionColumnsOrder || setSectionColumnOrder;
     if (updateFn) {
       updateFn(sectionId, newOrder);
-      if (triggerSaveToast) triggerSaveToast(isBn ? 'কলামের অবস্থান সফলভাবে পরিবর্তন হয়েছে!' : 'Column position updated!');
+      if (triggerSaveToast) triggerSaveToast(isBn ? 'কলামের অবস্থান পরিবর্তন ও সংরক্ষণ করা হয়েছে!' : 'Column position updated and saved!');
     }
   };
 
@@ -689,7 +702,7 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
                           color: isVisible ? 'var(--text-main)' : 'var(--text-muted)'
                         }}
                       >
-                        {isBn ? sec.nameBn : (sec.nameEn || sec.nameBn)}
+                        {getCleanSectionName(isBn ? sec.nameBn : (sec.nameEn || sec.nameBn))}
                       </h3>
 
                       {sec.masterGroupNameBn && (

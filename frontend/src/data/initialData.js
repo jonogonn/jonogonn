@@ -1435,8 +1435,8 @@ export function findClosestDistrict(userLat, userLng) {
 export const initialEmergencyServices = [
   {
     id: 'srv-1',
-    nameBn: 'জাতীয় জরুরি সেবা (৯৯৯)',
-    nameEn: 'National Emergency Service (999)',
+    nameBn: 'জাতীয় জরুরি সেবা',
+    nameEn: 'National Emergency Service',
     number: '999',
     categoryBn: 'জরুরি কল / পুলিশ / ফায়ার / অ্যাম্বুলেন্স',
     categoryEn: 'Police / Fire / Ambulance',
@@ -1447,8 +1447,8 @@ export const initialEmergencyServices = [
   },
   {
     id: 'srv-2',
-    nameBn: 'জাতীয় তথ্য ও কল সেন্টার (৩৩৩)',
-    nameEn: 'National Citizen Service Call Center (333)',
+    nameBn: 'জাতীয় তথ্য ও কল সেন্টার',
+    nameEn: 'National Citizen Service Call Center',
     number: '333',
     categoryBn: 'সরকারি সেবা ও সামাজিক তথ্য',
     categoryEn: 'Govt Services & Citizen Help',
@@ -1459,8 +1459,8 @@ export const initialEmergencyServices = [
   },
   {
     id: 'srv-3',
-    nameBn: 'নারী ও শিশু নির্যাতন প্রতিরোধ সেল (১০৯)',
-    nameEn: 'Women & Child Helpline (109)',
+    nameBn: 'নারী ও শিশু নির্যাতন প্রতিরোধ সেল',
+    nameEn: 'Women & Child Helpline',
     number: '109',
     categoryBn: 'নারী ও শিশু সুরক্ষা',
     categoryEn: 'Women & Child Safety',
@@ -1471,8 +1471,8 @@ export const initialEmergencyServices = [
   },
   {
     id: 'srv-4',
-    nameBn: 'দুদক অভিযোগ হটলাইন (১০৬)',
-    nameEn: 'Anti-Corruption Commission Helpline (106)',
+    nameBn: 'দুদক অভিযোগ হটলাইন',
+    nameEn: 'Anti-Corruption Commission Helpline',
     number: '106',
     categoryBn: 'দুর্নীতি দমন ও অভিযোগ',
     categoryEn: 'Anti-Corruption',
@@ -1483,8 +1483,8 @@ export const initialEmergencyServices = [
   },
   {
     id: 'srv-5',
-    nameBn: 'জাতীয় পরিচয়পত্র (NID) সেবা (১০৫)',
-    nameEn: 'National ID (NID) Helpline (105)',
+    nameBn: 'জাতীয় পরিচয়পত্র (NID) সেবা',
+    nameEn: 'National ID (NID) Helpline',
     number: '105',
     categoryBn: 'এনআইডি ও ভোটার তথ্য',
     categoryEn: 'NID & Voter Services',
@@ -1495,8 +1495,8 @@ export const initialEmergencyServices = [
   },
   {
     id: 'srv-6',
-    nameBn: 'স্মার্ট ভূমি সেবা হটলাইন (১৬১২২)',
-    nameEn: 'Smart Land Service (16122)',
+    nameBn: 'স্মার্ট ভূমি সেবা হটলাইন',
+    nameEn: 'Smart Land Service',
     number: '16122',
     categoryBn: 'ই-নামজারি ও খতিয়ান',
     categoryEn: 'Land Records & E-Mutation',
@@ -1507,8 +1507,8 @@ export const initialEmergencyServices = [
   },
   {
     id: 'srv-7',
-    nameBn: 'দুর্যোগের আগাম বার্তা (১০৯০)',
-    nameEn: 'Disaster Warning & Alert (1090)',
+    nameBn: 'দুর্যোগের আগাম বার্তা',
+    nameEn: 'Disaster Warning & Alert',
     number: '1090',
     categoryBn: 'আবহাওয়া ও সতর্কবার্তা',
     categoryEn: 'Weather & Disaster Alert',
@@ -1536,7 +1536,7 @@ export const initialEmergencyServices = [
 export const defaultHomepageSections = [
   {
     "id": "heroLeadGrid",
-    "nameBn": "১. হিরো লিড ৩-কলাম গ্রিড",
+    "nameBn": "হিরো লিড ৩-কলাম গ্রিড",
     "nameEn": "Hero Lead 3-Column Grid",
     "descriptionBn": "প্রধান সংবাদ, মতামত, স্পেশাল লিড ও সাইডবার ট্রেন্ডিং",
     "descriptionEn": "Top story banner, newly published news stream and trending sidebar",
@@ -1547,7 +1547,7 @@ export const defaultHomepageSections = [
   },
   {
     "id": "latestNewsGrid",
-    "nameBn": "২. সর্বশেষ সংবাদ ট্র্যাক",
+    "nameBn": "সর্বশেষ সংবাদ ট্র্যাক",
     "nameEn": "Latest News Track",
     "descriptionBn": "সর্বশেষ সংবাদের অনুদৈর্ঘ্য কার্ড স্ক্রলিং ট্র্যাক",
     "descriptionEn": "Horizontal latest news feed with timestamps and quick category filter",
@@ -1558,7 +1558,7 @@ export const defaultHomepageSections = [
   },
   {
     "id": "bangladeshSection",
-    "nameBn": "৩. বাংলাদেশ ও জাতীয় সংবাদ",
+    "nameBn": "বাংলাদেশ ও জাতীয় সংবাদ",
     "nameEn": "Bangladesh & National Section",
     "descriptionBn": "জাতীয় সংবাদ, লাইভ আবহাওয়া ও সোশ্যাল ফলো উইজেট",
     "descriptionEn": "National reports, district live weather and social followers widget",
@@ -1569,7 +1569,7 @@ export const defaultHomepageSections = [
   },
   {
     "id": "remittanceFighter",
-    "nameBn": "৪. প্রবাসী ও রেমিট্যান্স যোদ্ধা",
+    "nameBn": "প্রবাসী ও রেমিট্যান্স যোদ্ধা",
     "nameEn": "Expatriates & Remittance Fighters",
     "descriptionBn": "প্রবাসী ভাই-বোনদের খবর ও রেমিট্যান্স তথ্য",
     "descriptionEn": "Global diaspora news, currency exchange rates and 24/7 hotline",
@@ -1580,7 +1580,7 @@ export const defaultHomepageSections = [
   },
   {
     "id": "districtNewsSection",
-    "nameBn": "৫. আমার জেলা সংবাদ",
+    "nameBn": "আমার জেলা সংবাদ",
     "nameEn": "My District News",
     "descriptionBn": "৬৪ জেলার বিভাগভিত্তিক আঞ্চলিক সংবাদ ফিল্টার ও মানচিত্র",
     "descriptionEn": "Interactive district-level regional news filter for 64 districts",
@@ -1591,7 +1591,7 @@ export const defaultHomepageSections = [
   },
   {
     "id": "videoNewsSection",
-    "nameBn": "৬. ভিডিও সংবাদ ও প্লেয়ার",
+    "nameBn": "ভিডিও সংবাদ ও প্লেয়ার",
     "nameEn": "Video News & Player",
     "descriptionBn": "ইউটিউব ও ভিডিও বুলেটিন সংবাদ প্লেয়ার এবং প্লেলিস্ট",
     "descriptionEn": "Featured YouTube video player, playlist and bulletin news stream",
@@ -1602,7 +1602,7 @@ export const defaultHomepageSections = [
   },
   {
     "id": "podcastSection",
-    "nameBn": "৭. পডকাস্ট পর্বসমূহ",
+    "nameBn": "পডকাস্ট পর্বসমূহ",
     "nameEn": "Our Podcasts",
     "descriptionBn": "অডিও ও ভিডিও পডকাস্ট আলোচনার পর্বসমূহ",
     "descriptionEn": "Deep-dive audio & video podcast discussion episodes",

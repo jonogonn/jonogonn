@@ -3,9 +3,13 @@
  * Jonogon News (জনগণ.নিউজ) - Bulletproof News CRUD REST API for MariaDB / cPanel
  * Target Table: `news_posts` (Auto-migrating UTF-8 Multi-language Schema)
  */
+ini_set('memory_limit', '1024M');
 require_once __DIR__ . '/db.php';
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
@@ -131,10 +135,9 @@ if ($method === 'GET') {
 
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
-        $rawArticles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Normalize article fields for frontend compatibility
-        $articles = array_map(function($row) {
+        $articles = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $parsedBlocks = [];
             if (!empty($row['blocks'])) {
                 if (is_array($row['blocks'])) {
@@ -147,61 +150,64 @@ if ($method === 'GET') {
 
             $featuredImg = $row['featured_image'] ?? ($row['thumbnail_image'] ?? '');
 
-            return [
+            $articles[] = [
                 'id' => $row['post_id'] ?? ('news-' . ($row['id'] ?? uniqid())),
                 'db_id' => (int)($row['id'] ?? 0),
                 'postId' => $row['post_id'] ?? '',
+                'post_id' => $row['post_id'] ?? '',
                 'slug' => $row['slug'] ?? '',
-                'titleBn' => $row['title_bn'] ?? ($row['title'] ?? ''),
-                'titleEn' => $row['title_en'] ?? '',
                 'title' => $row['title_bn'] ?? ($row['title'] ?? ''),
+                'titleBn' => $row['title_bn'] ?? ($row['title'] ?? ''),
+                'titleEn' => $row['title_en'] ?? ($row['title_bn'] ?? ($row['title'] ?? '')),
                 'kicker' => $row['kicker'] ?? '',
                 'subtitle' => $row['subtitle'] ?? '',
-                'excerptBn' => $row['excerpt_bn'] ?? ($row['excerpt'] ?? ''),
-                'excerptEn' => $row['excerpt_en'] ?? '',
-                'excerpt' => $row['excerpt_bn'] ?? ($row['excerpt'] ?? ''),
+                'content' => $row['content_bn'] ?? ($row['content'] ?? ''),
                 'contentBn' => $row['content_bn'] ?? ($row['content'] ?? ''),
                 'contentEn' => $row['content_en'] ?? '',
-                'content' => $row['content_bn'] ?? ($row['content'] ?? ''),
+                'excerpt' => $row['excerpt_bn'] ?? ($row['excerpt'] ?? ''),
+                'excerptBn' => $row['excerpt_bn'] ?? ($row['excerpt'] ?? ''),
+                'excerptEn' => $row['excerpt_en'] ?? '',
                 'blocks' => $parsedBlocks,
                 'category' => $row['category_id'] ?? 'bangladesh',
                 'categoryId' => $row['category_id'] ?? 'bangladesh',
                 'categoryBn' => $row['category_bn'] ?? 'বাংলাদেশ',
                 'categoryEn' => $row['category_en'] ?? 'Bangladesh',
-                'categories' => !empty($row['categories']) ? (is_array($row['categories']) ? $row['categories'] : (json_decode($row['categories'], true) ?: [])) : [],
-                'cardCategory' => $row['card_category'] ?? 'সারাদেশ । বাংলাদেশ',
+                'categories' => !empty($row['categories']) ? (is_array($row['categories']) ? $row['categories'] : json_decode($row['categories'], true)) : [$row['category_id'] ?? 'bangladesh'],
+                'cardCategory' => $row['card_category'] ?? ($row['category_bn'] ?? 'সারাদেশ । বাংলাদেশ'),
                 'cardImagePosition' => $row['card_image_position'] ?? 'center center',
-                'cardCaption' => $row['image_caption'] ?? ($row['card_caption'] ?? 'ছবি: সংগৃহীত'),
+                'cardCaption' => $row['card_caption'] ?? ($row['image_caption'] ?? 'ছবি: সংগৃহীত'),
                 'imageUrl' => $featuredImg,
                 'featuredImage' => $featuredImg,
-                'galleryImages' => !empty($row['gallery_images']) ? (is_array($row['gallery_images']) ? $row['gallery_images'] : (json_decode($row['gallery_images'], true) ?: [])) : [],
+                'thumbnail_image' => $featuredImg,
+                'galleryImages' => !empty($row['gallery_images']) ? (is_array($row['gallery_images']) ? $row['gallery_images'] : json_decode($row['gallery_images'], true)) : [],
                 'author' => $row['author'] ?? 'জনগণ নিউজ ডেস্ক',
                 'authorId' => $row['author_id'] ?? 'user-1',
                 'authorAvatar' => $row['author_avatar'] ?? '',
                 'reporterName' => $row['reporter_name'] ?? '',
                 'readTime' => $row['read_time'] ?? '৪ মিনিট পড়তে',
-                'isLeadHero' => !empty($row['is_lead_hero']),
-                'isHighlighted' => !empty($row['is_highlighted']),
-                'isBreaking' => !empty($row['is_breaking']),
-                'isFeatured' => !empty($row['is_featured']),
-                'isVideo' => !empty($row['is_video']),
-                'youtubeUrl' => $row['youtube_url'] ?? '',
-                'videoDuration' => $row['video_duration'] ?? '',
                 'status' => $row['status'] ?? 'published',
                 'statusNote' => $row['status_note'] ?? ($row['revision_note'] ?? ''),
                 'views' => (int)($row['views'] ?? 0),
                 'sharesCount' => (int)($row['shares_count'] ?? 0),
+                'isLeadHero' => !empty($row['is_lead_hero']) ? true : false,
+                'isHighlighted' => !empty($row['is_highlighted']) ? true : false,
+                'isBreaking' => !empty($row['is_breaking']) ? true : false,
+                'isFeatured' => !empty($row['is_featured']) ? true : false,
+                'isVideo' => !empty($row['is_video']) ? true : false,
+                'youtubeUrl' => $row['youtube_url'] ?? '',
+                'videoDuration' => $row['video_duration'] ?? '',
                 'tags' => !empty($row['tags']) ? (is_array($row['tags']) ? $row['tags'] : (json_decode($row['tags'], true) ?: $row['tags'])) : [],
                 'metaTitle' => $row['seo_title'] ?? ($row['meta_title'] ?? ''),
                 'metaDesc' => $row['seo_description'] ?? ($row['meta_desc'] ?? ''),
                 'seoKeywords' => $row['seo_keywords'] ?? ($row['focus_keyword'] ?? ''),
-                'dateBn' => $row['date_bn'] ?? date('d M Y'),
-                'dateEn' => $row['date_en'] ?? date('d M Y'),
+                'dateBn' => $row['date_bn'] ?? date('d M Y', strtotime($row['created_at'] ?? 'now')),
+                'dateEn' => $row['date_en'] ?? date('d M Y', strtotime($row['created_at'] ?? 'now')),
                 'createdAt' => $row['created_at'] ?? date('Y-m-d H:i:s'),
                 'updatedAt' => $row['updated_at'] ?? date('Y-m-d H:i:s'),
                 'publishedAt' => $row['published_at'] ?? ($row['created_at'] ?? date('Y-m-d H:i:s'))
             ];
-        }, $rawArticles);
+        }
+        $stmt = null;
 
         echo json_encode([
             'success' => true,
@@ -218,7 +224,59 @@ if ($method === 'GET') {
 }
 
 // -------------------------------------------------------------
-// 2. POST: Create or Update News
+// 2. DELETE: Remove News Article (Checked before POST create)
+// -------------------------------------------------------------
+$rawDeleteInput = file_get_contents('php://input');
+$deletePayload = json_decode($rawDeleteInput, true) ?: [];
+$deleteAction = $_GET['action'] ?? ($deletePayload['action'] ?? '');
+
+if ($method === 'DELETE' || ($method === 'POST' && in_array($deleteAction, ['delete', 'delete_post', 'remove']))) {
+    try {
+        if (!$pdo) {
+            throw new Exception('MariaDB ডাটাবেজ সংযোগ সক্রিয় নেই: ' . ($dbError ?? 'Unknown error'));
+        }
+
+        $tableName = getAndEnsureNewsTable($pdo);
+        $id = $_GET['id'] ?? ($deletePayload['id'] ?? ($deletePayload['post_id'] ?? null));
+        if (!$id) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'পোস্ট আইডি প্রয়োজন।'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        // Direct, instant MariaDB deletion as in 29fbdf3
+        $stmt = $pdo->prepare("DELETE FROM `{$tableName}` WHERE `id` = ? OR `post_id` = ? OR `slug` = ?");
+        $stmt->execute([$id, $id, $id]);
+
+        // Also clean up from legacy news table if present
+        try {
+            $pdo->prepare("DELETE FROM `news` WHERE `id` = ? OR `post_id` = ? OR `slug` = ?")->execute([$id, $id, $id]);
+        } catch (Exception $e) {}
+
+        // Non-blocking B2 asset cleanup (isolated try/catch so B2 never blocks DB deletion)
+        try {
+            if (file_exists(__DIR__ . '/b2_storage.php')) {
+                require_once __DIR__ . '/b2_storage.php';
+                if (function_exists('deletePostAssetsAndRecord')) {
+                    deletePostAssetsAndRecord($pdo, $id);
+                }
+            }
+        } catch (Exception $b2Ex) {}
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'পোস্টটি MariaDB থেকে মুছে ফেলা হয়েছে।'
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+
+// -------------------------------------------------------------
+// 3. POST: Create or Update News
 // -------------------------------------------------------------
 if ($method === 'POST') {
     try {
@@ -234,14 +292,14 @@ if ($method === 'POST') {
             $data = $_POST;
         }
 
-        $titleBn = trim($data['titleBn'] ?? ($data['title'] ?? ''));
-        $titleEn = trim($data['titleEn'] ?? '');
+        $titleBn = trim($data['titleBn'] ?? ($data['title_bn'] ?? ($data['title'] ?? '')));
+        $titleEn = trim($data['titleEn'] ?? ($data['title_en'] ?? ''));
         $kicker = trim($data['kicker'] ?? '');
         $subtitle = trim($data['subtitle'] ?? '');
-        $contentBn = $data['contentBn'] ?? ($data['content'] ?? '');
-        $contentEn = $data['contentEn'] ?? '';
-        $excerptBn = $data['excerptBn'] ?? ($data['excerpt'] ?? $titleBn);
-        $excerptEn = $data['excerptEn'] ?? '';
+        $contentBn = $data['contentBn'] ?? ($data['content_bn'] ?? ($data['content'] ?? ''));
+        $contentEn = $data['contentEn'] ?? ($data['content_en'] ?? '');
+        $excerptBn = $data['excerptBn'] ?? ($data['excerpt_bn'] ?? ($data['excerpt'] ?? $titleBn));
+        $excerptEn = $data['excerptEn'] ?? ($data['excerpt_en'] ?? '');
         $slug = trim($data['slug'] ?? '');
         $postId = trim($data['id'] ?? ($data['postId'] ?? ($data['post_id'] ?? '')));
 
@@ -386,6 +444,43 @@ if ($method === 'POST') {
             $msg = "সংবাদটি cPanel MariaDB (`{$tableName}`) টেবিলে সফলভাবে সংরক্ষিত হয়েছে!";
         }
 
+        // Also update/mirror into legacy news table if it exists
+        try {
+            $checkNewsTable = $pdo->query("SHOW TABLES LIKE 'news'");
+            if ($checkNewsTable && $checkNewsTable->rowCount() > 0 && $tableName !== 'news') {
+                $newsColsStmt = $pdo->query("SHOW COLUMNS FROM `news`");
+                $newsColsMap = [];
+                while ($nc = $newsColsStmt->fetch(PDO::FETCH_ASSOC)) {
+                    $newsColsMap[strtolower($nc['Field'])] = true;
+                }
+                $validNewsFields = [];
+                foreach ($fieldsPayload as $k => $v) {
+                    if (isset($newsColsMap[strtolower($k)])) {
+                        $validNewsFields[$k] = $v;
+                    }
+                }
+                $checkExistingNews = $pdo->prepare("SELECT `id` FROM `news` WHERE `post_id` = ? OR `slug` = ? LIMIT 1");
+                $checkExistingNews->execute([$postId, $slug]);
+                $exNews = $checkExistingNews->fetch();
+                if ($exNews) {
+                    $nSets = [];
+                    $nVals = [];
+                    foreach ($validNewsFields as $k => $v) {
+                        if ($k !== 'id') {
+                            $nSets[] = "`{$k}` = ?";
+                            $nVals[] = $v;
+                        }
+                    }
+                    $nVals[] = $exNews['id'];
+                    $pdo->prepare("UPDATE `news` SET " . implode(', ', $nSets) . " WHERE `id` = ?")->execute($nVals);
+                } else {
+                    $nCols = array_keys($validNewsFields);
+                    $nPlc = array_fill(0, count($nCols), '?');
+                    $pdo->prepare("INSERT INTO `news` (" . implode(', ', array_map(fn($k) => "`$k`", $nCols)) . ") VALUES (" . implode(', ', $nPlc) . ")")->execute(array_values($validNewsFields));
+                }
+            }
+        } catch (Exception $mirrorEx) {}
+
         echo json_encode([
             'success' => true,
             'message' => $msg,
@@ -402,38 +497,6 @@ if ($method === 'POST') {
             'success' => false,
             'message' => 'MariaDB Save Error: ' . $e->getMessage()
         ], JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-}
-
-// -------------------------------------------------------------
-// 3. DELETE: Remove News Article
-// -------------------------------------------------------------
-if ($method === 'DELETE') {
-    try {
-        if (!$pdo) {
-            throw new Exception('MariaDB ডাটাবেজ সংযোগ সক্রিয় নেই: ' . ($dbError ?? 'Unknown error'));
-        }
-
-        $tableName = getAndEnsureNewsTable($pdo);
-        $id = $_GET['id'] ?? null;
-        if (!$id) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'পোস্ট আইডি প্রয়োজন।'], JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-
-        $stmt = $pdo->prepare("DELETE FROM `{$tableName}` WHERE `id` = ? OR `post_id` = ?");
-        $stmt->execute([$id, $id]);
-
-        echo json_encode([
-            'success' => true,
-            'message' => 'পোস্টটি MariaDB থেকে মুছে ফেলা হয়েছে।'
-        ], JSON_UNESCAPED_UNICODE);
-        exit;
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
         exit;
     }
 }

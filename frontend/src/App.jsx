@@ -32,6 +32,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsPage from './pages/TermsPage';
 import CategoryPage from './pages/CategoryPage';
 import FounderPage from './pages/FounderPage';
+import { defaultHomepageSections } from './data/initialData';
 import { updateSEO } from './services/seoService';
 
 export default function App() {
@@ -41,7 +42,8 @@ export default function App() {
     currentArticle,
     activeCategory,
     language,
-    settings
+    settings,
+    homepageSections
   } = useNews();
 
   const isBn = language === 'bn';
@@ -67,7 +69,9 @@ export default function App() {
     typeof window !== 'undefined' &&
     (window.location.pathname === '/admin' ||
       window.location.pathname === '/admin/' ||
-      window.location.pathname.startsWith('/admin'));
+      window.location.pathname.includes('/admin') ||
+      window.location.hash === '#admin' ||
+      window.location.hash.startsWith('#admin'));
 
   if (isAdminOpen || activePage === 'admin' || isDirectAdminUrl) {
     return <AdminDashboard />;
@@ -103,7 +107,64 @@ export default function App() {
       return <CategoryPage />;
     }
 
-    // Default: Master Editorial Homepage (Exact Layout from GitHub Push f31f69e)
+    // Dynamic Modular Editorial Homepage driven by homepageSections order
+    const effectiveSections = (
+      homepageSections && homepageSections.length > 0
+        ? homepageSections
+        : defaultHomepageSections
+    ).filter((sec) => sec.isVisible !== false);
+
+    const groupedElements = [];
+    let currentSubgroupBatch = [];
+
+    const flushSubgroupBatch = () => {
+      if (currentSubgroupBatch.length > 0) {
+        const ids = [...currentSubgroupBatch];
+        groupedElements.push({
+          type: 'subgroups',
+          id: `batch-${ids[0]}`,
+          render: (key) => <SubGroupSections key={key} subGroupIds={ids} />
+        });
+        currentSubgroupBatch = [];
+      }
+    };
+
+    effectiveSections.forEach((sec) => {
+      if (sec.type === 'subgroup' || sec.id.startsWith('subgroup-')) {
+        currentSubgroupBatch.push(sec.id);
+      } else {
+        flushSubgroupBatch();
+        groupedElements.push({
+          type: 'main',
+          id: sec.id,
+          render: (key) => {
+            switch (sec.id) {
+              case 'heroLeadGrid':
+                return <HeroLeadGrid key={key} />;
+              case 'latestNewsGrid':
+                return <LatestNewsGrid key={key} />;
+              case 'bangladeshSection':
+                return <BangladeshSection key={key} />;
+              case 'remittanceFighter':
+                return <RemittanceFighter key={key} />;
+              case 'districtNewsSection':
+                return <DistrictNewsSection key={key} />;
+              case 'videoNewsSection':
+                return <VideoNewsSection key={key} />;
+              case 'podcastSection':
+                return <PodcastSection key={key} />;
+              default:
+                return null;
+            }
+          }
+        });
+      }
+    });
+    flushSubgroupBatch();
+
+    const adSlots = ['afterLatestBanner', 'afterVideoBanner', 'afterDistrictBanner', 'midContentBanner'];
+    let adIndex = 0;
+
     return (
       <div className="container">
         {/* Ad Banner directly below Breaking Tickers (970 × 90) */}
@@ -111,44 +172,22 @@ export default function App() {
           <AdSenseSlot slotId="tickerBottomBanner" customClass="ad-slot-970x90" />
         </div>
 
-        {/* Section 1: Hero Lead 3-Column Grid */}
-        <HeroLeadGrid />
+        {groupedElements.map((item, idx) => {
+          const comp = item.render(item.id);
+          const showIntervalAd = idx > 0 && idx % 2 === 0 && adIndex < adSlots.length;
+          const adSlotId = showIntervalAd ? adSlots[adIndex++] : null;
 
-        {/* Section 2: Latest News (Horizontal Left-to-Right Scrolling Track) */}
-        <LatestNewsGrid />
-
-        {/* Ad Banner after 2 sections (HeroLeadGrid + LatestNewsGrid) (970 × 90) */}
-        <div className="section-interval-ad-wrap" style={{ margin: '22px 0' }}>
-          <AdSenseSlot slotId="afterLatestBanner" customClass="ad-slot-970x90" />
-        </div>
-
-        {/* Section 3: Bangladesh Section (Featured Lead + Sub-leads + Weather & Follow Us Widgets) */}
-        <BangladeshSection />
-
-        {/* Section: Expatriates & Remittance Fighters */}
-        <RemittanceFighter />
-
-        {/* Ad Banner after 2 sections (BangladeshSection + RemittanceFighter) (970 × 90) */}
-        <div className="section-interval-ad-wrap" style={{ margin: '22px 0' }}>
-          <AdSenseSlot slotId="afterVideoBanner" customClass="ad-slot-970x90" />
-        </div>
-
-        {/* Section 4: My District News (Dynamic District News Selector) */}
-        <DistrictNewsSection />
-
-        {/* Section 5: Video News (Video News Player & Playlist) */}
-        <VideoNewsSection />
-
-        {/* Section 6: Our Podcasts (Horizontal Right-to-Left Scrolling Track) */}
-        <PodcastSection />
-
-        {/* Ad Banner after 2 sections (PodcastSection + DistrictNewsSection) (970 × 90) */}
-        <div className="section-interval-ad-wrap" style={{ margin: '22px 0' }}>
-          <AdSenseSlot slotId="afterDistrictBanner" customClass="ad-slot-970x90" />
-        </div>
-
-        {/* Section 7: 24 Dedicated Category Sub-Group News Sections (Each 2 subgroups have inline ads) */}
-        <SubGroupSections />
+          return (
+            <React.Fragment key={item.id}>
+              {showIntervalAd && (
+                <div className="section-interval-ad-wrap" style={{ margin: '22px 0' }}>
+                  <AdSenseSlot slotId={adSlotId} customClass="ad-slot-970x90" />
+                </div>
+              )}
+              {comp}
+            </React.Fragment>
+          );
+        })}
 
         {/* Bottom AdSense Banner (970 × 90) */}
         <div className="section-interval-ad-wrap" style={{ marginTop: 24, marginBottom: 12 }}>

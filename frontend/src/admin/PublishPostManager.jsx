@@ -26,7 +26,8 @@ import {
 } from 'lucide-react';
 import { generateSocialCardJpg } from '../utils/generateSocialCardJpg';
 import { getCardCategoryLabel } from '../utils/cardCategoryHelper';
-import { fetchArticlesFromMariaDb } from '../utils/mariaDbSync';
+import { fetchArticlesFromMariaDb, deleteArticleFromMariaDb } from '../utils/mariaDbSync';
+import { safeSetLocalStorage } from '../utils/safeStorage';
 import CreatePostManager from './CreatePostManager';
 
 export default function PublishPostManager({ triggerSaveToast, onNavigateToCreate, onNavigateToEdit }) {
@@ -57,7 +58,7 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
 
   // Preview Modal
   const [previewArticle, setPreviewArticle] = useState(null);
@@ -88,47 +89,88 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
     setEditingArticleId(art.id);
   };
 
-  // Sync / Refresh with MariaDB database
+  const [dbArticles, setDbArticles] = useState([]);
+  const [hasLoadedDb, setHasLoadedDb] = useState(false);
+
+  // Strictly auto-fetch only DB articles from news_posts on component mount
+  useEffect(() => {
+    let isMounted = true;
+    const loadDbArticles = async () => {
+      try {
+        const dbPosts = await fetchArticlesFromMariaDb();
+        if (isMounted && Array.isArray(dbPosts)) {
+          const normalized = dbPosts.map((p) => ({
+            ...p,
+            id: p.post_id || p.id || `news-${Date.now()}`,
+            titleBn: p.titleBn || p.title || p.title_bn,
+            titleEn: p.titleEn || p.title_en || p.title || '',
+            contentBn: p.contentBn || p.content || p.content_bn,
+            contentEn: p.contentEn || p.content_en || '',
+            excerptBn: p.excerptBn || p.excerpt || p.excerpt_bn,
+            excerptEn: p.excerptEn || p.excerpt_en || '',
+            imageUrl: p.imageUrl || p.featured_image || p.featuredImage,
+            status: p.status || 'published',
+            views: parseInt(p.views || 0, 10),
+            category: p.category || p.category_id || 'bangladesh',
+            categoryBn: p.categoryBn || p.category_bn || 'বাংলাদেশ',
+            dateBn: p.dateBn || p.date_bn,
+            dateEn: p.dateEn || p.date_en,
+            createdAt: p.createdAt || p.created_at
+          }));
+          setDbArticles(normalized);
+          setHasLoadedDb(true);
+          if (typeof setArticles === 'function' && normalized.length > 0) {
+            setArticles(normalized);
+            safeSetLocalStorage('jonogon_articles', normalized);
+          }
+        }
+      } catch (err) {
+        console.warn('Error loading MariaDB articles:', err);
+      }
+    };
+    loadDbArticles();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Sync / Refresh strictly with MariaDB database (news_post table)
   const handleRefreshDb = async () => {
     setIsRefreshing(true);
     try {
       const dbPosts = await fetchArticlesFromMariaDb();
       if (dbPosts && Array.isArray(dbPosts) && dbPosts.length > 0) {
-        // Normalize DB posts to frontend format if needed
         const normalized = dbPosts.map((p) => ({
           ...p,
           id: p.post_id || p.id || `news-${Date.now()}`,
-          titleBn: p.title || p.titleBn,
-          titleEn: p.title_en || p.titleEn || p.title,
-          contentBn: p.content || p.contentBn,
-          contentEn: p.content_en || p.contentEn || p.content,
-          excerptBn: p.excerpt || p.excerptBn,
-          excerptEn: p.excerpt_en || p.excerptEn || p.excerpt,
-          imageUrl: p.featured_image || p.imageUrl,
+          titleBn: p.titleBn || p.title || p.title_bn,
+          titleEn: p.titleEn || p.title_en || p.title || '',
+          contentBn: p.contentBn || p.content || p.content_bn,
+          contentEn: p.contentEn || p.content_en || '',
+          excerptBn: p.excerptBn || p.excerpt || p.excerpt_bn,
+          excerptEn: p.excerptEn || p.excerpt_en || '',
+          imageUrl: p.imageUrl || p.featured_image || p.featuredImage,
           status: p.status || 'published',
           views: parseInt(p.views || 0, 10),
-          category: p.category_id || p.category || 'bangladesh',
-          categoryBn: p.category_bn || p.categoryBn || 'বাংলাদেশ',
-          dateBn: p.date_bn || p.dateBn,
-          dateEn: p.date_en || p.dateEn
+          category: p.category || p.category_id || 'bangladesh',
+          categoryBn: p.categoryBn || p.category_bn || 'বাংলাদেশ',
+          dateBn: p.dateBn || p.date_bn,
+          dateEn: p.dateEn || p.date_en,
+          createdAt: p.createdAt || p.created_at
         }));
 
+        setDbArticles(normalized);
+        setHasLoadedDb(true);
+
         if (typeof setArticles === 'function') {
-          setArticles((prev) => {
-            // Merge unique by id/slug
-            const map = new Map();
-            normalized.forEach((item) => map.set(item.id, item));
-            (Array.isArray(prev) ? prev : []).forEach((item) => {
-              if (!map.has(item.id)) map.set(item.id, item);
-            });
-            return Array.from(map.values());
-          });
+          setArticles(normalized);
+          safeSetLocalStorage('jonogon_articles', normalized);
         }
 
         showSuccess(
           isBn
-            ? `MariaDB ডাটাবেজ থেকে মোট ${dbPosts.length} টি পোস্ট সফলভাবে সিঙ্ক হয়েছে!`
-            : `Synced ${dbPosts.length} posts from MariaDB database!`
+            ? `MariaDB ডাটাবেজ (news_post) থেকে মোট ${normalized.length} টি সংবাদ সফলভাবে সিঙ্ক হয়েছে!`
+            : `Synced ${normalized.length} posts from MariaDB database!`
         );
       } else {
         if (triggerSaveToast) triggerSaveToast(isBn ? 'ডাটাবেজ পোস্ট আপ-টু-ডেট রয়েছে।' : 'Database posts are up-to-date.');
@@ -140,9 +182,27 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
     }
   };
 
+  // Source Articles - Strictly DB articles from MariaDB news_posts/news_post
+  const sourceArticles = useMemo(() => {
+    if (hasLoadedDb) return dbArticles;
+    return (Array.isArray(articles) ? articles : []).filter(
+      (art) =>
+        art.db_id ||
+        art.postId ||
+        (typeof art.id === 'string' &&
+          !art.id.startsWith('hero-') &&
+          !art.id.startsWith('lead-') &&
+          !art.id.startsWith('latest-') &&
+          !art.id.startsWith('probashi-') &&
+          !art.id.startsWith('grid-') &&
+          !art.id.startsWith('video-') &&
+          art.id !== 'bd-main')
+    );
+  }, [hasLoadedDb, dbArticles, articles]);
+
   // Filtered & Sorted Articles
   const filteredArticles = useMemo(() => {
-    let list = [...articles];
+    let list = [...sourceArticles];
 
     // 1. Status Filter
     if (statusFilter !== 'all') {
@@ -185,24 +245,24 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
         return (b.views || 0) - (a.views || 0);
       }
       if (sortBy === 'oldest') {
-        return (a.id || '').localeCompare(b.id || '');
+        return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
       }
       // default: latest
-      return (b.id || '').localeCompare(a.id || '');
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     });
 
     return list;
-  }, [articles, statusFilter, categoryFilter, searchQuery, sortBy]);
+  }, [sourceArticles, statusFilter, categoryFilter, searchQuery, sortBy]);
 
-  // Overall Database Stats
+  // Overall Database Stats (strictly DB articles)
   const stats = useMemo(() => {
-    const total = articles.length;
-    const published = articles.filter((a) => a.status === 'published' || !a.status).length;
-    const drafts = articles.filter((a) => a.status === 'draft' || a.status === 'review').length;
-    const pending = articles.filter((a) => a.status === 'pending_approval').length;
-    const totalViews = articles.reduce((acc, curr) => acc + (curr.views || 0), 0);
+    const total = sourceArticles.length;
+    const published = sourceArticles.filter((a) => a.status === 'published' || !a.status).length;
+    const drafts = sourceArticles.filter((a) => a.status === 'draft' || a.status === 'review').length;
+    const pending = sourceArticles.filter((a) => a.status === 'pending_approval').length;
+    const totalViews = sourceArticles.reduce((acc, curr) => acc + (curr.views || 0), 0);
     return { total, published, drafts, pending, totalViews };
-  }, [articles]);
+  }, [sourceArticles]);
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredArticles.length / itemsPerPage) || 1;
@@ -261,10 +321,11 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
     });
 
     if (confirmed) {
-      deleteArticle(article.id);
+      deleteArticle(article.id, article.post_id);
+      setDbArticles((prev) => prev.filter((a) => a.id !== article.id && a.post_id !== article.id && (!article.post_id || a.post_id !== article.post_id)));
       showSuccess(isBn ? 'সংবাদটি সফলভাবে মুছে ফেলা হয়েছে।' : 'Post deleted successfully.', isBn ? 'মুছে ফেলা সম্পন্ন' : 'Deleted');
       if (triggerSaveToast) triggerSaveToast(isBn ? 'সংবাদটি মুছে ফেলা হয়েছে!' : 'Post deleted!');
-      if (previewArticle && previewArticle.id === article.id) setPreviewArticle(null);
+      if (previewArticle && (previewArticle.id === article.id || previewArticle.post_id === article.post_id)) setPreviewArticle(null);
     }
   };
 

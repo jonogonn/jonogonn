@@ -159,13 +159,41 @@ if ($pdo) {
             CREATE TABLE IF NOT EXISTS `category_master_groups` (
                 `id` INT AUTO_INCREMENT PRIMARY KEY,
                 `group_id` VARCHAR(100) NOT NULL UNIQUE,
+                `group_key` VARCHAR(100) NULL,
                 `title_bn` VARCHAR(200) NOT NULL,
+                `name_bn` VARCHAR(200) NULL,
                 `title_en` VARCHAR(200) NULL,
+                `name_en` VARCHAR(200) NULL,
                 `order_index` INT DEFAULT 0,
                 `sub_groups_json` LONGTEXT NULL,
                 `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
+
+        // Auto-migrate columns if missing
+        try {
+            $pdo->exec("
+                ALTER TABLE `category_master_groups` 
+                ADD COLUMN IF NOT EXISTS `group_id` VARCHAR(100) NULL,
+                ADD COLUMN IF NOT EXISTS `group_key` VARCHAR(100) NULL,
+                ADD COLUMN IF NOT EXISTS `title_bn` VARCHAR(200) NULL,
+                ADD COLUMN IF NOT EXISTS `name_bn` VARCHAR(200) NULL,
+                ADD COLUMN IF NOT EXISTS `title_en` VARCHAR(200) NULL,
+                ADD COLUMN IF NOT EXISTS `name_en` VARCHAR(200) NULL,
+                ADD COLUMN IF NOT EXISTS `order_index` INT DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS `sub_groups_json` LONGTEXT NULL;
+            ");
+            $pdo->exec("
+                ALTER TABLE `categories`
+                ADD COLUMN IF NOT EXISTS `master_group_id` VARCHAR(100) DEFAULT 'general',
+                ADD COLUMN IF NOT EXISTS `master_group_bn` VARCHAR(150) DEFAULT 'সাধারণ',
+                ADD COLUMN IF NOT EXISTS `master_group_en` VARCHAR(150) DEFAULT 'General',
+                ADD COLUMN IF NOT EXISTS `sub_group` VARCHAR(150) NULL,
+                ADD COLUMN IF NOT EXISTS `order_index` INT DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS `icon` VARCHAR(100) NULL,
+                ADD COLUMN IF NOT EXISTS `is_nav_visible` TINYINT(1) DEFAULT 1;
+            ");
+        } catch (Exception $e) {}
 
         // 3. Homepage Sections Table
         $pdo->exec("
@@ -181,6 +209,15 @@ if ($pdo) {
                 `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
+
+        try {
+            $pdo->exec("
+                ALTER TABLE `homepage_sections`
+                ADD COLUMN IF NOT EXISTS `config_json` LONGTEXT NULL,
+                ADD COLUMN IF NOT EXISTS `name_bn` VARCHAR(255) NULL,
+                ADD COLUMN IF NOT EXISTS `name_en` VARCHAR(255) NULL;
+            ");
+        } catch (Exception $e) {}
 
         // 4. Podcasts Table
         $pdo->exec("

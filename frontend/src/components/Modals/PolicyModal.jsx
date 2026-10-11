@@ -16,6 +16,11 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+const cleanServiceName = (name) => {
+  if (!name) return '';
+  return String(name).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+};
+
 export default function PolicyModal() {
   const { activePolicyModal, setActivePolicyModal, language, settings, emergencyServices } = useNews();
   const isBn = language === 'bn';
@@ -185,7 +190,7 @@ export default function PolicyModal() {
                           lineHeight: 1.3
                         }}
                       >
-                        {isBn ? srv.nameBn : srv.nameEn}
+                        {cleanServiceName(isBn ? srv.nameBn : srv.nameEn)}
                       </h4>
 
                       {/* Description */}

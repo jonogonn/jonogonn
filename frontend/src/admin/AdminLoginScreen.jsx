@@ -1,46 +1,209 @@
 import React, { useState } from 'react';
-import { Lock, User, Eye, EyeOff, ShieldCheck, ArrowRight, Check } from 'lucide-react';
+import { supabase } from '../supabase';
+import {
+  Lock,
+  User,
+  Mail,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  ArrowRight,
+  ArrowLeft,
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle,
+  RefreshCw,
+  Sparkles
+} from 'lucide-react';
 
 export default function AdminLoginScreen({ onLoginSuccess, isBn = true }) {
-  const [username, setUsername] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const [unconfirmedWarning, setUnconfirmedWarning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setUnconfirmedWarning(false);
     setIsLoading(true);
 
-    setTimeout(() => {
-      const cleanUser = username.trim().toLowerCase();
-      const cleanPass = password.trim();
+    const cleanInput = identifier.trim();
+    const cleanPass = password.trim();
 
-      // Valid credentials: (admin / jonogon2026) or (admin@jonogon.news / admin1234)
-      if (
-        (cleanUser === 'admin' || cleanUser === 'admin@jonogon.news' || cleanUser === 'jonogon') &&
-        (cleanPass === 'jonogon2026' || cleanPass === 'admin1234' || cleanPass === 'admin')
-      ) {
-        try {
-          if (rememberMe) {
-            localStorage.setItem('jonogon_admin_logged_in', 'true');
-            localStorage.setItem('jonogon_admin_user', cleanUser);
-          } else {
-            sessionStorage.setItem('jonogon_admin_logged_in', 'true');
-          }
-        } catch (e) {}
-        onLoginSuccess();
+    try {
+      // 1. OFFLINE / SUPERADMIN DIRECT FALLBACK
+      // Ensures publisher & root admin can never be locked out
+      const isSuperAdminUser =
+        cleanInput.toLowerCase() === 'admin' ||
+        cleanInput.toLowerCase() === 'admin@jonogon.news' ||
+        cleanInput.toLowerCase() === 'jonogon' ||
+        cleanInput.toLowerCase() === 'biplob.admin';
+      const isSuperAdminPass =
+        cleanPass === 'jonogon2026' ||
+        cleanPass === 'admin1234' ||
+        cleanPass === 'admin' ||
+        cleanPass === 'Biplob@Jonogon2026';
+
+      if (isSuperAdminUser && isSuperAdminPass) {
+        if (rememberMe) {
+          localStorage.setItem('jonogon_admin_logged_in', 'true');
+          localStorage.setItem('jonogon_admin_user', cleanInput);
+          localStorage.setItem(
+            'jonogon_current_member',
+            JSON.stringify({
+              name: 'মোঃ বিপ্লব হোসেন',
+              role: 'Super Admin',
+              username: cleanInput,
+              designation: 'প্রধান সম্পাদক ও প্রকাশক'
+            })
+          );
+        } else {
+          sessionStorage.setItem('jonogon_admin_logged_in', 'true');
+        }
+        setLoginSuccess(true);
+        setTimeout(() => onLoginSuccess(), 350);
+        return;
+      }
+
+      // 2. RESOLVE TARGET EMAIL FOR SUPABASE AUTHENTICATION
+      let targetEmail = '';
+      let memberProfile = null;
+
+      if (cleanInput.includes('@')) {
+        // Direct email provided
+        targetEmail = cleanInput.toLowerCase();
       } else {
+        // Username or User ID (e.g., 'tye' or 'JNG-1002') provided
+        // Step A: Search in Supabase admin_users table
+        try {
+          const { data: dbUser, error: dbErr } = await supabase
+            .from('admin_users')
+            .select('*')
+            .or(`username.ilike.${cleanInput},user_code.ilike.${cleanInput}`)
+            .maybeSingle();
+
+          if (dbUser && dbUser.email) {
+            targetEmail = dbUser.email;
+            memberProfile = dbUser;
+          }
+        } catch (queryErr) {
+          console.warn('Supabase table query fallback:', queryErr);
+        }
+
+        // Step B: Fallback search in cached local members if DB query was restricted
+        if (!targetEmail) {
+          try {
+            const cached = JSON.parse(localStorage.getItem('jonogon_access_members') || '[]');
+            const matched = cached.find(
+              (m) =>
+                (m.username && m.username.toLowerCase() === cleanInput.toLowerCase()) ||
+                (m.user_code && m.user_code.toLowerCase() === cleanInput.toLowerCase())
+            );
+            if (matched && matched.email) {
+              targetEmail = matched.email;
+              memberProfile = matched;
+            }
+          } catch (cacheErr) {}
+        }
+      }
+
+      // If no email could be resolved from username
+      if (!targetEmail) {
         setIsLoading(false);
         setErrorMsg(
           isBn
-            ? 'ভুল আইডি বা পাসওয়ার্ড! অনুগ্রহ করে সঠিক তথ্য প্রদান করুন।'
-            : 'Invalid Username or Password! Please check and try again.'
+            ? 'এই ইউজারনেম বা আইডি দিয়ে কোনো অ্যাকাউন্ট পাওয়া যায়নি। অনুগ্রহ করে সঠিক ইউজার আইডি বা নিবন্ধিত ইমেইল লিখুন।'
+            : 'No user account found with this Username or ID. Please check and try again.'
         );
+        return;
       }
-    }, 400);
+
+      // 3. AUTHENTICATE WITH SUPABASE AUTH
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: targetEmail,
+        password: cleanPass
+      });
+
+      if (authError) {
+        setIsLoading(false);
+
+        // Check if user account email is unconfirmed
+        if (
+          authError.message.toLowerCase().includes('email not confirmed') ||
+          authError.status === 400 && authError.message.toLowerCase().includes('confirmed')
+        ) {
+          setUnconfirmedWarning(true);
+          setErrorMsg(
+            isBn
+              ? 'আপনার ইমেইল ভেরিফিকেশন এখনও সম্পন্ন হয়নি! আপনার ইনবক্সে Supabase Auth থেকে পাঠানো "Confirm your email address" লিংকে ক্লিক করে অ্যাকাউন্ট সক্রিয় (Activate) করুন।'
+              : 'Email address not yet confirmed! Please click the confirmation link in your email to activate your account.'
+          );
+          return;
+        }
+
+        // Invalid password
+        if (
+          authError.message.toLowerCase().includes('invalid login credentials') ||
+          authError.message.toLowerCase().includes('invalid grant')
+        ) {
+          setErrorMsg(
+            isBn
+              ? 'ভুল পাসওয়ার্ড! অনুগ্রহ করে আপনার ইমেইলে পাওয়া সঠিক পাসওয়ার্ড প্রদান করুন।'
+              : 'Invalid password. Please check credentials from your welcome email.'
+          );
+          return;
+        }
+
+        // Other generic auth errors
+        setErrorMsg(authError.message || (isBn ? 'লগইন ব্যর্থ হয়েছে।' : 'Login failed.'));
+        return;
+      }
+
+      // 4. LOGIN SUCCESS VIA SUPABASE!
+      if (authData?.user) {
+        const userMeta = authData.user.user_metadata || {};
+        const activeProfile = memberProfile || {
+          name: userMeta.name || targetEmail.split('@')[0],
+          username: userMeta.username || targetEmail.split('@')[0],
+          user_code: userMeta.user_code || 'JNG-USER',
+          role: userMeta.role || 'Reporter',
+          designation: userMeta.designation || 'টিম সদস্য',
+          allowed_tabs: userMeta.allowed_tabs || ['overview', 'create-post', 'edit-post', 'gallery'],
+          email: targetEmail
+        };
+
+        if (rememberMe) {
+          localStorage.setItem('jonogon_admin_logged_in', 'true');
+          localStorage.setItem('jonogon_admin_user', targetEmail);
+          localStorage.setItem('jonogon_current_member', JSON.stringify(activeProfile));
+        } else {
+          sessionStorage.setItem('jonogon_admin_logged_in', 'true');
+          sessionStorage.setItem('jonogon_current_member', JSON.stringify(activeProfile));
+        }
+
+        setLoginSuccess(true);
+        setTimeout(() => onLoginSuccess(), 350);
+      }
+    } catch (err) {
+      setIsLoading(false);
+      console.error('Login exception:', err);
+      setErrorMsg(
+        isBn
+          ? 'সার্ভারে সংযোগে সমস্যা হয়েছে। ইন্টারনেট সংযোগ চেক করে পুনরায় চেষ্টা করুন।'
+          : 'Server connection error. Please try again.'
+      );
+    }
+  };
+
+  const handleBackToHome = () => {
+    if (typeof window !== 'undefined') {
+      window.location.href = window.location.pathname.includes('/janogon') ? '/janogon/' : '/';
+    }
   };
 
   return (
@@ -51,26 +214,44 @@ export default function AdminLoginScreen({ onLoginSuccess, isBn = true }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#0C0E14',
-        backgroundImage: 'radial-gradient(circle at 50% 20%, rgba(230,0,18,0.18) 0%, #0C0E14 70%)',
-        padding: 20,
-        fontFamily: 'var(--font-body, sans-serif)'
+        backgroundColor: '#07090E',
+        backgroundImage:
+          'radial-gradient(circle at 50% 15%, rgba(230,0,18,0.22) 0%, rgba(7,9,14,0.95) 60%, #07090E 100%)',
+        padding: '24px 16px',
+        fontFamily: 'var(--font-body, -apple-system, BlinkMacSystemFont, sans-serif)',
+        position: 'relative'
       }}
     >
+      {/* Background Decorative Grid */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage:
+            'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
+          pointerEvents: 'none',
+          opacity: 0.6
+        }}
+      />
+
+      {/* Login Modal Card */}
       <div
         style={{
           width: '100%',
-          maxWidth: 440,
-          backgroundColor: '#161922',
+          maxWidth: 450,
+          backgroundColor: '#0F121C',
           border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: 16,
-          padding: '40px 32px',
-          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.65), 0 0 40px rgba(230, 0, 18, 0.1)',
+          borderRadius: 20,
+          padding: '38px 32px 30px 32px',
+          boxShadow:
+            '0 30px 70px rgba(0, 0, 0, 0.75), 0 0 50px rgba(230, 0, 18, 0.12), inset 0 1px 0 rgba(255,255,255,0.1)',
           position: 'relative',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          zIndex: 1
         }}
       >
-        {/* Top Glow Accent */}
+        {/* Top Crimson Light Bar */}
         <div
           style={{
             position: 'absolute',
@@ -78,101 +259,145 @@ export default function AdminLoginScreen({ onLoginSuccess, isBn = true }) {
             left: 0,
             right: 0,
             height: 4,
-            background: 'linear-gradient(90deg, #E50914, #FF5E62, #E50914)'
+            background: 'linear-gradient(90deg, #E60012 0%, #FF4D5A 50%, #E60012 100%)',
+            boxShadow: '0 0 16px #E60012'
           }}
         />
 
         {/* Brand Header */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <div style={{ textAlign: 'center', marginBottom: 26 }}>
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 64,
-              height: 64,
-              borderRadius: 16,
+              width: 68,
+              height: 68,
+              borderRadius: 18,
               backgroundColor: 'rgba(230, 0, 18, 0.1)',
               border: '1px solid rgba(230, 0, 18, 0.3)',
-              marginBottom: 14
+              marginBottom: 14,
+              boxShadow: '0 8px 24px rgba(230, 0, 18, 0.2)'
             }}
           >
-            <img src="/logo.svg" alt="Jonogon Logo" style={{ height: 38, objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; }} />
-            <ShieldCheck size={34} color="#E50914" />
+            <ShieldCheck size={36} color="#E60012" />
           </div>
 
           <h2
             style={{
               fontFamily: 'var(--font-headline, sans-serif)',
-              fontSize: '1.45rem',
+              fontSize: '1.5rem',
               fontWeight: 900,
               color: '#FFFFFF',
+              letterSpacing: '-0.3px',
               marginBottom: 6
             }}
           >
             {isBn ? 'জনগণ অ্যাডমিন লগইন' : 'Jonogon Admin Access'}
           </h2>
-          <p style={{ color: '#9CA3AF', fontSize: '0.84rem' }}>
-            {isBn ? 'নিউজ পোর্টাল পরিচালনার জন্য আপনার অ্যাকাউন্টে লগইন করুন' : 'Sign in to access the news administration portal'}
+          <p style={{ color: '#94A3B8', fontSize: '0.84rem', margin: 0, lineHeight: 1.5 }}>
+            {isBn
+              ? 'ডিজিটাল পোর্টাল পরিচালনার জন্য আপনার অ্যাকাউন্টে লগইন করুন'
+              : 'Sign in to access editorial & management tools'}
           </p>
         </div>
 
-        {/* Error Alert */}
-        {errorMsg && (
+        {/* Warning / Confirmation Notice Banner */}
+        {unconfirmedWarning && (
           <div
             style={{
-              backgroundColor: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#F87171',
-              padding: '10px 14px',
-              borderRadius: 8,
+              backgroundColor: 'rgba(245, 158, 11, 0.12)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              color: '#FBBF24',
+              padding: '12px 14px',
+              borderRadius: 10,
               fontSize: '0.82rem',
               fontWeight: 600,
               marginBottom: 18,
-              textAlign: 'center'
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              lineHeight: 1.5
             }}
           >
-            {errorMsg}
+            <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 2, color: '#F59E0B' }} />
+            <div>
+              <strong>{isBn ? 'আইডি সক্রিয়করণ প্রয়োজন:' : 'Activation Required:'}</strong>{' '}
+              {errorMsg}
+            </div>
+          </div>
+        )}
+
+        {/* Generic Error Alert */}
+        {errorMsg && !unconfirmedWarning && (
+          <div
+            style={{
+              backgroundColor: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#F87171',
+              padding: '11px 14px',
+              borderRadius: 10,
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              marginBottom: 18,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 8,
+              lineHeight: 1.5
+            }}
+          >
+            <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 1, color: '#EF4444' }} />
+            <span>{errorMsg}</span>
           </div>
         )}
 
         {/* Login Form */}
         <form onSubmit={handleSubmit}>
-          {/* User ID Field */}
+          {/* User ID / Username / Email Field */}
           <div style={{ marginBottom: 18 }}>
             <label
               style={{
-                display: 'block',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 fontSize: '0.82rem',
                 fontWeight: 700,
-                color: '#D1D5DB',
-                marginBottom: 6
+                color: '#E2E8F0',
+                marginBottom: 7
               }}
             >
-              {isBn ? 'ব্যবহারকারী আইডি / ইউজারনেম' : 'Username / Email ID'}
+              <span>{isBn ? 'ব্যবহারকারী আইডি / ইউজারনেম / ইমেইল' : 'User ID / Username / Email'}</span>
+              <span style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600 }}>
+                {isBn ? 'কেস-ইনসেনসিটিভ' : 'Case-insensitive'}
+              </span>
             </label>
             <div style={{ position: 'relative' }}>
               <User
                 size={16}
-                color="#9CA3AF"
-                style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }}
+                color="#64748B"
+                style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)' }}
               />
               <input
                 type="text"
                 required
+                autoComplete="username"
                 className="admin-input"
                 style={{
-                  paddingLeft: 38,
-                  height: 42,
-                  backgroundColor: '#0F1117',
-                  border: '1px solid #2B2F3A',
+                  paddingLeft: 40,
+                  height: 44,
+                  backgroundColor: '#090B11',
+                  border: '1px solid rgba(255,255,255,0.12)',
                   color: '#FFFFFF',
-                  borderRadius: 8,
-                  fontSize: '0.9rem'
+                  borderRadius: 10,
+                  fontSize: '0.9rem',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  outline: 'none',
+                  transition: 'border-color 0.2s'
                 }}
-                placeholder={isBn ? 'ইউজারনেম লিখুন (যেমন: admin)' : 'Enter username'}
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                placeholder={isBn ? 'যেমন: tye বা biplob.admin বা ইমেইল' : 'e.g. tye or admin@jonogon.news'}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
               />
             </div>
           </div>
@@ -181,34 +406,41 @@ export default function AdminLoginScreen({ onLoginSuccess, isBn = true }) {
           <div style={{ marginBottom: 18 }}>
             <label
               style={{
-                display: 'block',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 fontSize: '0.82rem',
                 fontWeight: 700,
-                color: '#D1D5DB',
-                marginBottom: 6
+                color: '#E2E8F0',
+                marginBottom: 7
               }}
             >
-              {isBn ? 'পাসওয়ার্ড' : 'Password'}
+              <span>{isBn ? 'পাসওয়ার্ড (Password)' : 'Password'}</span>
             </label>
             <div style={{ position: 'relative' }}>
               <Lock
                 size={16}
-                color="#9CA3AF"
-                style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }}
+                color="#64748B"
+                style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)' }}
               />
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
+                autoComplete="current-password"
                 className="admin-input"
                 style={{
-                  paddingLeft: 38,
-                  paddingRight: 38,
-                  height: 42,
-                  backgroundColor: '#0F1117',
-                  border: '1px solid #2B2F3A',
+                  paddingLeft: 40,
+                  paddingRight: 42,
+                  height: 44,
+                  backgroundColor: '#090B11',
+                  border: '1px solid rgba(255,255,255,0.12)',
                   color: '#FFFFFF',
-                  borderRadius: 8,
-                  fontSize: '0.9rem'
+                  borderRadius: 10,
+                  fontSize: '0.9rem',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  outline: 'none',
+                  letterSpacing: showPassword ? 'normal' : '1px'
                 }}
                 placeholder="••••••••"
                 value={password}
@@ -219,60 +451,130 @@ export default function AdminLoginScreen({ onLoginSuccess, isBn = true }) {
                 onClick={() => setShowPassword(!showPassword)}
                 style={{
                   position: 'absolute',
-                  right: 10,
+                  right: 12,
                   top: '50%',
                   transform: 'translateY(-50%)',
                   background: 'none',
                   border: 'none',
-                  color: '#9CA3AF',
+                  color: '#64748B',
                   cursor: 'pointer',
-                  padding: 4
+                  padding: 4,
+                  display: 'flex',
+                  alignItems: 'center'
                 }}
+                tabIndex={-1}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
 
-          {/* Remember Me */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: '#9CA3AF', cursor: 'pointer' }}>
+          {/* Remember Me & Tip */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 24
+            }}
+          >
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: '0.82rem',
+                color: '#94A3B8',
+                cursor: 'pointer',
+                userSelect: 'none'
+              }}
+            >
               <input
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                style={{ accentColor: '#E50914' }}
+                style={{ accentColor: '#E60012', width: 15, height: 15, cursor: 'pointer' }}
               />
               <span>{isBn ? 'আমাকে মনে রাখুন' : 'Remember me'}</span>
             </label>
+
+            <span style={{ fontSize: '0.74rem', color: '#64748B' }}>
+              {isBn ? 'ক্লাউড সিকিউর এক্সেস' : 'Cloud Secure'}
+            </span>
           </div>
 
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || loginSuccess}
             style={{
               width: '100%',
-              height: 46,
-              backgroundColor: '#E50914',
+              height: 48,
+              background: loginSuccess
+                ? '#10B981'
+                : 'linear-gradient(135deg, #E60012 0%, #B3000E 100%)',
               color: '#FFFFFF',
               border: 'none',
-              borderRadius: 8,
+              borderRadius: 12,
               fontWeight: 800,
-              fontSize: '0.95rem',
-              cursor: 'pointer',
+              fontSize: '0.96rem',
+              cursor: isLoading || loginSuccess ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 8,
-              boxShadow: '0 4px 16px rgba(229, 9, 20, 0.4)',
-              transition: 'all 0.2s'
+              gap: 9,
+              boxShadow: loginSuccess
+                ? '0 6px 20px rgba(16, 185, 129, 0.4)'
+                : '0 6px 22px rgba(230, 0, 18, 0.4)',
+              transition: 'all 0.25s',
+              opacity: isLoading ? 0.75 : 1
             }}
           >
-            <span>{isLoading ? (isBn ? 'যাচাই করা হচ্ছে...' : 'Verifying...') : (isBn ? 'লগইন করুন' : 'Sign In')}</span>
-            {!isLoading && <ArrowRight size={16} />}
+            {loginSuccess ? (
+              <>
+                <CheckCircle size={18} />
+                <span>{isBn ? 'লগইন সফল! প্রবেশ করা হচ্ছে...' : 'Login Success! Entering...'}</span>
+              </>
+            ) : isLoading ? (
+              <>
+                <RefreshCw size={18} className="animate-spin" />
+                <span>{isBn ? 'যাচাই করা হচ্ছে...' : 'Verifying Credentials...'}</span>
+              </>
+            ) : (
+              <>
+                <span>{isBn ? 'লগইন করুন' : 'Sign In'}</span>
+                <ArrowRight size={17} />
+              </>
+            )}
           </button>
         </form>
+
+        {/* Return to Homepage Link */}
+        <div style={{ textAlign: 'center', marginTop: 22 }}>
+          <button
+            type="button"
+            onClick={handleBackToHome}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#64748B',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 12px',
+              borderRadius: 6,
+              transition: 'color 0.2s'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#E2E8F0')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = '#64748B')}
+          >
+            <ArrowLeft size={14} />
+            <span>{isBn ? 'মূল নিউজ পোর্টালে ফিরে যান' : 'Return to main news portal'}</span>
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -166,7 +166,7 @@ export default function EditPostManager({ triggerSaveToast, onNavigateToApprove,
     });
 
     if (confirmed) {
-      deleteArticle(article.id);
+      deleteArticle(article.id, article.post_id);
       if (triggerSaveToast) triggerSaveToast(isBn ? 'সংবাদটি মুছে ফেলা হয়েছে!' : 'Post deleted!');
     }
   };

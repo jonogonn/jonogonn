@@ -5,7 +5,11 @@
 
 function getNewsEndpoints() {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isJanogon = pathname.includes('/janogon');
   const list = [
+    isJanogon ? '/janogon/api/news.php' : '/api/news.php',
+    '/janogon/api/news.php',
     '/api/news.php',
     'api/news.php',
     './api/news.php',
@@ -14,6 +18,9 @@ function getNewsEndpoints() {
     'https://jonogon.news/api/news.php'
   ];
   if (origin) {
+    if (isJanogon) {
+      list.unshift(`${origin}/janogon/api/news.php`);
+    }
     list.unshift(`${origin}/api/news.php`);
   }
   return [...new Set(list)];
@@ -21,7 +28,11 @@ function getNewsEndpoints() {
 
 function getSyncEndpoints() {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isJanogon = pathname.includes('/janogon');
   const list = [
+    isJanogon ? '/janogon/api/admin_sync.php' : '/api/admin_sync.php',
+    '/janogon/api/admin_sync.php',
     '/api/admin_sync.php',
     'api/admin_sync.php',
     './api/admin_sync.php',
@@ -30,6 +41,9 @@ function getSyncEndpoints() {
     'https://jonogon.news/api/admin_sync.php'
   ];
   if (origin) {
+    if (isJanogon) {
+      list.unshift(`${origin}/janogon/api/admin_sync.php`);
+    }
     list.unshift(`${origin}/api/admin_sync.php`);
   }
   return [...new Set(list)];
@@ -55,7 +69,7 @@ export async function saveArticleToMariaDb(articlePayload) {
       if (contentType.includes('application/json')) {
         try {
           result = await response.json();
-        } catch (jsonErr) {}
+        } catch (jsonErr) { }
       }
 
       if (response.ok && result?.success) {
@@ -159,3 +173,111 @@ export async function fetchModuleFromMariaDb(type = 'all') {
   }
   return null;
 }
+
+export function getPodcastEndpoints() {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isJanogon = pathname.includes('/janogon');
+  const list = [
+    isJanogon ? '/janogon/api/podcasts.php' : '/api/podcasts.php',
+    '/janogon/api/podcasts.php',
+    '/api/podcasts.php',
+    'api/podcasts.php',
+    './api/podcasts.php',
+    'http://localhost/janogon/api/podcasts.php',
+    'http://127.0.0.1/janogon/api/podcasts.php',
+    'https://jonogon.news/api/podcasts.php'
+  ];
+  if (origin) {
+    if (isJanogon) {
+      list.unshift(`${origin}/janogon/api/podcasts.php`);
+    }
+    list.unshift(`${origin}/api/podcasts.php`);
+  }
+  return [...new Set(list)];
+}
+
+export async function savePodcastToMariaDb(podcastPayload) {
+  let lastError = null;
+  const endpoints = getPodcastEndpoints();
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(podcastPayload)
+      });
+
+      let result = null;
+      try {
+        result = await response.json();
+      } catch (jsonErr) { }
+
+      if (response.ok && result?.success) {
+        console.log(`✅ Synced podcast to MariaDB via ${endpoint}:`, result);
+        return { success: true, result, endpoint };
+      } else {
+        const errorMsg = result?.message || result?.error || `HTTP ${response.status} from ${endpoint}`;
+        lastError = new Error(errorMsg);
+      }
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  console.warn('⚠️ MariaDB podcast sync note:', lastError?.message);
+  return { success: false, error: lastError?.message };
+}
+
+export async function deletePodcastFromMariaDb(podcastId) {
+  const endpoints = getPodcastEndpoints();
+  for (const endpoint of endpoints) {
+    try {
+      const url = `${endpoint}?id=${encodeURIComponent(podcastId)}`;
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (response.ok) {
+        return true;
+      }
+      const postFallback = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id: podcastId })
+      });
+      if (postFallback.ok) {
+        return true;
+      }
+    } catch (err) {
+      // continue
+    }
+  }
+  return false;
+}
+
+export async function fetchPodcastsFromMariaDb() {
+  const endpoints = getPodcastEndpoints();
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result && result.success && Array.isArray(result.data)) {
+          return result.data;
+        }
+      }
+    } catch (err) {
+      // continue
+    }
+  }
+  return null;
+}
+

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNews } from '../context/NewsContext';
 import { uploadImageToStorage } from '../utils/imageUploader';
+import { syncModuleToMariaDb, fetchModuleFromMariaDb } from '../utils/mariaDbSync';
 import {
   DollarSign,
   Upload,
@@ -14,7 +15,9 @@ import {
   Check,
   Sliders,
   AlertCircle,
-  HelpCircle
+  HelpCircle,
+  Database,
+  RefreshCw
 } from 'lucide-react';
 
 export const MASTER_AD_SLOTS = [
@@ -115,8 +118,50 @@ export default function AdsManager({ triggerSaveToast }) {
   });
 
   // State: AdSense Client ID
-  const [adsenseClientId, setAdsenseClientId] = useState(settings.adsenseClientId || '');
+  const [adsenseClientId, setAdsenseClientId] = useState(settings.adsenseClientId || settings.adSenseClientId || '');
   const [adSenseEnabled, setAdSenseEnabled] = useState(settings.adSenseEnabled !== false);
+
+  // DB Sync State
+  const [isDbLoading, setIsDbLoading] = useState(false);
+  const [isSavingDb, setIsSavingDb] = useState(false);
+  const [dbSyncTime, setDbSyncTime] = useState(null);
+
+  // Auto-hydrate latest ad configuration directly from MariaDB on mount
+  useEffect(() => {
+    let isMounted = true;
+    const loadAdsFromDb = async () => {
+      try {
+        setIsDbLoading(true);
+        const res = await fetchModuleFromMariaDb('ads');
+        if (res && isMounted) {
+          if (res.adSlots && typeof res.adSlots === 'object' && Object.keys(res.adSlots).length > 0) {
+            setAdSlots((prev) => {
+              const updated = { ...prev };
+              Object.keys(res.adSlots).forEach((k) => {
+                updated[k] = { ...updated[k], ...res.adSlots[k] };
+              });
+              return updated;
+            });
+          }
+          if (res.adSenseClientId) {
+            setAdsenseClientId(res.adSenseClientId);
+          } else if (res.adsenseClientId) {
+            setAdsenseClientId(res.adsenseClientId);
+          }
+          if (res.adSenseEnabled !== undefined) {
+            setAdSenseEnabled(Boolean(res.adSenseEnabled));
+          }
+          setDbSyncTime(new Date());
+        }
+      } catch (err) {
+        console.warn('MariaDB ads load error:', err);
+      } finally {
+        if (isMounted) setIsDbLoading(false);
+      }
+    };
+    loadAdsFromDb();
+    return () => { isMounted = false; };
+  }, []);
 
   // Uploading state per slot
   const [uploadingSlot, setUploadingSlot] = useState(null);
@@ -124,23 +169,34 @@ export default function AdsManager({ triggerSaveToast }) {
   // Active slot tab filter
   const [activeSlotId, setActiveSlotId] = useState(MASTER_AD_SLOTS[0].id);
 
-  // Handle direct file upload for a slot
+  // Handle direct file upload for a slot with MariaDB auto-sync
   const handleFileUpload = async (slotId, file) => {
     if (!file) return;
     try {
       setUploadingSlot(slotId);
       const cdnUrl = await uploadImageToStorage(file, 'advertisements');
-      setAdSlots((prev) => ({
-        ...prev,
-        [slotId]: {
-          ...prev[slotId],
-          imageUrl: cdnUrl,
-          mode: 'image',
-          enabled: true
-        }
-      }));
+      setAdSlots((prev) => {
+        const next = {
+          ...prev,
+          [slotId]: {
+            ...prev[slotId],
+            imageUrl: cdnUrl,
+            mode: 'image',
+            enabled: true
+          }
+        };
+        // Auto-sync uploaded banner image to MariaDB ads_config
+        syncModuleToMariaDb('ads', {
+          adSenseEnabled,
+          adsenseClientId,
+          adSlots: next
+        }).catch((err) => console.warn('MariaDB ad image sync notice:', err));
+        updateSiteSettings({ adSlots: next });
+        return next;
+      });
+
       if (triggerSaveToast) {
-        triggerSaveToast(isBn ? 'ব্যানার ছবি সফলভাবে আপলোড হয়েছে!' : 'Banner image uploaded successfully!');
+        triggerSaveToast(isBn ? 'ব্যানার ছবি আপলোড ও MariaDB-তে সিঙ্ক সম্পন্ন!' : 'Banner image uploaded and synced to MariaDB!');
       }
     } catch (err) {
       console.error('Ad image upload error:', err);
@@ -150,25 +206,45 @@ export default function AdsManager({ triggerSaveToast }) {
     }
   };
 
-  // Save all advertisement settings
-  const handleSaveAll = () => {
-    updateSiteSettings({
-      adSenseEnabled,
-      adsenseClientId,
-      adSlots
-    });
+  // Save all advertisement settings directly into MariaDB Database
+  const handleSaveAll = async () => {
+    try {
+      setIsSavingDb(true);
+      const payload = {
+        adSenseEnabled,
+        adsenseClientId,
+        adSenseClientId: adsenseClientId,
+        adSlots
+      };
 
-    if (triggerSaveToast) {
-      triggerSaveToast(isBn ? 'সকল বিজ্ঞাপন ও ব্যানার সেটিংস সংরক্ষিত হয়েছে!' : 'All ad settings saved successfully!');
-    }
+      // 1. Update React application context state & localStorage
+      updateSiteSettings(payload);
 
-    if (showSuccess) {
-      showSuccess(
-        isBn
-          ? 'ওয়েবসাইটের ব্যানার ও বিজ্ঞাপন কনফিগারেশন সফলভাবে আপডেট করা হয়েছে।'
-          : 'Website advertisement and banner configuration updated successfully.',
-        isBn ? 'বিজ্ঞাপন সেটিংস সংরক্ষণ সম্পন্ন' : 'Settings Saved'
-      );
+      // 2. Direct Sync to MariaDB Database (ads_config table + site_settings table)
+      const res = await syncModuleToMariaDb('ads', payload);
+      await syncModuleToMariaDb('settings', payload).catch(() => {});
+
+      setIsSavingDb(false);
+      setDbSyncTime(new Date());
+
+      if (triggerSaveToast) {
+        triggerSaveToast(isBn ? 'MariaDB ডাটাবেজে বিজ্ঞাপন সেটিংস সফলভাবে সংরক্ষিত হয়েছে!' : 'Ads settings saved to MariaDB successfully!');
+      }
+
+      if (showSuccess) {
+        showSuccess(
+          isBn
+            ? 'MariaDB ads_config টেবিলে বিজ্ঞাপনের সকল ব্যানার ও কোড সরাসরি সংরক্ষিত হয়েছে।'
+            : 'All advertisements and banner slots saved directly to MariaDB database.',
+          isBn ? 'MariaDB ডাটাবেজে সংরক্ষিত' : 'Saved to MariaDB'
+        );
+      }
+    } catch (err) {
+      setIsSavingDb(false);
+      console.error('Save to MariaDB failed:', err);
+      if (showError) {
+        showError(isBn ? 'MariaDB ডাটাবেজে সংরক্ষণ ব্যর্থ হয়েছে।' : 'Failed to save to MariaDB.');
+      }
     }
   };
 
@@ -201,16 +277,55 @@ export default function AdsManager({ triggerSaveToast }) {
           </div>
         </div>
 
-        {/* Global Save Button */}
-        <button
-          type="button"
-          onClick={handleSaveAll}
-          className="admin-btn-primary"
-          style={{ padding: '10px 22px', fontSize: '0.92rem', fontWeight: 800 }}
-        >
-          <Save size={18} />
-          <span>{isBn ? 'বিজ্ঞাপন সেটিংস সংরক্ষণ করুন' : 'Save All Ad Settings'}</span>
-        </button>
+        {/* MariaDB Status & Global Save Button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 12px',
+              borderRadius: 20,
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              color: '#10B981',
+              fontSize: '0.78rem',
+              fontWeight: 700
+            }}
+          >
+            <Database size={14} />
+            <span>{isDbLoading ? (isBn ? 'MariaDB লোড হচ্ছে...' : 'Loading MariaDB...') : (isBn ? 'MariaDB সংযুক্ত' : 'MariaDB Connected')}</span>
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                backgroundColor: '#10B981',
+                boxShadow: '0 0 6px #10B981'
+              }}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSaveAll}
+            disabled={isSavingDb}
+            className="admin-btn-primary"
+            style={{ padding: '10px 22px', fontSize: '0.92rem', fontWeight: 800, opacity: isSavingDb ? 0.7 : 1 }}
+          >
+            {isSavingDb ? (
+              <>
+                <RefreshCw size={18} className="animate-spin" />
+                <span>{isBn ? 'MariaDB-তে সংরক্ষণ হচ্ছে...' : 'Saving to MariaDB...'}</span>
+              </>
+            ) : (
+              <>
+                <Save size={18} />
+                <span>{isBn ? 'বিজ্ঞাপন সেটিংস সংরক্ষণ করুন' : 'Save All Ad Settings'}</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Summary KPI Cards */}

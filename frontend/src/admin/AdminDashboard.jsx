@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNews } from '../context/NewsContext';
 import {
   LayoutDashboard,
@@ -70,6 +70,17 @@ import AdminNotificationDropdown from './AdminNotificationDropdown';
 import AdminLoginScreen from './AdminLoginScreen';
 import AdsManager from './AdsManager';
 import ConfirmModal from '../components/Modals/ConfirmModal';
+// Clean bracketed numbers from emergency service name e.g. "জাতীয় জরুরি সেবা (৯৯৯)" -> "জাতীয় জরুরি সেবা"
+const cleanServiceName = (name) => {
+  if (!name) return '';
+  return String(name).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+};
+
+// Count words separated by whitespace
+const countWords = (text) => {
+  if (!text) return 0;
+  return String(text).trim().split(/\s+/).filter(Boolean).length;
+};
 
 export default function AdminDashboard() {
   const {
@@ -108,7 +119,9 @@ export default function AdminDashboard() {
     addPodcast,
     updatePodcast,
     deletePodcast,
+    refreshPodcasts,
     podcastSubjects,
+    addPodcastSubject,
     emergencyServices,
     addEmergencyService,
     updateEmergencyService,
@@ -128,6 +141,32 @@ export default function AdminDashboard() {
     );
   });
 
+  // Current Logged-in Staff/Member Profile
+  const currentMember = useMemo(() => {
+    try {
+      const stored = localStorage.getItem('jonogon_current_member') || sessionStorage.getItem('jonogon_current_member');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  }, [isAuthenticated]);
+
+  // Tab permission helper based on Supabase role & allowed_tabs
+  const isTabAllowed = (tabKey) => {
+    if (!currentMember || !currentMember.allowed_tabs || currentMember.role === 'Super Admin') return true;
+    return Array.isArray(currentMember.allowed_tabs) && currentMember.allowed_tabs.includes(tabKey);
+  };
+
+  // Automatically switch to first allowed tab if current active tab is restricted
+  useEffect(() => {
+    if (currentMember && currentMember.allowed_tabs && currentMember.role !== 'Super Admin') {
+      if (Array.isArray(currentMember.allowed_tabs) && !currentMember.allowed_tabs.includes(activeTab)) {
+        const firstAllowed = currentMember.allowed_tabs[0] || 'overview';
+        setActiveTab(firstAllowed);
+      }
+    }
+  }, [currentMember]);
+
   // 2. Collapsible Sidebar State (Open/Close with Icon-Only Mode)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -142,7 +181,7 @@ export default function AdminDashboard() {
     subMessage: undefined,
     confirmText: '',
     type: 'danger',
-    onConfirm: () => {}
+    onConfirm: () => { }
   });
 
   const openConfirm = ({ title, message, subMessage, confirmText, type = 'danger', onConfirm }) => {
@@ -184,6 +223,8 @@ export default function AdminDashboard() {
   // Podcast Form State
   const [editingPodcast, setEditingPodcast] = useState(null);
   const [isCreatingPodcast, setIsCreatingPodcast] = useState(false);
+  const [isCreatingNewSubject, setIsCreatingNewSubject] = useState(false);
+  const [newSubjectForm, setNewSubjectForm] = useState({ nameBn: '', nameEn: '' });
   const [podcastForm, setPodcastForm] = useState({
     titleBn: '',
     titleEn: '',
@@ -191,12 +232,13 @@ export default function AdminDashboard() {
     subjectBn: 'রাজনীতি ও রাষ্ট্র',
     subjectEn: 'Politics & Governance',
     youtubeUrl: '',
+    youtubeId: '',
     hostBn: 'মোঃ বিপ্লব হোসেন',
     hostEn: 'Md. Biplob Hossain',
     guestBn: '',
     guestEn: '',
     duration: '২৫:০০',
-    thumbnail: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=600&q=80'
+    thumbnail: ''
   });
 
   // Emergency Services Form State
@@ -236,15 +278,102 @@ export default function AdminDashboard() {
     setIsAuthenticated(false);
   };
 
+  // Auto-refresh podcasts from MariaDB when opening podcasts tab
+  useEffect(() => {
+    if (activeTab === 'podcasts' && typeof refreshPodcasts === 'function') {
+      refreshPodcasts();
+    }
+  }, [activeTab]);
+
+  // Handle YouTube URL change with auto-detected video thumbnail
+  const handlePodcastYoutubeUrlChange = (val) => {
+    let ytId = '';
+    const match = val.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    if (match) {
+      ytId = match[1];
+    }
+    const newThumb = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : podcastForm.thumbnail;
+    setPodcastForm((prev) => ({
+      ...prev,
+      youtubeUrl: val,
+      youtubeId: ytId || prev.youtubeId,
+      thumbnail: newThumb
+    }));
+  };
+
+  // Handle Category selection
+  const handlePodcastSubjectChange = (e) => {
+    const val = e.target.value;
+    if (val === '__new__') {
+      setIsCreatingNewSubject(true);
+      return;
+    }
+    setIsCreatingNewSubject(false);
+    const found = (podcastSubjects || []).find((s) => s.id === val);
+    if (found) {
+      setPodcastForm((prev) => ({
+        ...prev,
+        subjectId: found.id,
+        subjectBn: found.nameBn,
+        subjectEn: found.nameEn || found.nameBn
+      }));
+    }
+  };
+
+  // Submit new category
+  const handleAddNewSubjectSubmit = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!newSubjectForm.nameBn.trim()) return;
+    if (typeof addPodcastSubject === 'function') {
+      const created = addPodcastSubject(newSubjectForm);
+      setPodcastForm((prev) => ({
+        ...prev,
+        subjectId: created.id,
+        subjectBn: created.nameBn,
+        subjectEn: created.nameEn || created.nameBn
+      }));
+      triggerSaveToast(isBn ? 'নতুন ক্যাটাগরি তৈরি হয়েছে!' : 'New category created!');
+    }
+    setNewSubjectForm({ nameBn: '', nameEn: '' });
+    setIsCreatingNewSubject(false);
+  };
+
+  // Open Create Podcast Modal Popup
+  const handleOpenCreatePodcast = () => {
+    setEditingPodcast(null);
+    setIsCreatingNewSubject(false);
+    setNewSubjectForm({ nameBn: '', nameEn: '' });
+    setPodcastForm({
+      titleBn: '',
+      titleEn: '',
+      subjectId: 'politics',
+      subjectBn: 'রাজনীতি ও রাষ্ট্র',
+      subjectEn: 'Politics & Governance',
+      youtubeUrl: '',
+      youtubeId: '',
+      hostBn: 'মোঃ বিপ্লব হোসেন',
+      hostEn: 'Md. Biplob Hossain',
+      guestBn: '',
+      guestEn: '',
+      duration: '২৫:০০',
+      thumbnail: ''
+    });
+    setIsCreatingPodcast(true);
+  };
+
   // Submit Podcast Episode
-  const handleSavePodcast = (e) => {
+  const handleSavePodcast = async (e) => {
     e.preventDefault();
+    let finalPayload = { ...podcastForm };
+    if (!finalPayload.thumbnail && finalPayload.youtubeId) {
+      finalPayload.thumbnail = `https://img.youtube.com/vi/${finalPayload.youtubeId}/hqdefault.jpg`;
+    }
     if (editingPodcast) {
-      updatePodcast(editingPodcast.id, podcastForm);
-      triggerSaveToast('পডকাস্ট পর্ব আপডেট হয়েছে!');
+      await updatePodcast(editingPodcast.id, finalPayload);
+      triggerSaveToast(isBn ? 'পডকাস্ট পর্ব আপডেট হয়েছে!' : 'Podcast episode updated!');
     } else {
-      addPodcast(podcastForm);
-      triggerSaveToast('নতুন পডকাস্ট পর্ব যুক্ত হয়েছে!');
+      await addPodcast(finalPayload);
+      triggerSaveToast(isBn ? 'নতুন পডকাস্ট পর্ব যুক্ত হয়েছে!' : 'New podcast episode added!');
     }
     setEditingPodcast(null);
     setIsCreatingPodcast(false);
@@ -252,32 +381,96 @@ export default function AdminDashboard() {
 
   const handleOpenEditPodcast = (pod) => {
     setEditingPodcast(pod);
+    setIsCreatingNewSubject(false);
+    setNewSubjectForm({ nameBn: '', nameEn: '' });
+    let ytId = pod.youtubeId || pod.youtube_id || '';
+    const ytUrl = pod.youtubeUrl || pod.youtube_url || (ytId ? `https://www.youtube.com/watch?v=` + ytId : '');
+    if (!ytId && ytUrl) {
+      const match = ytUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+      if (match) ytId = match[1];
+    }
+    let thumb = pod.thumbnail || '';
+    if (ytId && (!thumb || thumb.includes('unsplash.com'))) {
+      thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+    }
+
     setPodcastForm({
       titleBn: pod.titleBn || '',
       titleEn: pod.titleEn || '',
       subjectId: pod.subjectId || 'politics',
       subjectBn: pod.subjectBn || 'রাজনীতি ও রাষ্ট্র',
       subjectEn: pod.subjectEn || 'Politics & Governance',
-      youtubeUrl: pod.youtubeUrl || (pod.youtubeId ? `https://www.youtube.com/watch?v=` + pod.youtubeId : ''),
+      youtubeUrl: ytUrl,
+      youtubeId: ytId,
       hostBn: pod.hostBn || 'মোঃ বিপ্লব হোসেন',
       hostEn: pod.hostEn || 'Md. Biplob Hossain',
       guestBn: pod.guestBn || '',
       guestEn: pod.guestEn || '',
       duration: pod.duration || '২৫:০০',
-      thumbnail: pod.thumbnail || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=600&q=80'
+      thumbnail: thumb
     });
     setIsCreatingPodcast(true);
+  };
+
+  // Handle Emergency Service Description (Bangla) with strict 10-word limit
+  const handleServiceDescriptionBnChange = (e) => {
+    const text = e.target.value;
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    if (words.length > 10) {
+      const truncated = words.slice(0, 10).join(' ');
+      setServiceForm((prev) => ({
+        ...prev,
+        descriptionBn: truncated
+      }));
+      return;
+    }
+    setServiceForm((prev) => ({
+      ...prev,
+      descriptionBn: text
+    }));
+  };
+
+  // Handle Emergency Service Description (English) with strict 10-word limit
+  const handleServiceDescriptionEnChange = (e) => {
+    const text = e.target.value;
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    if (words.length > 10) {
+      const truncated = words.slice(0, 10).join(' ');
+      setServiceForm((prev) => ({
+        ...prev,
+        descriptionEn: truncated
+      }));
+      return;
+    }
+    setServiceForm((prev) => ({
+      ...prev,
+      descriptionEn: text
+    }));
   };
 
   // Submit Emergency Service
   const handleSaveService = (e) => {
     e.preventDefault();
+    const descBnWords = countWords(serviceForm.descriptionBn);
+    const descEnWords = countWords(serviceForm.descriptionEn);
+    if (descBnWords > 10 || descEnWords > 10) {
+      alert(isBn ? 'বর্ণনা সর্বোচ্চ ১০ শব্দের মধ্যে হতে হবে!' : 'Description must not exceed 10 words!');
+      return;
+    }
+    const cleanedNameBn = cleanServiceName(serviceForm.nameBn);
+    const cleanedNameEn = cleanServiceName(serviceForm.nameEn || serviceForm.nameBn);
+    const payload = {
+      ...serviceForm,
+      nameBn: cleanedNameBn,
+      nameEn: cleanedNameEn || cleanedNameBn,
+      descriptionEn: serviceForm.descriptionEn || serviceForm.descriptionBn
+    };
     if (editingService) {
-      updateEmergencyService(editingService.id, serviceForm);
-      triggerSaveToast('জরুরি সেবা তথ্য সফলভাবে আপডেট হয়েছে!');
+      updateEmergencyService(editingService.id, payload);
+      triggerSaveToast(isBn ? 'জরুরি সেবা তথ্য সফলভাবে আপডেট হয়েছে!' : 'Emergency service updated successfully!');
     } else {
-      addEmergencyService(serviceForm);
-      triggerSaveToast('নতুন জরুরি সেবা সফলভাবে যোগ হয়েছে!');
+      addEmergencyService(payload);
+      triggerSaveToast(isBn ? 'নতুন জরুরি সেবা সফলভাবে যোগ হয়েছে!' : 'Emergency service added successfully!');
     }
     setEditingService(null);
     setIsCreatingService(false);
@@ -286,8 +479,8 @@ export default function AdminDashboard() {
   const handleOpenEditService = (srv) => {
     setEditingService(srv);
     setServiceForm({
-      nameBn: srv.nameBn || '',
-      nameEn: srv.nameEn || '',
+      nameBn: cleanServiceName(srv.nameBn || ''),
+      nameEn: cleanServiceName(srv.nameEn || ''),
       number: srv.number || '',
       categoryBn: srv.categoryBn || 'জরুরি সেবা',
       categoryEn: srv.categoryEn || 'Emergency',
@@ -461,121 +654,131 @@ export default function AdminDashboard() {
           )}
 
           {/* 1. Dashboard & Analytics */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-            title={isBn ? 'ড্যাশবোর্ড ও অ্যানালিটিক্স' : 'Dashboard & Analytics'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <LayoutDashboard size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'ড্যাশবোর্ড ও অ্যানালিটিক্স' : 'Dashboard'}</span>}
-          </button>
+          {isTabAllowed('overview') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
+              onClick={() => setActiveTab('overview')}
+              title={isBn ? 'ড্যাশবোর্ড ও অ্যানালিটিক্স' : 'Dashboard & Analytics'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <LayoutDashboard size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'ড্যাশবোর্ড ও অ্যানালিটিক্স' : 'Dashboard'}</span>}
+            </button>
+          )}
 
           {/* 2. Create News Post */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'create-post' ? 'active' : ''}`}
-            onClick={() => {
-              setDashboardEditingPostId(null);
-              setDashboardEditingPost(null);
-              setActiveTab('create-post');
-            }}
-            title={isBn ? 'নতুন সংবাদ তৈরি করুন' : 'Write News Article'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <PenTool size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'নতুন সংবাদ তৈরি' : 'Write Article'}</span>}
-          </button>
+          {isTabAllowed('create-post') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'create-post' ? 'active' : ''}`}
+              onClick={() => {
+                setDashboardEditingPostId(null);
+                setDashboardEditingPost(null);
+                setActiveTab('create-post');
+              }}
+              title={isBn ? 'নতুন সংবাদ তৈরি করুন' : 'Write News Article'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <PenTool size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'নতুন সংবাদ তৈরি' : 'Write Article'}</span>}
+            </button>
+          )}
 
           {/* 3. Drafts & Editorial */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'edit-post' ? 'active' : ''}`}
-            onClick={() => setActiveTab('edit-post')}
-            title={isBn ? 'খসড়া ও সম্পাদনা' : 'Drafts & Editorial'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px',
-              position: 'relative'
-            }}
-          >
-            <Edit size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'খসড়া ও সম্পাদনা' : 'Drafts & Edit'}</span>}
-            {editPostsCount > 0 && (
-              <span
-                style={{
-                  marginLeft: isSidebarCollapsed ? 0 : 'auto',
-                  position: isSidebarCollapsed ? 'absolute' : 'static',
-                  top: isSidebarCollapsed ? 4 : 'auto',
-                  right: isSidebarCollapsed ? 6 : 'auto',
-                  backgroundColor: '#3B82F6',
-                  color: '#FFFFFF',
-                  fontSize: '0.7rem',
-                  fontWeight: 800,
-                  padding: '1px 6px',
-                  borderRadius: 10
-                }}
-              >
-                {editPostsCount}
-              </span>
-            )}
-          </button>
+          {isTabAllowed('edit-post') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'edit-post' ? 'active' : ''}`}
+              onClick={() => setActiveTab('edit-post')}
+              title={isBn ? 'খসড়া ও সম্পাদনা' : 'Drafts & Editorial'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px',
+                position: 'relative'
+              }}
+            >
+              <Edit size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'খসড়া ও সম্পাদনা' : 'Drafts & Edit'}</span>}
+              {editPostsCount > 0 && (
+                <span
+                  style={{
+                    marginLeft: isSidebarCollapsed ? 0 : 'auto',
+                    position: isSidebarCollapsed ? 'absolute' : 'static',
+                    top: isSidebarCollapsed ? 4 : 'auto',
+                    right: isSidebarCollapsed ? 6 : 'auto',
+                    backgroundColor: '#3B82F6',
+                    color: '#FFFFFF',
+                    fontSize: '0.7rem',
+                    fontWeight: 800,
+                    padding: '1px 6px',
+                    borderRadius: 10
+                  }}
+                >
+                  {editPostsCount}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* 4. Approve News */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'approve-post' ? 'active' : ''}`}
-            onClick={() => setActiveTab('approve-post')}
-            title={isBn ? 'সংবাদ অনুমোদন ও প্রকাশনা' : 'Approve & Publish'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px',
-              position: 'relative'
-            }}
-          >
-            <ShieldCheck size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'সংবাদ অনুমোদন' : 'Approve News'}</span>}
-            {pendingApprovalCount > 0 && (
-              <span
-                style={{
-                  marginLeft: isSidebarCollapsed ? 0 : 'auto',
-                  position: isSidebarCollapsed ? 'absolute' : 'static',
-                  top: isSidebarCollapsed ? 4 : 'auto',
-                  right: isSidebarCollapsed ? 6 : 'auto',
-                  backgroundColor: '#EAB308',
-                  color: '#000000',
-                  fontSize: '0.7rem',
-                  fontWeight: 800,
-                  padding: '1px 6px',
-                  borderRadius: 10
-                }}
-              >
-                {pendingApprovalCount}
-              </span>
-            )}
-          </button>
+          {isTabAllowed('approve-post') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'approve-post' ? 'active' : ''}`}
+              onClick={() => setActiveTab('approve-post')}
+              title={isBn ? 'সংবাদ অনুমোদন ও প্রকাশনা' : 'Approve & Publish'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px',
+                position: 'relative'
+              }}
+            >
+              <ShieldCheck size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'সংবাদ অনুমোদন' : 'Approve News'}</span>}
+              {pendingApprovalCount > 0 && (
+                <span
+                  style={{
+                    marginLeft: isSidebarCollapsed ? 0 : 'auto',
+                    position: isSidebarCollapsed ? 'absolute' : 'static',
+                    top: isSidebarCollapsed ? 4 : 'auto',
+                    right: isSidebarCollapsed ? 6 : 'auto',
+                    backgroundColor: '#EAB308',
+                    color: '#000000',
+                    fontSize: '0.7rem',
+                    fontWeight: 800,
+                    padding: '1px 6px',
+                    borderRadius: 10
+                  }}
+                >
+                  {pendingApprovalCount}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* 5. Published News Archive */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'publish-post' ? 'active' : ''}`}
-            onClick={() => setActiveTab('publish-post')}
-            title={isBn ? 'সকল প্রকাশিত সংবাদ ও আর্কাইভ' : 'All Published News'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <Globe size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'সকল প্রকাশিত সংবাদ' : 'Published News'}</span>}
-          </button>
+          {isTabAllowed('publish-post') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'publish-post' ? 'active' : ''}`}
+              onClick={() => setActiveTab('publish-post')}
+              title={isBn ? 'সকল প্রকাশিত সংবাদ ও আর্কাইভ' : 'All Published News'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <Globe size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'সকল প্রকাশিত সংবাদ' : 'Published News'}</span>}
+            </button>
+          )}
 
           {/* --- GROUP 2: MEDIA & LAYOUT --- */}
           {!isSidebarCollapsed && (
@@ -594,79 +797,89 @@ export default function AdminDashboard() {
           )}
 
           {/* 6. Media Gallery */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'gallery' ? 'active' : ''}`}
-            onClick={() => setActiveTab('gallery')}
-            title={isBn ? 'মিডিয়া ও ফটো গ্যালারি' : 'Media Gallery'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <ImageIcon size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'মিডিয়া ও ফটো গ্যালারি' : 'Media Gallery'}</span>}
-          </button>
+          {isTabAllowed('gallery') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'gallery' ? 'active' : ''}`}
+              onClick={() => setActiveTab('gallery')}
+              title={isBn ? 'মিডিয়া ও ফটো গ্যালারি' : 'Media Gallery'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <ImageIcon size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'মিডিয়া ও ফটো গ্যালারি' : 'Media Gallery'}</span>}
+            </button>
+          )}
 
           {/* 6b. News Card Maker (Dedicated Tab) */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'news-card-maker' || activeTab === 'card-maker' ? 'active' : ''}`}
-            onClick={() => setActiveTab('news-card-maker')}
-            title={isBn ? 'সোশ্যাল কার্ড জেনারেটর' : 'News Card Maker'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <Camera size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'নিউজ কার্ড মেকার' : 'News Card Maker'}</span>}
-          </button>
+          {isTabAllowed('news-card-maker') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'news-card-maker' || activeTab === 'card-maker' ? 'active' : ''}`}
+              onClick={() => setActiveTab('news-card-maker')}
+              title={isBn ? 'সোশ্যাল কার্ড জেনারেটর' : 'News Card Maker'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <Camera size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'নিউজ কার্ড মেকার' : 'News Card Maker'}</span>}
+            </button>
+          )}
 
           {/* 7. Podcasts & Multimedia */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'podcasts' ? 'active' : ''}`}
-            onClick={() => setActiveTab('podcasts')}
-            title={isBn ? 'পডকাস্ট ও ভিডিও অনুষ্ঠান' : 'Podcasts & Shows'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <Mic size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'পডকাস্ট ও ভিডিও' : 'Podcasts'}</span>}
-          </button>
+          {isTabAllowed('podcasts') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'podcasts' ? 'active' : ''}`}
+              onClick={() => setActiveTab('podcasts')}
+              title={isBn ? 'পডকাস্ট ও ভিডিও অনুষ্ঠান' : 'Podcasts & Shows'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <Mic size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'পডকাস্ট ও ভিডিও' : 'Podcasts'}</span>}
+            </button>
+          )}
 
           {/* 8. Main Menu & Categories */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'main-menu' || activeTab === 'categories' ? 'active' : ''}`}
-            onClick={() => setActiveTab('main-menu')}
-            title={isBn ? 'মেনু ও ক্যাটাগরি' : 'Menu & Categories'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <Menu size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'মেনু ও ক্যাটাগরি' : 'Menu & Categories'}</span>}
-          </button>
+          {isTabAllowed('main-menu') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'main-menu' || activeTab === 'categories' ? 'active' : ''}`}
+              onClick={() => setActiveTab('main-menu')}
+              title={isBn ? 'মেনু ও ক্যাটাগরি' : 'Menu & Categories'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <Menu size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'মেনু ও ক্যাটাগরি' : 'Menu & Categories'}</span>}
+            </button>
+          )}
 
           {/* 9. Homepage Layout Blocks */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'homepage-sections' ? 'active' : ''}`}
-            onClick={() => setActiveTab('homepage-sections')}
-            title={isBn ? 'হোমপেজ লেআউট ও সেকশন' : 'Homepage Layout'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <Layers size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'হোমপেজ লেআউট' : 'Homepage Layout'}</span>}
-          </button>
+          {isTabAllowed('homepage-sections') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'homepage-sections' ? 'active' : ''}`}
+              onClick={() => setActiveTab('homepage-sections')}
+              title={isBn ? 'হোমপেজ লেআউট ও সেকশন' : 'Homepage Layout'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <Layers size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'হোমপেজ লেআউট' : 'Homepage Layout'}</span>}
+            </button>
+          )}
 
           {/* --- GROUP 3: SERVICES & ADS --- */}
           {!isSidebarCollapsed && (
@@ -685,34 +898,38 @@ export default function AdminDashboard() {
           )}
 
           {/* 10. Emergency Helplines */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'emergency' ? 'active' : ''}`}
-            onClick={() => setActiveTab('emergency')}
-            title={isBn ? 'জরুরি সেবা হেল্পলাইন' : 'Emergency Helplines'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <LifeBuoy size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'জরুরি সেবা হেল্পলাইন' : 'Emergency'}</span>}
-          </button>
+          {isTabAllowed('emergency') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'emergency' ? 'active' : ''}`}
+              onClick={() => setActiveTab('emergency')}
+              title={isBn ? 'জরুরি সেবা হেল্পলাইন' : 'Emergency Helplines'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <LifeBuoy size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'জরুরি সেবা হেল্পলাইন' : 'Emergency'}</span>}
+            </button>
+          )}
 
           {/* 11. Google AdSense & Ads */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'ads' ? 'active' : ''}`}
-            onClick={() => setActiveTab('ads')}
-            title={isBn ? 'বিজ্ঞাপন ও মনিটাইজেশন' : 'AdSense & Ads'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <DollarSign size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'বিজ্ঞাপন ও মনিটাইজেশন' : 'AdSense & Ads'}</span>}
-          </button>
+          {isTabAllowed('ads') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'ads' ? 'active' : ''}`}
+              onClick={() => setActiveTab('ads')}
+              title={isBn ? 'বিজ্ঞাপন ও মনিটাইজেশন' : 'AdSense & Ads'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <DollarSign size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'বিজ্ঞাপন ও মনিটাইজেশন' : 'AdSense & Ads'}</span>}
+            </button>
+          )}
 
           {/* --- GROUP 4: SYSTEM & ACCESS CONTROL --- */}
           {!isSidebarCollapsed && (
@@ -731,49 +948,55 @@ export default function AdminDashboard() {
           )}
 
           {/* 12. Setup Access & Permissions */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'setup-access' ? 'active' : ''}`}
-            onClick={() => setActiveTab('setup-access')}
-            title={isBn ? 'টিম ও এক্সেস কন্ট্রোল' : 'Setup Access & Roles'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <Users size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'টিম ও এক্সেস কন্ট্রোল' : 'Setup Access'}</span>}
-          </button>
+          {isTabAllowed('setup-access') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'setup-access' ? 'active' : ''}`}
+              onClick={() => setActiveTab('setup-access')}
+              title={isBn ? 'টিম ও এক্সেস কন্ট্রোল' : 'Setup Access & Roles'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <Users size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'টিম ও এক্সেস কন্ট্রোল' : 'Setup Access'}</span>}
+            </button>
+          )}
 
           {/* 13. Site Settings & SEO */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-            title={isBn ? 'সাইট ও ব্র্যান্ডিং সেটিংস' : 'Site & SEO Settings'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <Sliders size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'সাইট ও ব্র্যান্ডিং সেটিংস' : 'Site Settings'}</span>}
-          </button>
+          {isTabAllowed('settings') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
+              onClick={() => setActiveTab('settings')}
+              title={isBn ? 'সাইট ও ব্র্যান্ডিং সেটিংস' : 'Site & SEO Settings'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <Sliders size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'সাইট ও ব্র্যান্ডিং সেটিংস' : 'Site Settings'}</span>}
+            </button>
+          )}
 
           {/* 14. Database & Supabase Cloud Backup */}
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'database' ? 'active' : ''}`}
-            onClick={() => setActiveTab('database')}
-            title={isBn ? 'ডাটাবেজ ও ক্লাউড ব্যাকআপ' : 'Database & Backup'}
-            style={{
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
-            }}
-          >
-            <Database size={18} />
-            {!isSidebarCollapsed && <span>{isBn ? 'ডাটাবেজ ও ক্লাউড ব্যাকআপ' : 'Database & Cloud'}</span>}
-          </button>
+          {isTabAllowed('database') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'database' ? 'active' : ''}`}
+              onClick={() => setActiveTab('database')}
+              title={isBn ? 'ডাটাবেজ ও ক্লাউড ব্যাকআপ' : 'Database & Backup'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <Database size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'ডাটাবেজ ও ক্লাউড ব্যাকআপ' : 'Database & Cloud'}</span>}
+            </button>
+          )}
 
           {/* 15. My Profile & Password Settings (Requirement 2) */}
           <button
@@ -818,7 +1041,10 @@ export default function AdminDashboard() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&q=80"
+                src={
+                  currentMember?.avatar ||
+                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&q=80'
+                }
                 alt="Profile Avatar"
                 style={{
                   width: 36,
@@ -831,10 +1057,10 @@ export default function AdminDashboard() {
               {!isSidebarCollapsed && (
                 <div>
                   <div style={{ fontWeight: 800, fontSize: '0.86rem', color: isLight ? '#0F172A' : '#FFFFFF', lineHeight: 1.2 }}>
-                    {isBn ? 'মোঃ বিপ্লব হোসেন' : 'Md. Biplob Hossain'}
+                    {currentMember?.name || (isBn ? 'মোঃ বিপ্লব হোসেন' : 'Md. Biplob Hossain')}
                   </div>
                   <div style={{ fontSize: '0.7rem', color: isLight ? '#64748B' : '#9CA3AF' }}>
-                    {isBn ? 'প্রধান সম্পাদক ও প্রকাশক' : 'Super Admin & Editor'}
+                    {currentMember?.designation || (isBn ? 'প্রধান সম্পাদক ও প্রকাশক' : 'Super Admin & Editor')}
                   </div>
                 </div>
               )}
@@ -1036,13 +1262,13 @@ export default function AdminDashboard() {
                   backgroundColor: isNotificationOpen
                     ? 'rgba(229, 9, 20, 0.15)'
                     : isLight
-                    ? '#F1F5F9'
-                    : 'rgba(255, 255, 255, 0.05)',
+                      ? '#F1F5F9'
+                      : 'rgba(255, 255, 255, 0.05)',
                   border: isNotificationOpen
                     ? '1px solid var(--primary-red)'
                     : isLight
-                    ? '1px solid #E2E8F0'
-                    : '1px solid rgba(255, 255, 255, 0.12)',
+                      ? '1px solid #E2E8F0'
+                      : '1px solid rgba(255, 255, 255, 0.12)',
                   color: isNotificationOpen ? 'var(--primary-red)' : isLight ? '#0F172A' : '#FFFFFF',
                   display: 'flex',
                   alignItems: 'center',
@@ -1562,167 +1788,506 @@ export default function AdminDashboard() {
             <HomepageSectionManager triggerSaveToast={triggerSaveToast} />
           )}
 
-          {/* TAB 7: PODCASTS */}
+          {/* TAB 7: PODCASTS & VIDEOS */}
           {activeTab === 'podcasts' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800 }}>
-                  {isBn ? 'পডকাস্ট পর্বসমূহ' : 'Podcast Management'}
-                </h1>
-                {!isCreatingPodcast && (
-                  <button
-                    className="admin-btn-primary"
-                    onClick={() => {
-                      setEditingPodcast(null);
-                      setPodcastForm({
-                        titleBn: '',
-                        titleEn: '',
-                        subjectId: 'politics',
-                        subjectBn: 'রাজনীতি ও রাষ্ট্র',
-                        subjectEn: 'Politics & Governance',
-                        youtubeUrl: '',
-                        hostBn: 'মোঃ বিপ্লব হোসেন',
-                        hostEn: 'Md. Biplob Hossain',
-                        guestBn: '',
-                        guestEn: '',
-                        duration: '২৫:০০',
-                        thumbnail: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=600&q=80'
-                      });
-                      setIsCreatingPodcast(true);
-                    }}
-                  >
-                    <Plus size={18} />
-                    <span>নতুন পর্ব যোগ করুন</span>
-                  </button>
-                )}
+                <div>
+                  <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, margin: 0 }}>
+                    {isBn ? 'পডকাস্ট ও ভিডিও পর্বসমূহ' : 'Podcast & Video Management'}
+                  </h1>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    {isBn ? `মোট ${podcasts.length}টি পর্ব MariaDB ডাটাবেজে সংরক্ষিত রয়েছে` : `${podcasts.length} total episodes saved in MariaDB`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="admin-btn-primary"
+                  onClick={handleOpenCreatePodcast}
+                >
+                  <Plus size={18} />
+                  <span>{isBn ? 'নতুন পর্ব যোগ করুন' : 'Add New Episode'}</span>
+                </button>
               </div>
 
-              {isCreatingPodcast ? (
-                <div className="admin-card">
-                  <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.3rem', marginBottom: 18 }}>
-                    {editingPodcast ? (isBn ? 'পডকাস্ট পর্ব সম্পাদনা' : 'Edit Podcast') : (isBn ? 'নতুন পডকাস্ট পর্ব যোগ করুন' : 'Add New Podcast')}
-                  </h2>
+              {/* PODCAST CARDS GRID */}
+              {podcasts.length === 0 ? (
+                <div className="admin-card" style={{ textAlign: 'center', padding: '40px 20px' }}>
+                  <Mic size={40} style={{ color: 'var(--text-muted)', marginBottom: 12, opacity: 0.5 }} />
+                  <h3 style={{ fontSize: '1.1rem', marginBottom: 6 }}>
+                    {isBn ? 'কোনো পডকাস্ট পর্ব পাওয়া যায়নি' : 'No podcast episodes found'}
+                  </h3>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 16 }}>
+                    {isBn ? 'প্রথম পর্ব যুক্ত করতে উপরের বাটনে ক্লিক করুন।' : 'Click the button above to add the first episode.'}
+                  </p>
+                  <button type="button" className="admin-btn-primary" onClick={handleOpenCreatePodcast}>
+                    <Plus size={16} />
+                    <span>{isBn ? 'নতুন পর্ব যোগ করুন' : 'Add New Episode'}</span>
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 18 }}>
+                  {podcasts.map((pod) => {
+                    const thumb = getPodcastThumbnail(pod);
+                    return (
+                      <div key={pod.id} className="admin-card" style={{ padding: 14, marginBottom: 0, display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ position: 'relative', width: '100%', height: 145, borderRadius: 6, overflow: 'hidden', marginBottom: 10, backgroundColor: '#000' }}>
+                          <img
+                            src={thumb}
+                            alt=""
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              const ytId = pod.youtubeId || pod.youtube_id;
+                              if (ytId && !e.target.src.includes('hqdefault.jpg')) {
+                                e.target.src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+                              }
+                            }}
+                          />
+                          <span
+                            style={{
+                              position: 'absolute',
+                              top: 8,
+                              left: 8,
+                              backgroundColor: 'rgba(0,0,0,0.75)',
+                              color: '#fff',
+                              padding: '2px 8px',
+                              borderRadius: 4,
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              backdropFilter: 'blur(4px)',
+                              border: '1px solid rgba(255,255,255,0.1)'
+                            }}
+                          >
+                            {isBn ? pod.subjectBn : (pod.subjectEn || pod.subjectBn)}
+                          </span>
+                          <span
+                            style={{
+                              position: 'absolute',
+                              bottom: 8,
+                              right: 8,
+                              backgroundColor: 'rgba(0,0,0,0.8)',
+                              color: '#fff',
+                              padding: '2px 6px',
+                              borderRadius: 4,
+                              fontSize: '0.72rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4
+                            }}
+                          >
+                            <Clock size={11} />
+                            <span>{pod.duration || '২০:০০'}</span>
+                          </span>
+                        </div>
 
-                  <form onSubmit={handleSavePodcast}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                      <div className="admin-form-group">
-                        <label className="admin-label">{isBn ? 'পর্বের শিরোনাম (বাংলা) *' : 'Episode Title (Bangla) *'}</label>
-                        <input
-                          type="text"
-                          className="admin-input"
-                          placeholder="পডকাস্টের শিরোনাম লিখুন..."
-                          value={podcastForm.titleBn}
-                          onChange={(e) => setPodcastForm({ ...podcastForm, titleBn: e.target.value })}
-                          required
-                        />
+                        <h3 style={{ fontSize: '0.98rem', fontWeight: 700, lineHeight: 1.35, marginBottom: 8, flex: 1 }}>
+                          {isBn ? pod.titleBn : (pod.titleEn || pod.titleBn)}
+                        </h3>
+
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Mic size={14} style={{ color: 'var(--primary-red)', flexShrink: 0 }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {pod.hostBn || 'উপস্থাপক'} {pod.guestBn ? `• অতিথি: ${pod.guestBn}` : ''}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid var(--border-color)' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            {pod.dateBn || (pod.created_at ? new Date(pod.created_at).toLocaleDateString('bn-BD') : '')}
+                          </span>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button
+                              type="button"
+                              className="admin-btn-action"
+                              onClick={() => handleOpenEditPodcast(pod)}
+                              title={isBn ? 'সম্পাদনা করুন' : 'Edit Episode'}
+                            >
+                              <Edit size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className="admin-btn-danger"
+                              onClick={() => {
+                                openConfirm({
+                                  title: isBn ? 'পডকাস্ট মুছে ফেলার নিশ্চিতকরণ' : 'Confirm Delete Podcast',
+                                  message: isBn ? 'আপনি কি এই পর্বটি ডাটাবেজ থেকে মুছে ফেলতে চান?' : 'Delete this podcast from MariaDB?',
+                                  confirmText: isBn ? 'মুছে ফেলুন' : 'Delete',
+                                  onConfirm: async () => {
+                                    await deletePodcast(pod.id);
+                                    triggerSaveToast(isBn ? 'পডকাস্ট পর্ব মুছে ফেলা হয়েছে!' : 'Podcast deleted!');
+                                  }
+                                });
+                              }}
+                              title={isBn ? 'মুছে ফেলুন' : 'Delete'}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
                       </div>
+                    );
+                  })}
+                </div>
+              )}
 
-                      <div className="admin-form-group">
-                        <label className="admin-label">{isBn ? 'YouTube ভিডিও URL বা Video ID' : 'YouTube Video URL or ID'}</label>
-                        <input
-                          type="text"
-                          className="admin-input"
-                          placeholder="https://www.youtube.com/watch?v=..."
-                          value={podcastForm.youtubeUrl}
-                          onChange={(e) => setPodcastForm({ ...podcastForm, youtubeUrl: e.target.value })}
-                        />
+              {/* POPUP MODAL: ADD / EDIT PODCAST EPISODE */}
+              {isCreatingPodcast && (
+                <div
+                  className="admin-modal-overlay"
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    backdropFilter: 'blur(8px)',
+                    zIndex: 10000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 16
+                  }}
+                  onClick={() => {
+                    setIsCreatingPodcast(false);
+                    setEditingPodcast(null);
+                  }}
+                >
+                  <div
+                    className="admin-modal-box"
+                    style={{
+                      width: '100%',
+                      maxWidth: 680,
+                      maxHeight: '92vh',
+                      backgroundColor: 'var(--bg-card, #1A1D24)',
+                      borderRadius: 14,
+                      border: '1px solid var(--border-color)',
+                      boxShadow: '0 25px 60px rgba(0,0,0,0.65)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden'
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Modal Header */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '16px 22px',
+                        borderBottom: '1px solid var(--border-color)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 10,
+                            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'var(--primary-red)'
+                          }}
+                        >
+                          <Mic size={20} />
+                        </div>
+                        <div>
+                          <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
+                            {editingPodcast
+                              ? (isBn ? 'পডকাস্ট পর্ব সম্পাদনা' : 'Edit Podcast Episode')
+                              : (isBn ? 'নতুন পডকাস্ট পর্ব যোগ করুন' : 'Add New Podcast Episode')}
+                          </h2>
+                          <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            {isBn ? 'YouTube ভিডিওর লিংক দিলে স্বয়ংক্রিয়ভাবে ভিডিও থাম্বনেইল সনাক্ত হবে' : 'Video thumbnail will be auto-detected from YouTube'}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-                      <div className="admin-form-group">
-                        <label className="admin-label">{isBn ? 'উপস্থাপক (Host)' : 'Host Name'}</label>
-                        <input
-                          type="text"
-                          className="admin-input"
-                          value={podcastForm.hostBn}
-                          onChange={(e) => setPodcastForm({ ...podcastForm, hostBn: e.target.value })}
-                        />
-                      </div>
-
-                      <div className="admin-form-group">
-                        <label className="admin-label">{isBn ? 'অতিথি (Guest)' : 'Guest Name'}</label>
-                        <input
-                          type="text"
-                          className="admin-input"
-                          value={podcastForm.guestBn}
-                          onChange={(e) => setPodcastForm({ ...podcastForm, guestBn: e.target.value })}
-                          placeholder="অতিথির নাম ও পদবি..."
-                        />
-                      </div>
-
-                      <div className="admin-form-group">
-                        <label className="admin-label">{isBn ? 'ব্যপ্তিকাল (Duration)' : 'Duration'}</label>
-                        <input
-                          type="text"
-                          className="admin-input"
-                          value={podcastForm.duration}
-                          onChange={(e) => setPodcastForm({ ...podcastForm, duration: e.target.value })}
-                          placeholder="যেমন: ২৫:০০"
-                        />
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-                      <button type="submit" className="admin-btn-primary">
-                        <Save size={18} />
-                        <span>{isBn ? 'সংরক্ষণ করুন' : 'Save Episode'}</span>
-                      </button>
                       <button
                         type="button"
-                        className="admin-btn-secondary"
                         onClick={() => {
                           setIsCreatingPodcast(false);
                           setEditingPodcast(null);
                         }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: 6,
+                          borderRadius: 6,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        title={isBn ? 'বন্ধ করুন' : 'Close'}
                       >
-                        {isBn ? 'বাতিল' : 'Cancel'}
+                        <X size={20} />
                       </button>
                     </div>
-                  </form>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
-                  {podcasts.map((pod) => (
-                    <div key={pod.id} className="admin-card" style={{ padding: 14, marginBottom: 0 }}>
-                      <img src={pod.thumbnail} alt="" style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 4, marginBottom: 10 }} />
-                      <div style={{ fontSize: '0.78rem', color: 'var(--primary-red)', fontWeight: 700, marginBottom: 4 }}>
-                        {isBn ? pod.subjectBn : pod.subjectEn}
-                      </div>
-                      <h3 style={{ fontSize: '0.98rem', fontWeight: 700, lineHeight: 1.3, marginBottom: 8 }}>
-                        {isBn ? pod.titleBn : (pod.titleEn || pod.titleBn)}
-                      </h3>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Mic size={14} style={{ color: 'var(--primary-red)' }} />
-                        <span>{pod.hostBn} {pod.guestBn ? `• অতিথি: ${pod.guestBn}` : ''}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <Clock size={12} />
-                          <span>{pod.duration}</span>
-                        </span>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button type="button" className="admin-btn-action" onClick={() => handleOpenEditPodcast(pod)}>
-                            <Edit size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="admin-btn-danger"
-                            onClick={() => {
-                              openConfirm({
-                                title: isBn ? 'পডকাস্ট মুছে ফেলার নিশ্চিতকরণ' : 'Confirm Delete Podcast',
-                                message: isBn ? 'আপনি কি এই পর্বটি মুছে ফেলতে চান?' : 'Delete this podcast?',
-                                confirmText: isBn ? 'মুছে ফেলুন' : 'Delete',
-                                onConfirm: () => deletePodcast(pod.id)
-                              });
+
+                    {/* Modal Body with Scroll */}
+                    <form onSubmit={handleSavePodcast} style={{ overflowY: 'auto', padding: '20px 22px', flex: 1 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                        {/* Title Bangla & English */}
+                        <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                          <label className="admin-label">
+                            {isBn ? 'পর্বের শিরোনাম (বাংলা) *' : 'Episode Title (Bangla) *'}
+                          </label>
+                          <input
+                            type="text"
+                            className="admin-input"
+                            placeholder={isBn ? 'পডকাস্টের শিরোনাম লিখুন...' : 'Enter episode title...'}
+                            value={podcastForm.titleBn}
+                            onChange={(e) => setPodcastForm({ ...podcastForm, titleBn: e.target.value })}
+                            required
+                            autoFocus
+                          />
+                        </div>
+
+                        {/* Category / Subject Selection with Custom Creator */}
+                        <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <label className="admin-label" style={{ marginBottom: 0 }}>
+                              {isBn ? 'ক্যাটাগরি / বিষয় *' : 'Category / Subject *'}
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setIsCreatingNewSubject(!isCreatingNewSubject)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--primary-red)',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4
+                              }}
+                            >
+                              <Plus size={13} />
+                              <span>{isCreatingNewSubject ? (isBn ? 'বিদ্যমান তালিকা' : 'Existing List') : (isBn ? '+ নতুন ক্যাটাগরি তৈরি' : '+ Create Category')}</span>
+                            </button>
+                          </div>
+
+                          {!isCreatingNewSubject ? (
+                            <select
+                              className="admin-select"
+                              value={podcastForm.subjectId}
+                              onChange={handlePodcastSubjectChange}
+                              required
+                            >
+                              {(podcastSubjects || [])
+                                .filter((s) => s.id !== 'all')
+                                .map((sub) => (
+                                  <option key={sub.id} value={sub.id}>
+                                    {isBn ? sub.nameBn : (sub.nameEn || sub.nameBn)}
+                                  </option>
+                                ))}
+                              <option value="__new__">
+                                {isBn ? '➕ নতুন বিষয় / ক্যাটাগরি তৈরি করুন...' : '➕ Create New Category...'}
+                              </option>
+                            </select>
+                          ) : (
+                            <div
+                              style={{
+                                padding: 14,
+                                backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                                border: '1px dashed var(--primary-red)',
+                                borderRadius: 8,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 10
+                              }}
+                            >
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>
+                                    {isBn ? 'নতুন ক্যাটাগরির নাম (বাংলা) *' : 'Category Name (Bangla) *'}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="admin-input"
+                                    placeholder={isBn ? 'যেমন: বিজ্ঞান ও মহাকাশ' : 'e.g. Science & Space'}
+                                    value={newSubjectForm.nameBn}
+                                    onChange={(e) => setNewSubjectForm({ ...newSubjectForm, nameBn: e.target.value })}
+                                    autoFocus
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>
+                                    {isBn ? 'Category Name (English)' : 'Category Name (English)'}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="admin-input"
+                                    placeholder="e.g. Science & Space"
+                                    value={newSubjectForm.nameEn}
+                                    onChange={(e) => setNewSubjectForm({ ...newSubjectForm, nameEn: e.target.value })}
+                                  />
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button
+                                  type="button"
+                                  className="admin-btn-primary"
+                                  style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+                                  onClick={handleAddNewSubjectSubmit}
+                                  disabled={!newSubjectForm.nameBn.trim()}
+                                >
+                                  <Plus size={14} />
+                                  <span>{isBn ? 'ক্যাটাগরি যুক্ত করুন' : 'Add Category'}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="admin-btn-secondary"
+                                  style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                                  onClick={() => setIsCreatingNewSubject(false)}
+                                >
+                                  {isBn ? 'বাতিল' : 'Cancel'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* YouTube URL input */}
+                        <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                          <label className="admin-label">
+                            {isBn ? 'YouTube ভিডিও URL বা Video ID *' : 'YouTube Video URL or ID *'}
+                          </label>
+                          <input
+                            type="text"
+                            className="admin-input"
+                            placeholder="https://www.youtube.com/watch?v=... বা MpYVwJAXDH8"
+                            value={podcastForm.youtubeUrl}
+                            onChange={(e) => handlePodcastYoutubeUrlChange(e.target.value)}
+                            required
+                          />
+                          {podcastForm.youtubeId && (
+                            <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: '#10B981', fontWeight: 600 }}>
+                              <CheckCircle size={14} />
+                              <span>{isBn ? `ভিডিও আইডি সনাক্ত হয়েছে: ${podcastForm.youtubeId}` : `Detected Video ID: ${podcastForm.youtubeId}`}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Live YouTube Video Thumbnail Preview */}
+                        {podcastForm.thumbnail && (
+                          <div
+                            style={{
+                              padding: 12,
+                              borderRadius: 8,
+                              backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                              border: '1px solid var(--border-color)',
+                              display: 'flex',
+                              gap: 14,
+                              alignItems: 'center'
                             }}
                           >
-                            <Trash2 size={14} />
-                          </button>
+                            <img
+                              src={podcastForm.thumbnail}
+                              alt="Video Thumbnail"
+                              style={{ width: 140, height: 85, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border-color)', backgroundColor: '#000' }}
+                              onError={(e) => {
+                                if (podcastForm.youtubeId && !e.target.src.includes('hqdefault.jpg')) {
+                                  e.target.src = `https://img.youtube.com/vi/${podcastForm.youtubeId}/hqdefault.jpg`;
+                                }
+                              }}
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                  padding: '3px 8px',
+                                  borderRadius: 4,
+                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#10B981',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  marginBottom: 6
+                                }}
+                              >
+                                <CheckCircle size={12} />
+                                <span>{isBn ? 'ভিডিও থাম্বনেইল সনাক্ত হয়েছে' : 'Video Thumbnail Detected'}</span>
+                              </div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {podcastForm.thumbnail}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Host, Guest, Duration */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+                          <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                            <label className="admin-label">{isBn ? 'উপস্থাপক (Host)' : 'Host Name'}</label>
+                            <input
+                              type="text"
+                              className="admin-input"
+                              value={podcastForm.hostBn}
+                              onChange={(e) => setPodcastForm({ ...podcastForm, hostBn: e.target.value })}
+                            />
+                          </div>
+
+                          <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                            <label className="admin-label">{isBn ? 'অতিথি (Guest)' : 'Guest Name'}</label>
+                            <input
+                              type="text"
+                              className="admin-input"
+                              value={podcastForm.guestBn}
+                              onChange={(e) => setPodcastForm({ ...podcastForm, guestBn: e.target.value })}
+                              placeholder={isBn ? 'অতিথির নাম ও পদবি...' : 'Guest name...'}
+                            />
+                          </div>
+
+                          <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                            <label className="admin-label">{isBn ? 'ব্যপ্তিকাল (Duration)' : 'Duration'}</label>
+                            <input
+                              type="text"
+                              className="admin-input"
+                              value={podcastForm.duration}
+                              onChange={(e) => setPodcastForm({ ...podcastForm, duration: e.target.value })}
+                              placeholder="যেমন: ২৫:০০"
+                            />
+                          </div>
                         </div>
+
                       </div>
-                    </div>
-                  ))}
+
+                      {/* Modal Footer Buttons */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'flex-end',
+                          gap: 10,
+                          marginTop: 22,
+                          paddingTop: 16,
+                          borderTop: '1px solid var(--border-color)'
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="admin-btn-secondary"
+                          onClick={() => {
+                            setIsCreatingPodcast(false);
+                            setEditingPodcast(null);
+                          }}
+                        >
+                          {isBn ? 'বাতিল' : 'Cancel'}
+                        </button>
+                        <button type="submit" className="admin-btn-primary">
+                          <Save size={18} />
+                          <span>{editingPodcast ? (isBn ? 'আপডেট করুন' : 'Update Episode') : (isBn ? 'সংরক্ষণ করুন' : 'Save Episode')}</span>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 </div>
               )}
             </div>
@@ -1735,116 +2300,381 @@ export default function AdminDashboard() {
                 <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800 }}>
                   {isBn ? 'জরুরি সেবা পরিচালনা' : 'Emergency Services Management'}
                 </h1>
-                {!isCreatingService && (
-                  <button
-                    className="admin-btn-primary"
-                    onClick={() => {
-                      setEditingService(null);
-                      setServiceForm({
-                        nameBn: '',
-                        nameEn: '',
-                        number: '',
-                        categoryBn: 'জরুরি সেবা',
-                        categoryEn: 'Emergency',
-                        descriptionBn: '',
-                        descriptionEn: '',
-                        websiteUrl: '',
-                        icon: 'phone'
-                      });
-                      setIsCreatingService(true);
-                    }}
-                  >
-                    <Plus size={18} />
-                    <span>নতুন সেবা যোগ করুন</span>
-                  </button>
-                )}
+                <button
+                  className="admin-btn-primary"
+                  onClick={() => {
+                    setEditingService(null);
+                    setServiceForm({
+                      nameBn: '',
+                      nameEn: '',
+                      number: '',
+                      categoryBn: 'জরুরি সেবা',
+                      categoryEn: 'Emergency',
+                      descriptionBn: '',
+                      descriptionEn: '',
+                      websiteUrl: '',
+                      icon: 'phone'
+                    });
+                    setIsCreatingService(true);
+                  }}
+                >
+                  <Plus size={18} />
+                  <span>{isBn ? 'নতুন সেবা যোগ করুন' : 'Add New Service'}</span>
+                </button>
               </div>
 
-              {isCreatingService ? (
-                <div className="admin-card">
-                  <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.3rem', marginBottom: 18 }}>
-                    {editingService ? (isBn ? 'জরুরি সেবা সম্পাদনা' : 'Edit Service') : (isBn ? 'নতুন জরুরি সেবা যোগ করুন' : 'Add New Service')}
-                  </h2>
-
-                  <form onSubmit={handleSaveService}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                      <div className="admin-form-group">
-                        <label className="admin-label">{isBn ? 'সেবার নাম (বাংলা) *' : 'Service Name (Bangla) *'}</label>
-                        <input
-                          type="text"
-                          className="admin-input"
-                          value={serviceForm.nameBn}
-                          onChange={(e) => setServiceForm({ ...serviceForm, nameBn: e.target.value })}
-                          required
-                        />
+              {/* Cards Grid: Always visible */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 16 }}>
+                {emergencyServices.map((srv) => (
+                  <div
+                    key={srv.id}
+                    className="admin-card"
+                    style={{
+                      padding: '18px 20px',
+                      marginBottom: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      height: '100%',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
+                        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, lineHeight: 1.35, color: 'var(--text-main)' }}>
+                          {cleanServiceName(isBn ? srv.nameBn : (srv.nameEn || srv.nameBn))}
+                        </h3>
+                        {srv.number && (
+                          <span
+                            style={{
+                              fontSize: '0.92rem',
+                              fontWeight: 800,
+                              color: 'var(--primary-red)',
+                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0
+                            }}
+                          >
+                            <PhoneCall size={13} />
+                            <span>{srv.number}</span>
+                          </span>
+                        )}
                       </div>
-
-                      <div className="admin-form-group">
-                        <label className="admin-label">{isBn ? 'জরুরি হটলাইন নম্বর *' : 'Hotline Number *'}</label>
-                        <input
-                          type="text"
-                          className="admin-input"
-                          placeholder="যেমন: ৯৯৯"
-                          value={serviceForm.number}
-                          onChange={(e) => setServiceForm({ ...serviceForm, number: e.target.value })}
-                          required
-                        />
-                      </div>
+                      <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', margin: '0 0 16px 0', lineHeight: 1.55, flex: 1 }}>
+                        {isBn ? srv.descriptionBn : (srv.descriptionEn || srv.descriptionBn)}
+                      </p>
                     </div>
-
-                    <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-                      <button type="submit" className="admin-btn-primary">
-                        <Save size={18} />
-                        <span>{isBn ? 'সংরক্ষণ করুন' : 'Save Service'}</span>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-end',
+                        gap: 8,
+                        marginTop: 'auto',
+                        paddingTop: 14,
+                        borderTop: '1px solid var(--border-color)'
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="admin-btn-action"
+                        onClick={() => handleOpenEditService(srv)}
+                        title={isBn ? 'সম্পাদনা করুন' : 'Edit'}
+                        style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                      >
+                        <Edit size={14} />
                       </button>
                       <button
                         type="button"
-                        className="admin-btn-secondary"
+                        className="admin-btn-danger"
+                        onClick={() => {
+                          openConfirm({
+                            title: isBn ? 'জরুরি সেবা মুছে ফেলুন' : 'Delete Emergency Service',
+                            message: isBn ? 'আপনি কি এই সেবাটি মুছে ফেলতে চান?' : 'Delete this service?',
+                            confirmText: isBn ? 'মুছে ফেলুন' : 'Delete',
+                            onConfirm: () => deleteEmergencyService(srv.id)
+                          });
+                        }}
+                        title={isBn ? 'মুছে ফেলুন' : 'Delete'}
+                        style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* POPUP MODAL FOR ADDING / EDITING EMERGENCY SERVICE */}
+              {isCreatingService && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    backdropFilter: 'blur(8px)',
+                    zIndex: 10000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 16
+                  }}
+                  onClick={() => {
+                    setIsCreatingService(false);
+                    setEditingService(null);
+                  }}
+                >
+                  <div
+                    className="admin-modal-box"
+                    style={{
+                      width: '100%',
+                      maxWidth: 640,
+                      maxHeight: '92vh',
+                      backgroundColor: 'var(--bg-card, #1A1D24)',
+                      borderRadius: 14,
+                      border: '1px solid var(--border-color)',
+                      boxShadow: '0 25px 60px rgba(0,0,0,0.65)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden'
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Modal Header */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '16px 22px',
+                        borderBottom: '1px solid var(--border-color)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 10,
+                            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'var(--primary-red)'
+                          }}
+                        >
+                          <PhoneCall size={20} />
+                        </div>
+                        <div>
+                          <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
+                            {editingService
+                              ? (isBn ? 'জরুরি সেবা সম্পাদনা' : 'Edit Emergency Service')
+                              : (isBn ? 'নতুন জরুরি সেবা যোগ করুন' : 'Add New Emergency Service')}
+                          </h2>
+                          <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            {isBn ? 'জরুরি হেল্পলাইন নম্বর ও সেবা বিবরণী' : 'Emergency helpline number and service details'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
                         onClick={() => {
                           setIsCreatingService(false);
                           setEditingService(null);
                         }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: 6,
+                          borderRadius: 6,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        title={isBn ? 'বন্ধ করুন' : 'Close'}
                       >
-                        {isBn ? 'বাতিল' : 'Cancel'}
+                        <X size={20} />
                       </button>
                     </div>
-                  </form>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-                  {emergencyServices.map((srv) => (
-                    <div key={srv.id} className="admin-card" style={{ padding: 16, marginBottom: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <h3 style={{ fontSize: '1.05rem', fontWeight: 700 }}>{isBn ? srv.nameBn : (srv.nameEn || srv.nameBn)}</h3>
-                        <span style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--primary-red)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                          <PhoneCall size={15} />
-                          <span>{srv.number}</span>
-                        </span>
+
+                    {/* Modal Form */}
+                    <form onSubmit={handleSaveService} style={{ overflowY: 'auto', padding: '20px 22px', flex: 1 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {/* Row 1: Bangla Name & English Name */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                          <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                            <label className="admin-label">{isBn ? 'সেবার নাম (বাংলা) *' : 'Service Name (Bangla) *'}</label>
+                            <input
+                              type="text"
+                              className="admin-input"
+                              placeholder={isBn ? 'যেমন: জাতীয় জরুরি সেবা' : 'e.g. জাতীয় জরুরি সেবা'}
+                              value={serviceForm.nameBn}
+                              onChange={(e) => setServiceForm({ ...serviceForm, nameBn: e.target.value })}
+                              onBlur={(e) => setServiceForm({ ...serviceForm, nameBn: cleanServiceName(e.target.value) })}
+                              required
+                              autoFocus
+                            />
+                            <p style={{ margin: '4px 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                              {isBn ? 'নামের সাথে নম্বর বা ব্র্যাকেট (যেমন ৯৯৯) দেওয়ার প্রয়োজন নেই' : 'No brackets or number needed in name'}
+                            </p>
+                          </div>
+
+                          <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                            <label className="admin-label">{isBn ? 'সেবার নাম (ইংরেজি)' : 'Service Name (English)'}</label>
+                            <input
+                              type="text"
+                              className="admin-input"
+                              placeholder="e.g. National Emergency Service"
+                              value={serviceForm.nameEn}
+                              onChange={(e) => setServiceForm({ ...serviceForm, nameEn: e.target.value })}
+                              onBlur={(e) => setServiceForm({ ...serviceForm, nameEn: cleanServiceName(e.target.value) })}
+                            />
+                            <p style={{ margin: '4px 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                              {isBn ? 'ইংরেজিতে নাম (ঐচ্ছিক, ব্র্যাকেট ছাড়া)' : 'English service name (optional, without brackets)'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Row 2: Hotline Number & Website URL */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                          <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                            <label className="admin-label">{isBn ? 'জরুরি হটলাইন নম্বর *' : 'Hotline Number *'}</label>
+                            <input
+                              type="text"
+                              className="admin-input"
+                              placeholder={isBn ? 'যেমন: ৯৯৯' : 'e.g. 999'}
+                              value={serviceForm.number}
+                              onChange={(e) => setServiceForm({ ...serviceForm, number: e.target.value })}
+                              required
+                            />
+                          </div>
+
+                          <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                            <label className="admin-label">{isBn ? 'ওয়েবসাইট লিংক (ঐচ্ছিক)' : 'Website URL (Optional)'}</label>
+                            <input
+                              type="url"
+                              className="admin-input"
+                              placeholder="https://..."
+                              value={serviceForm.websiteUrl}
+                              onChange={(e) => setServiceForm({ ...serviceForm, websiteUrl: e.target.value })}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Row 3: Description Bangla & English with max 10 words constraint */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                          {/* Description (Bangla) */}
+                          <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <label className="admin-label" style={{ marginBottom: 0 }}>
+                                {isBn ? 'বিবরণ (বাংলা) *' : 'Description (Bangla) *'}
+                              </label>
+                              <span
+                                style={{
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  color: countWords(serviceForm.descriptionBn) >= 10 ? '#EF4444' : 'var(--text-muted)'
+                                }}
+                              >
+                                {isBn
+                                  ? `শব্দ: ${countWords(serviceForm.descriptionBn)}/১০`
+                                  : `Words: ${countWords(serviceForm.descriptionBn)}/10`}
+                              </span>
+                            </div>
+                            <textarea
+                              className="admin-input"
+                              rows={3}
+                              placeholder={isBn ? 'সেবা সম্পর্কে সংক্ষেপ বিবরণ (সর্বোচ্চ ১০ শব্দ)...' : 'Brief description in Bangla (max 10 words)...'}
+                              value={serviceForm.descriptionBn}
+                              onChange={handleServiceDescriptionBnChange}
+                              required
+                              style={{ resize: 'vertical' }}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                              <span style={{ fontSize: '0.72rem', color: countWords(serviceForm.descriptionBn) >= 10 ? '#EF4444' : 'var(--text-muted)' }}>
+                                {isBn ? 'সর্বোচ্চ ১০ শব্দের মধ্যে বিবরণ লিখুন' : 'Maximum 10 words allowed'}
+                              </span>
+                              {countWords(serviceForm.descriptionBn) >= 10 && (
+                                <span style={{ fontSize: '0.72rem', color: '#EF4444', fontWeight: 600 }}>
+                                  {isBn ? '⚠️ সীমা পূর্ণ' : '⚠️ Limit reached'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Description (English) */}
+                          <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <label className="admin-label" style={{ marginBottom: 0 }}>
+                                {isBn ? 'বিবরণ (ইংরেজি)' : 'Description (English)'}
+                              </label>
+                              <span
+                                style={{
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  color: countWords(serviceForm.descriptionEn) >= 10 ? '#EF4444' : 'var(--text-muted)'
+                                }}
+                              >
+                                {`Words: ${countWords(serviceForm.descriptionEn)}/10`}
+                              </span>
+                            </div>
+                            <textarea
+                              className="admin-input"
+                              rows={3}
+                              placeholder="Brief description in English (maximum 10 words)..."
+                              value={serviceForm.descriptionEn}
+                              onChange={handleServiceDescriptionEnChange}
+                              style={{ resize: 'vertical' }}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                              <span style={{ fontSize: '0.72rem', color: countWords(serviceForm.descriptionEn) >= 10 ? '#EF4444' : 'var(--text-muted)' }}>
+                                {isBn ? 'সর্বোচ্চ ১০ শব্দ (ইংরেজি)' : 'Maximum 10 words allowed'}
+                              </span>
+                              {countWords(serviceForm.descriptionEn) >= 10 && (
+                                <span style={{ fontSize: '0.72rem', color: '#EF4444', fontWeight: 600 }}>
+                                  ⚠️ Limit reached
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: 12 }}>
-                        {isBn ? srv.descriptionBn : (srv.descriptionEn || srv.descriptionBn)}
-                      </p>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-                        <button type="button" className="admin-btn-action" onClick={() => handleOpenEditService(srv)}>
-                          <Edit size={14} />
-                        </button>
+
+                      {/* Modal Footer Buttons */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'flex-end',
+                          gap: 10,
+                          marginTop: 22,
+                          paddingTop: 16,
+                          borderTop: '1px solid var(--border-color)'
+                        }}
+                      >
                         <button
                           type="button"
-                          className="admin-btn-danger"
+                          className="admin-btn-secondary"
                           onClick={() => {
-                            openConfirm({
-                              title: isBn ? 'জরুরি সেবা মুছে ফেলুন' : 'Delete Emergency Service',
-                              message: isBn ? 'আপনি কি এই সেবাটি মুছে ফেলতে চান?' : 'Delete this service?',
-                              confirmText: isBn ? 'মুছে ফেলুন' : 'Delete',
-                              onConfirm: () => deleteEmergencyService(srv.id)
-                            });
+                            setIsCreatingService(false);
+                            setEditingService(null);
                           }}
                         >
-                          <Trash2 size={14} />
+                          {isBn ? 'বাতিল' : 'Cancel'}
+                        </button>
+                        <button type="submit" className="admin-btn-primary">
+                          <Save size={18} />
+                          <span>{editingService ? (isBn ? 'আপডেট করুন' : 'Update Service') : (isBn ? 'সংরক্ষণ করুন' : 'Save Service')}</span>
                         </button>
                       </div>
-                    </div>
-                  ))}
+                    </form>
+                  </div>
                 </div>
               )}
             </div>

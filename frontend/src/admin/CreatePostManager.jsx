@@ -700,11 +700,18 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
     setIsMediaGalleryLoading(true);
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const endpoints = [
+      '/janogon/api/media.php',
+      'http://localhost/janogon/api/media.php',
+      'http://127.0.0.1/janogon/api/media.php',
       '/api/media.php',
       'api/media.php',
-      './api/media.php'
+      './api/media.php',
+      'https://jonogon.news/api/media.php'
     ];
-    if (origin) endpoints.unshift(`${origin}/api/media.php`);
+    if (origin) {
+      endpoints.unshift(`${origin}/janogon/api/media.php`);
+      endpoints.push(`${origin}/api/media.php`);
+    }
     const uniqueEndpoints = [...new Set(endpoints)];
 
     let fetched = false;
@@ -1162,7 +1169,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
       metaTitle: metaTitle || mainTitle,
       metaDesc: metaDesc || excerpt,
       focusKeyword: focusKeyword || '',
-      status: postId ? (existingArticle?.status || postStatus || 'published') : 'draft'
+      status: postId ? (existingArticle?.status || postStatus || 'published') : (postStatus || 'published')
     };
 
     let syncRes = null;

@@ -63,6 +63,10 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
   const [copiedId, setCopiedId] = useState(null);
   const [zoomScale, setZoomScale] = useState(1);
 
+  // Multi-Selection & Bulk Actions
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Esc key listener for lightbox modal
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -100,20 +104,56 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
     setZoomScale((prev) => (prev === 1 ? 1.75 : prev > 1 ? 1 : 1.75));
   };
 
+  // 24-Hour Format Upload Time Formatter (e.g. 2026-10-10 14:35:20)
+  const formatDateTime24h = (dateStr) => {
+    if (!dateStr) return '-';
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(dateStr)) {
+      return dateStr;
+    }
+    try {
+      const normalized = dateStr.includes(' ') && !dateStr.includes('T') ? dateStr.replace(' ', 'T') : dateStr;
+      const d = new Date(normalized);
+      if (isNaN(d.getTime())) return dateStr;
+      const pad = (n) => String(n).padStart(2, '0');
+      const year = d.getFullYear();
+      const month = pad(d.getMonth() + 1);
+      const day = pad(d.getDate());
+      const hours = pad(d.getHours());
+      const minutes = pad(d.getMinutes());
+      const seconds = pad(d.getSeconds());
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   // File Upload input ref
   const fileInputRef = useRef(null);
+
+  // Endpoint resolver helper for Media API
+  const getMediaEndpoints = (action = '') => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const q = action ? `?action=${action}` : '';
+    const list = [
+      `/janogon/api/media.php${q}`,
+      `http://localhost/janogon/api/media.php${q}`,
+      `http://127.0.0.1/janogon/api/media.php${q}`,
+      `/api/media.php${q}`,
+      `api/media.php${q}`,
+      `./api/media.php${q}`,
+      `https://jonogon.news/api/media.php${q}`
+    ];
+    if (origin) {
+      list.unshift(`${origin}/janogon/api/media.php${q}`);
+      list.push(`${origin}/api/media.php${q}`);
+    }
+    return [...new Set(list)];
+  };
 
   // Fetch Media List from API
   const fetchMediaList = async () => {
     setLoading(true);
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const endpoints = [
-      '/api/media.php',
-      'api/media.php',
-      './api/media.php'
-    ];
-    if (origin) endpoints.unshift(`${origin}/api/media.php`);
-    const uniqueEndpoints = [...new Set(endpoints)];
+    const uniqueEndpoints = getMediaEndpoints();
 
     let fetched = false;
 
@@ -142,7 +182,7 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
 
   useEffect(() => {
     fetchMediaList();
-  }, [articles]);
+  }, []);
 
   // Category Counts (Task 5: All Image, News Image, Uploaded Image, News Card)
   const categoryCounts = useMemo(() => {
@@ -390,35 +430,134 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
     }
   };
 
-  // Single Item Delete
-  const handleDeleteItem = async (item) => {
+  // Single Item Delete (from B2, MariaDB & local storage)
+  const handleDeleteItem = async (item, e) => {
+    if (e) e.stopPropagation();
     const confirmed = await showConfirm({
       title: isBn ? 'ছবি মুছে ফেলার নিশ্চিতকরণ' : 'Confirm Delete Image',
       message: isBn
-        ? `আপনি কি নিশ্চিত যে "${item.original_name}" ছবিটি গ্যালারি থেকে মুছে ফেলতে চান?`
-        : `Are you sure you want to remove "${item.original_name}" from gallery?`,
+        ? `আপনি কি নিশ্চিত যে "${item.original_name || item.file_name || 'এই ছবিটি'}" মুছে ফেলতে চান?`
+        : `Are you sure you want to delete "${item.original_name || item.file_name || 'this image'}"?`,
       subMessage: isBn
-        ? 'গ্যালারি থেকে ছবিটি মুছে ফেললে তা আর পুনরুদ্ধার করা যাবে না।'
-        : 'Once deleted from gallery, this image cannot be recovered.',
+        ? 'এটি Backblaze B2 ক্লাউড স্টোরেজ এবং MariaDB ডাটাবেজ থেকে স্থায়ীভাবে মুছে ফেলা হবে।'
+        : 'This will be permanently deleted from Backblaze B2 cloud storage and MariaDB database.',
       confirmText: isBn ? 'হ্যাঁ, মুছে ফেলুন' : 'Yes, Delete',
       cancelText: isBn ? 'বাতিল' : 'Cancel',
       type: 'danger'
     });
 
     if (confirmed) {
-      try {
-        const fileId = item.file_id || item.id || '';
-        const fileName = item.storage_key || item.original_name || '';
-        await fetch(`/api/media.php?id=${encodeURIComponent(item.id)}&file_id=${encodeURIComponent(fileId)}&file_name=${encodeURIComponent(fileName)}`, { method: 'DELETE' });
-      } catch (e) {
-        // continue
+      const endpoints = getMediaEndpoints('delete');
+      for (const ep of endpoints) {
+        try {
+          const res = await fetch(ep, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+              id: item.id,
+              file_id: item.file_id || '',
+              storage_key: item.storage_key || '',
+              file_name: item.file_name || item.original_name || '',
+              public_url: item.public_url || item.file_url || ''
+            })
+          });
+          if (res.ok) {
+            const data = await res.json().catch(() => null);
+            if (data?.success) {
+              break;
+            }
+          }
+        } catch (err) {
+          // continue to next endpoint
+        }
       }
       setMediaList((prev) => prev.filter((m) => m.id !== item.id));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
       if (previewItem && previewItem.id === item.id) setPreviewItem(null);
       if (triggerSaveToast) {
-        triggerSaveToast(isBn ? 'ছবিটি সফলভাবে মুছে ফেলা হয়েছে।' : 'Image removed successfully.');
+        triggerSaveToast(isBn ? 'ছবিটি সফলভাবে মুছে ফেলা হয়েছে।' : 'Image deleted successfully.');
       }
     }
+  };
+
+  // Bulk / Multiple Items Delete (at once from B2 & MariaDB)
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    const confirmed = await showConfirm({
+      title: isBn ? 'নির্বাচিত ছবিগুলো মুছে ফেলার নিশ্চিতকরণ' : 'Confirm Bulk Delete',
+      message: isBn
+        ? `আপনি কি নিশ্চিত যে নির্বাচিত ${count}টি ছবি একসাথে মুছে ফেলতে চান?`
+        : `Are you sure you want to delete ${count} selected images at once?`,
+      subMessage: isBn
+        ? 'নির্বাচিত ছবিগুলো Backblaze B2 ক্লাউড এবং MariaDB ডাটাবেজ থেকে চিরতরে মুছে যাবে।'
+        : 'The selected images will be permanently removed from Backblaze B2 and MariaDB.',
+      confirmText: isBn ? `হ্যাঁ, ${count}টি ছবি মুছুন` : `Yes, Delete ${count} Images`,
+      cancelText: isBn ? 'বাতিল' : 'Cancel',
+      type: 'danger'
+    });
+
+    if (confirmed) {
+      setIsDeleting(true);
+      try {
+        const itemsToDelete = mediaList.filter((m) => selectedIds.has(m.id));
+        const endpoints = getMediaEndpoints('delete_multiple');
+        let bulkSuccess = false;
+
+        for (const ep of endpoints) {
+          try {
+            const res = await fetch(ep, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify({ items: itemsToDelete })
+            });
+            if (res.ok) {
+              const result = await res.json().catch(() => null);
+              if (result && result.success) {
+                bulkSuccess = true;
+                break;
+              }
+            }
+          } catch (err) {
+            // continue to next endpoint
+          }
+        }
+
+        setMediaList((prev) => prev.filter((m) => !selectedIds.has(m.id)));
+        setSelectedIds(new Set());
+        if (triggerSaveToast) {
+          triggerSaveToast(isBn ? `${count}টি ছবি সফলভাবে মুছে ফেলা হয়েছে!` : `${count} images deleted successfully!`);
+        }
+      } catch (err) {
+        console.error('Bulk delete error:', err);
+        showError(isBn ? 'ছবি মুছতে ব্যর্থ হয়েছে।' : 'Failed to delete images.');
+      } finally {
+        setIsDeleting(false);
+      }
+    }
+  };
+
+  // Selection handlers
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredMedia.length && filteredMedia.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredMedia.map((m) => m.id)));
+    }
+  };
+
+  const toggleSelectItem = (id, e) => {
+    if (e) e.stopPropagation();
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   return (
@@ -731,6 +870,104 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
       </div>
 
       {/* -------------------------------------------------------------
+          3b. SELECTION & BULK ACTIONS BAR
+          ------------------------------------------------------------- */}
+      {filteredMedia.length > 0 && (
+        <div
+          className="admin-card"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 12,
+            padding: '10px 18px',
+            margin: 0,
+            backgroundColor: selectedIds.size > 0 ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-card)',
+            borderColor: selectedIds.size > 0 ? 'rgba(239, 68, 68, 0.35)' : 'var(--border-color)',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                fontSize: '0.86rem',
+                fontWeight: 700,
+                padding: 0
+              }}
+            >
+              {selectedIds.size > 0 && selectedIds.size === filteredMedia.length ? (
+                <CheckSquare size={18} color="var(--primary-red)" />
+              ) : (
+                <Square size={18} color="var(--text-muted)" />
+              )}
+              <span>
+                {selectedIds.size > 0
+                  ? (isBn ? `${selectedIds.size}টি ছবি নির্বাচিত` : `${selectedIds.size} images selected`)
+                  : (isBn ? 'সবগুলো ছবি নির্বাচন করুন' : 'Select All Images')}
+              </span>
+            </button>
+
+            {selectedIds.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  textDecoration: 'underline'
+                }}
+              >
+                {isBn ? 'নির্বাচন বাতিল' : 'Deselect all'}
+              </button>
+            )}
+          </div>
+
+          {selectedIds.size > 0 && (
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={isDeleting}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                backgroundColor: '#EF4444',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: 7,
+                padding: '8px 16px',
+                fontSize: '0.84rem',
+                fontWeight: 800,
+                cursor: isDeleting ? 'not-allowed' : 'pointer',
+                boxShadow: '0 4px 14px rgba(239, 68, 68, 0.35)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Trash2 size={16} />
+              <span>
+                {isDeleting
+                  ? (isBn ? 'মুছে ফেলা হচ্ছে...' : 'Deleting...')
+                  : (isBn ? `নির্বাচিত ছবি মুছুন (${selectedIds.size}টি)` : `Delete Selected (${selectedIds.size})`)}
+              </span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* -------------------------------------------------------------
           4. MEDIA ASSETS DISPLAY (GRID / LIST VIEW)
           ------------------------------------------------------------- */}
       {loading ? (
@@ -782,9 +1019,9 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
                   display: 'flex',
                   flexDirection: 'column',
                   borderRadius: 10,
-                  border: '1px solid var(--border-color)',
+                  border: selectedIds.has(item.id) ? '2px solid var(--primary-red)' : '1px solid var(--border-color)',
                   transition: 'all 0.2s',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  boxShadow: selectedIds.has(item.id) ? '0 4px 14px rgba(225,29,72,0.25)' : '0 2px 8px rgba(0,0,0,0.1)'
                 }}
               >
                 {/* Image Container with Hover Actions */}
@@ -830,11 +1067,40 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
                       padding: '2px 6px',
                       borderRadius: 4,
                       textTransform: 'uppercase',
-                      letterSpacing: 0.5
+                      letterSpacing: 0.5,
+                      zIndex: 3
                     }}
                   >
                     {item.file_format || 'WEBP'}
                   </span>
+
+                  {/* Top-Right Select Checkbox */}
+                  <button
+                    type="button"
+                    onClick={(e) => toggleSelectItem(item.id, e)}
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      width: 28,
+                      height: 28,
+                      borderRadius: 6,
+                      backgroundColor: selectedIds.has(item.id) ? 'var(--primary-red)' : 'rgba(0, 0, 0, 0.65)',
+                      border: selectedIds.has(item.id) ? '2px solid #FFFFFF' : '1px solid rgba(255, 255, 255, 0.35)',
+                      color: '#FFFFFF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      zIndex: 5,
+                      padding: 0,
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                      transition: 'all 0.15s ease'
+                    }}
+                    title={isBn ? 'নির্বাচন করুন' : 'Select'}
+                  >
+                    {selectedIds.has(item.id) ? <Check size={16} strokeWidth={3} /> : <Square size={14} color="rgba(255,255,255,0.7)" />}
+                  </button>
 
                   {/* Action Overlay */}
                   <div
@@ -891,6 +1157,15 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
                     >
                       <Download size={15} />
                     </a>
+
+                    <button
+                      type="button"
+                      style={{ width: 32, height: 32, borderRadius: 6, border: 'none', backgroundColor: '#EF4444', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                      title={isBn ? 'স্থায়ীভাবে মুছে ফেলুন (B2 ও ডাটাবেজ)' : 'Delete Permanently'}
+                      onClick={(e) => handleDeleteItem(item, e)}
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </div>
                 </div>
 
@@ -914,6 +1189,13 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
                     <span>{sizeKb} KB</span>
                     <span>{item.width && item.height ? `${item.width}x${item.height}` : 'HD'}</span>
                   </div>
+
+                  {item.created_at && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.70rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                      <Calendar size={11} color="var(--primary-red)" />
+                      <span>{formatDateTime24h(item.created_at)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -926,17 +1208,52 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                  <th style={{ padding: '12px 14px', width: 44 }}>
+                    <button
+                      type="button"
+                      onClick={toggleSelectAll}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                      title={isBn ? 'সবগুলো নির্বাচন করুন' : 'Select All'}
+                    >
+                      {selectedIds.size > 0 && selectedIds.size === filteredMedia.length ? (
+                        <CheckSquare size={17} color="var(--primary-red)" />
+                      ) : (
+                        <Square size={17} color="var(--text-muted)" />
+                      )}
+                    </button>
+                  </th>
                   <th style={{ padding: '12px 16px' }}>{isBn ? 'ছবি' : 'Thumbnail'}</th>
                   <th style={{ padding: '12px 16px' }}>{isBn ? 'ফাইলের নাম ও পাথ' : 'File Name & Storage Path'}</th>
                   <th style={{ padding: '12px 16px' }}>{isBn ? 'ফরম্যাট' : 'Format'}</th>
                   <th style={{ padding: '12px 16px' }}>{isBn ? 'সাইজ' : 'Size'}</th>
                   <th style={{ padding: '12px 16px' }}>{isBn ? 'প্রোভাইডার' : 'Storage'}</th>
+                  <th style={{ padding: '12px 16px' }}>{isBn ? 'আপলোডের সময়' : 'Upload Time'}</th>
                   <th style={{ padding: '12px 16px', textAlign: 'right' }}>{isBn ? 'অ্যাকশন' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredMedia.map((item) => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                  <tr
+                    key={item.id}
+                    style={{
+                      borderBottom: '1px solid var(--border-color)',
+                      backgroundColor: selectedIds.has(item.id) ? 'rgba(239, 68, 68, 0.06)' : undefined
+                    }}
+                  >
+                    <td style={{ padding: '10px 14px', width: 44 }}>
+                      <button
+                        type="button"
+                        onClick={(e) => toggleSelectItem(item.id, e)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                        title={isBn ? 'নির্বাচন করুন' : 'Select'}
+                      >
+                        {selectedIds.has(item.id) ? (
+                          <CheckSquare size={17} color="var(--primary-red)" />
+                        ) : (
+                          <Square size={17} color="var(--text-muted)" />
+                        )}
+                      </button>
+                    </td>
                     <td style={{ padding: '10px 16px' }}>
                       <div style={{ width: 54, height: 40, borderRadius: 4, overflow: 'hidden', backgroundColor: '#1E222B' }}>
                         <img
@@ -966,6 +1283,12 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
                     </td>
                     <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
                       Backblaze B2
+                    </td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Calendar size={13} color="var(--primary-red)" />
+                        <span style={{ fontWeight: 600 }}>{formatDateTime24h(item.created_at)}</span>
+                      </div>
                     </td>
                     <td style={{ padding: '10px 16px', textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: 6 }}>
@@ -998,6 +1321,15 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
                         >
                           <Download size={13} />
                         </a>
+                        <button
+                          type="button"
+                          className="admin-btn-secondary"
+                          style={{ padding: '5px 8px', color: '#EF4444', borderColor: 'rgba(239,68,68,0.3)' }}
+                          onClick={(e) => handleDeleteItem(item, e)}
+                          title={isBn ? 'মুছে ফেলুন' : 'Delete'}
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1105,6 +1437,27 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
               >
                 {previewItem.file_format || 'WEBP'}
               </span>
+
+              {previewItem.created_at && (
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    flexShrink: 0
+                  }}
+                  title={isBn ? 'আপলোডের সময় (২৪ঘণ্টা)' : 'Upload Time (24h)'}
+                >
+                  <Calendar size={12} color="#E11D48" />
+                  <span>{formatDateTime24h(previewItem.created_at)}</span>
+                </span>
+              )}
             </div>
 
             {/* Top-Right Circular Action Buttons */}
@@ -1236,6 +1589,29 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
               >
                 <Download size={17} />
               </a>
+
+              {/* Delete Image Button */}
+              <button
+                type="button"
+                onClick={(e) => handleDeleteItem(previewItem, e)}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: '#EF4444',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title={isBn ? 'মুছে ফেলুন (B2 ও ডাটাবেজ)' : 'Delete Image'}
+              >
+                <Trash2 size={17} />
+              </button>
 
               {/* RED CIRCULAR CLOSE BUTTON */}
               <button

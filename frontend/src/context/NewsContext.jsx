@@ -21,7 +21,10 @@ import {
   deleteArticleFromMariaDb,
   fetchArticlesFromMariaDb,
   fetchModuleFromMariaDb,
-  syncModuleToMariaDb
+  syncModuleToMariaDb,
+  savePodcastToMariaDb,
+  deletePodcastFromMariaDb,
+  fetchPodcastsFromMariaDb
 } from '../utils/mariaDbSync';
 import { safeSetLocalStorage, safeGetLocalStorage, safeRemoveLocalStorage } from '../utils/safeStorage';
 
@@ -134,17 +137,32 @@ export function NewsProvider({ children }) {
     return initialSiteSettings;
   });
 
-  // 4. Articles Data (Auto-heal broken URLs if any cached)
+  // 4. Articles Data (Strict DB Articles Priority)
   const [articles, setArticles] = useState(() => {
     try {
       const saved = safeGetLocalStorage('jonogon_articles');
       if (saved && Array.isArray(saved) && saved.length > 0) {
-        return saved.map((a) => {
+        const cleaned = saved.map((a) => {
           if (a.imageUrl && a.imageUrl.includes('photo-1527018607619-a508a2be00be')) {
             return { ...a, imageUrl: 'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=600&q=80' };
           }
           return a;
         });
+        const dbItems = cleaned.filter(
+          (a) =>
+            a.db_id ||
+            a.postId ||
+            (typeof a.id === 'string' &&
+              !a.id.startsWith('hero-') &&
+              !a.id.startsWith('lead-') &&
+              !a.id.startsWith('latest-') &&
+              !a.id.startsWith('probashi-') &&
+              !a.id.startsWith('grid-') &&
+              !a.id.startsWith('video-') &&
+              a.id !== 'bd-main')
+        );
+        if (dbItems.length > 0) return dbItems;
+        return cleaned;
       }
     } catch (e) {
       console.warn('Error reading jonogon_articles', e);
@@ -192,7 +210,7 @@ export function NewsProvider({ children }) {
       if (saved && Array.isArray(saved) && saved.length >= 100) {
         return saved;
       }
-    } catch (e) {}
+    } catch (e) { }
     return initialCategories;
   });
 
@@ -292,29 +310,29 @@ export function NewsProvider({ children }) {
               return;
             }
           }
-        } catch (e) {}
+        } catch (e) { }
       }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const refreshArticles = async () => {
     try {
       const dbPosts = await fetchArticlesFromMariaDb();
       if (Array.isArray(dbPosts) && dbPosts.length > 0) {
-        setArticles((prev) => {
-          const dbMap = new Map();
-          dbPosts.forEach((p) => dbMap.set(String(p.id), p));
-          const merged = [...dbPosts];
-          (Array.isArray(prev) ? prev : []).forEach((item) => {
-            if (!dbMap.has(String(item.id))) {
-              merged.push(item);
-            }
-          });
-          safeSetLocalStorage('jonogon_articles', merged);
-          return merged;
-        });
+        setArticles(dbPosts);
+        safeSetLocalStorage('jonogon_articles', dbPosts);
       }
-    } catch (e) {}
+    } catch (e) { }
+  };
+
+  const refreshPodcasts = async () => {
+    try {
+      const dbPods = await fetchPodcastsFromMariaDb();
+      if (Array.isArray(dbPods) && dbPods.length > 0) {
+        setPodcasts(dbPods);
+        safeSetLocalStorage('jonogon_podcasts', dbPods);
+      }
+    } catch (e) { }
   };
 
   const isHydratedFromDbRef = React.useRef(false);
@@ -327,13 +345,43 @@ export function NewsProvider({ children }) {
         if (data.siteSettings && typeof data.siteSettings === 'object' && Object.keys(data.siteSettings).length > 0) {
           setSettings((prev) => {
             const merged = { ...prev, ...data.siteSettings };
+            if (data.adSlots && typeof data.adSlots === 'object') {
+              merged.adSlots = { ...(merged.adSlots || {}), ...data.adSlots };
+            }
+            if (data.adSenseEnabled !== undefined) merged.adSenseEnabled = data.adSenseEnabled;
+            if (data.adSenseClientId) {
+              merged.adSenseClientId = data.adSenseClientId;
+              merged.adsenseClientId = data.adSenseClientId;
+            }
+            safeSetLocalStorage('jonogon_settings', merged);
+            return merged;
+          });
+          if (data.siteSettings.sectionColumnsOrder && typeof data.siteSettings.sectionColumnsOrder === 'object') {
+            setSectionColumnsOrder((prev) => ({
+              ...prev,
+              ...data.siteSettings.sectionColumnsOrder
+            }));
+            safeSetLocalStorage('jonogon_section_columns', data.siteSettings.sectionColumnsOrder);
+          }
+        }
+        if (data.adSlots && typeof data.adSlots === 'object' && Object.keys(data.adSlots).length > 0) {
+          setSettings((prev) => {
+            const merged = {
+              ...prev,
+              adSlots: { ...(prev.adSlots || {}), ...data.adSlots },
+              ...(data.adSenseEnabled !== undefined ? { adSenseEnabled: data.adSenseEnabled } : {}),
+              ...(data.adSenseClientId ? { adSenseClientId: data.adSenseClientId, adsenseClientId: data.adSenseClientId } : {})
+            };
             safeSetLocalStorage('jonogon_settings', merged);
             return merged;
           });
         }
         if (Array.isArray(data.masterGroups) && data.masterGroups.length > 0) {
-          setCategoryMasterGroups(data.masterGroups);
-          safeSetLocalStorage('jonogon_master_groups', data.masterGroups);
+          const hasAnySubGroups = data.masterGroups.some((g) => Array.isArray(g.subGroups) && g.subGroups.length > 0);
+          if (hasAnySubGroups) {
+            setCategoryMasterGroups(data.masterGroups);
+            safeSetLocalStorage('jonogon_master_groups', data.masterGroups);
+          }
         }
         if (Array.isArray(data.categories) && data.categories.length > 0) {
           setCategories(data.categories);
@@ -348,8 +396,13 @@ export function NewsProvider({ children }) {
           safeSetLocalStorage('jonogon_podcasts', data.podcasts);
         }
         if (Array.isArray(data.emergencyServices) && data.emergencyServices.length > 0) {
-          setEmergencyServices(data.emergencyServices);
-          safeSetLocalStorage('jonogon_emergency_services', data.emergencyServices);
+          const cleaned = data.emergencyServices.map((srv) => ({
+            ...srv,
+            nameBn: srv.nameBn ? String(srv.nameBn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() : '',
+            nameEn: srv.nameEn ? String(srv.nameEn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() : ''
+          }));
+          setEmergencyServices(cleaned);
+          safeSetLocalStorage('jonogon_emergency_services', cleaned);
         }
         if (Array.isArray(data.breakingNews) && data.breakingNews.length > 0) {
           setBreakingNews(data.breakingNews);
@@ -367,6 +420,7 @@ export function NewsProvider({ children }) {
   useEffect(() => {
     refreshCategories();
     refreshArticles();
+    refreshPodcasts();
     refreshAllModulesFromDb();
 
     setCategoryMasterGroups((prevGroups) => {
@@ -415,7 +469,7 @@ export function NewsProvider({ children }) {
     try {
       const saved = safeGetLocalStorage('jonogon_breaking');
       if (saved && Array.isArray(saved) && saved.length > 0) return saved;
-    } catch (e) {}
+    } catch (e) { }
     return initialBreakingNews;
   });
 
@@ -437,16 +491,75 @@ export function NewsProvider({ children }) {
           return p;
         });
       }
-    } catch (e) {}
+    } catch (e) { }
     return initialPodcasts;
   });
+
+  // 7a. Podcast Subjects / Categories State
+  const [podcastSubjectsState, setPodcastSubjectsState] = useState(() => {
+    try {
+      const saved = safeGetLocalStorage('jonogon_podcast_subjects');
+      if (saved && Array.isArray(saved) && saved.length > 0) return saved;
+    } catch (e) { }
+    return podcastSubjects;
+  });
+
+  // Dynamically merge subjects from active podcasts
+  const dynamicPodcastSubjects = useMemo(() => {
+    const map = new Map();
+    (podcastSubjectsState || []).forEach(sub => map.set(sub.id, sub));
+    (podcasts || []).forEach(p => {
+      const sId = p.subjectId || p.subject_id;
+      const sBn = p.subjectBn || p.subject_bn;
+      const sEn = p.subjectEn || p.subject_en;
+      if (sId && sId !== 'all' && !map.has(sId)) {
+        map.set(sId, {
+          id: sId,
+          nameBn: sBn || sId,
+          nameEn: sEn || sId,
+          iconType: sId
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [podcastSubjectsState, podcasts]);
+
+  const addPodcastSubject = (newSubject) => {
+    const rawId = newSubject.id || newSubject.nameEn || newSubject.nameBn || `sub-${Date.now()}`;
+    const slug = rawId
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
+    const subjectItem = {
+      id: slug || `sub-${Date.now()}`,
+      nameBn: newSubject.nameBn || newSubject.titleBn || '',
+      nameEn: newSubject.nameEn || newSubject.titleEn || newSubject.nameBn || '',
+      iconType: newSubject.iconType || 'all'
+    };
+    setPodcastSubjectsState((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
+      if (list.some(s => s.id === subjectItem.id || s.nameBn === subjectItem.nameBn)) return list;
+      const updated = [...list, subjectItem];
+      safeSetLocalStorage('jonogon_podcast_subjects', updated);
+      syncModuleToMariaDb('podcastSubjects', updated).catch(() => {});
+      return updated;
+    });
+    return subjectItem;
+  };
 
   // 7b. Emergency Services Data (BD Govt & Emergency Services)
   const [emergencyServices, setEmergencyServices] = useState(() => {
     try {
       const saved = safeGetLocalStorage('jonogon_emergency_services');
-      if (saved && Array.isArray(saved) && saved.length > 0) return saved;
-    } catch (e) {}
+      if (saved && Array.isArray(saved) && saved.length > 0) {
+        return saved.map((srv) => ({
+          ...srv,
+          nameBn: srv.nameBn ? String(srv.nameBn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() : '',
+          nameEn: srv.nameEn ? String(srv.nameEn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() : ''
+        }));
+      }
+    } catch (e) { }
     return initialEmergencyServices;
   });
 
@@ -866,7 +979,7 @@ export function NewsProvider({ children }) {
       syncModuleToMariaDb('categories', {
         masterGroups: categoryMasterGroups,
         categories
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [categoryMasterGroups]);
 
@@ -876,7 +989,7 @@ export function NewsProvider({ children }) {
       syncModuleToMariaDb('categories', {
         masterGroups: categoryMasterGroups,
         categories
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [categories]);
 
@@ -887,21 +1000,21 @@ export function NewsProvider({ children }) {
   useEffect(() => {
     safeSetLocalStorage('jonogon_podcasts', podcasts);
     if (isHydratedFromDbRef.current && podcasts?.length > 0) {
-      syncModuleToMariaDb('podcasts', podcasts).catch(() => {});
+      syncModuleToMariaDb('podcasts', podcasts).catch(() => { });
     }
   }, [podcasts]);
 
   useEffect(() => {
     safeSetLocalStorage('jonogon_emergency_services', emergencyServices);
     if (isHydratedFromDbRef.current && emergencyServices?.length > 0) {
-      syncModuleToMariaDb('emergency', emergencyServices).catch(() => {});
+      syncModuleToMariaDb('emergency', emergencyServices).catch(() => { });
     }
   }, [emergencyServices]);
 
   useEffect(() => {
     safeSetLocalStorage('jonogon_homepage_sections', homepageSections);
     if (isHydratedFromDbRef.current && homepageSections?.length > 0) {
-      syncModuleToMariaDb('sections', homepageSections).catch(() => {});
+      syncModuleToMariaDb('sections', homepageSections).catch(() => { });
     }
   }, [homepageSections]);
 
@@ -966,12 +1079,15 @@ export function NewsProvider({ children }) {
     }
   };
 
-  const deleteArticle = (id) => {
-    setArticles((prev) => prev.filter((item) => item.id !== id));
+  const deleteArticle = (id, postId) => {
+    setArticles((prev) => prev.filter((item) => item.id !== id && (!postId || item.id !== postId)));
     deleteArticleFromMariaDb(id).catch((err) => {
       console.warn('MariaDB delete sync error:', err);
     });
-    if (currentArticle && currentArticle.id === id) {
+    if (postId && postId !== id) {
+      deleteArticleFromMariaDb(postId).catch(() => { });
+    }
+    if (currentArticle && (currentArticle.id === id || (postId && currentArticle.id === postId))) {
       goToHome();
     }
   };
@@ -991,6 +1107,15 @@ export function NewsProvider({ children }) {
   // ==========================================
   // DYNAMIC CATEGORY & MASTER GROUP CRUD ACTIONS
   // ==========================================
+
+  // Persistent MariaDB & LocalStorage sync helper for master groups
+  const persistAndSyncMasterGroups = (updatedGroups, updatedCats = categories) => {
+    safeSetLocalStorage('jonogon_master_groups', updatedGroups);
+    syncModuleToMariaDb('categories', {
+      masterGroups: updatedGroups,
+      categories: updatedCats
+    }).catch((err) => console.warn('MariaDB menu sync notice:', err));
+  };
 
   // Add new Category Item to a specific Master Group and Sub-Group
   const addCategoryToMasterGroup = ({
@@ -1059,16 +1184,21 @@ export function NewsProvider({ children }) {
         }
       }
 
+      persistAndSyncMasterGroups(updated);
       return updated;
     });
 
     // 2. Sync to flat categories list
     setCategories((prev) => {
       const exists = prev.some((c) => c.id === newId);
+      let updated;
       if (exists) {
-        return prev.map((c) => (c.id === newId ? newCategoryObj : c));
+        updated = prev.map((c) => (c.id === newId ? newCategoryObj : c));
+      } else {
+        updated = [...prev, newCategoryObj];
       }
-      return [...prev, newCategoryObj];
+      safeSetLocalStorage('jonogon_categories', updated);
+      return updated;
     });
 
     return newId;
@@ -1145,13 +1275,16 @@ export function NewsProvider({ children }) {
         }
       }
 
+      persistAndSyncMasterGroups(cleaned);
       return cleaned;
     });
 
     // 2. Sync to flat categories list
     setCategories((prev) => {
       const filtered = prev.filter((c) => c.id !== categoryId && c.id !== updatedId);
-      return [...filtered, updatedCategoryObj];
+      const updated = [...filtered, updatedCategoryObj];
+      safeSetLocalStorage('jonogon_categories', updated);
+      return updated;
     });
 
     // 3. Update articles referencing this category if id changed
@@ -1168,17 +1301,23 @@ export function NewsProvider({ children }) {
 
   // Delete Category Item
   const deleteCategoryFromMasterGroup = (categoryId) => {
-    setCategoryMasterGroups((prevGroups) =>
-      prevGroups.map((grp) => ({
+    setCategoryMasterGroups((prevGroups) => {
+      const updated = prevGroups.map((grp) => ({
         ...grp,
         subGroups: grp.subGroups.map((sub) => ({
           ...sub,
           items: sub.items.filter((it) => it.id !== categoryId)
         }))
-      }))
-    );
+      }));
+      persistAndSyncMasterGroups(updated);
+      return updated;
+    });
 
-    setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+    setCategories((prev) => {
+      const updated = prev.filter((c) => c.id !== categoryId);
+      safeSetLocalStorage('jonogon_categories', updated);
+      return updated;
+    });
   };
 
   // Legacy Category Actions (Backwards Compatibility)
@@ -1207,35 +1346,54 @@ export function NewsProvider({ children }) {
   // Master Group Operations
   const addMasterGroup = ({ nameBn, nameEn }) => {
     const newId = `grp-${Date.now()}`;
-    setCategoryMasterGroups((prev) => [
-      ...prev,
-      {
-        id: newId,
-        nameBn: (nameBn || '').trim(),
-        nameEn: (nameEn || nameBn || '').trim(),
-        subGroups: [
-          {
-            titleBn: 'সাধারণ',
-            titleEn: 'General',
-            items: []
-          }
-        ]
-      }
-    ]);
+    setCategoryMasterGroups((prev) => {
+      const updated = [
+        ...prev,
+        {
+          id: newId,
+          nameBn: (nameBn || '').trim(),
+          nameEn: (nameEn || nameBn || '').trim(),
+          orderIndex: prev.length,
+          subGroups: [
+            {
+              titleBn: 'সাধারণ',
+              titleEn: 'General',
+              items: []
+            }
+          ]
+        }
+      ].map((g, idx) => ({ ...g, orderIndex: idx }));
+      persistAndSyncMasterGroups(updated);
+      return updated;
+    });
   };
 
-  const updateMasterGroup = (groupId, { nameBn, nameEn }) => {
-    setCategoryMasterGroups((prev) =>
-      prev.map((g) =>
+  const updateMasterGroup = (groupId, { nameBn, nameEn, targetPosition }) => {
+    setCategoryMasterGroups((prev) => {
+      let updated = prev.map((g) =>
         g.id === groupId
           ? { ...g, nameBn: (nameBn || '').trim(), nameEn: (nameEn || g.nameEn || '').trim() }
           : g
-      )
-    );
+      );
+      if (typeof targetPosition === 'number' && targetPosition >= 0 && targetPosition < updated.length) {
+        const fromIndex = updated.findIndex((g) => g.id === groupId);
+        if (fromIndex >= 0 && fromIndex !== targetPosition) {
+          const [moved] = updated.splice(fromIndex, 1);
+          updated.splice(targetPosition, 0, moved);
+        }
+      }
+      const reindexed = updated.map((g, idx) => ({ ...g, orderIndex: idx }));
+      persistAndSyncMasterGroups(reindexed);
+      return reindexed;
+    });
   };
 
   const deleteMasterGroup = (groupId) => {
-    setCategoryMasterGroups((prev) => prev.filter((g) => g.id !== groupId));
+    setCategoryMasterGroups((prev) => {
+      const updated = prev.filter((g) => g.id !== groupId).map((g, idx) => ({ ...g, orderIndex: idx }));
+      persistAndSyncMasterGroups(updated);
+      return updated;
+    });
   };
 
   const moveMasterGroup = (fromIndex, toIndex) => {
@@ -1244,17 +1402,21 @@ export function NewsProvider({ children }) {
       const updated = [...prev];
       const [moved] = updated.splice(fromIndex, 1);
       updated.splice(toIndex, 0, moved);
-      return updated;
+      const reindexed = updated.map((g, idx) => ({ ...g, orderIndex: idx }));
+      persistAndSyncMasterGroups(reindexed);
+      return reindexed;
     });
   };
 
   const reorderMasterGroups = (newGroups) => {
-    setCategoryMasterGroups(newGroups);
+    const reindexed = (newGroups || []).map((g, idx) => ({ ...g, orderIndex: idx }));
+    setCategoryMasterGroups(reindexed);
+    persistAndSyncMasterGroups(reindexed);
   };
 
   const moveSubGroupOrder = (groupId, fromIndex, toIndex) => {
-    setCategoryMasterGroups((prev) =>
-      prev.map((g) => {
+    setCategoryMasterGroups((prev) => {
+      const updated = prev.map((g) => {
         if (g.id === groupId) {
           const subs = [...g.subGroups];
           if (fromIndex < 0 || toIndex < 0 || fromIndex >= subs.length || toIndex >= subs.length) return g;
@@ -1263,13 +1425,15 @@ export function NewsProvider({ children }) {
           return { ...g, subGroups: subs };
         }
         return g;
-      })
-    );
+      });
+      persistAndSyncMasterGroups(updated);
+      return updated;
+    });
   };
 
   const moveCategoryItemOrder = (groupId, subGroupTitleBn, fromIndex, toIndex) => {
-    setCategoryMasterGroups((prev) =>
-      prev.map((g) => {
+    setCategoryMasterGroups((prev) => {
+      const updated = prev.map((g) => {
         if (g.id === groupId) {
           return {
             ...g,
@@ -1286,14 +1450,16 @@ export function NewsProvider({ children }) {
           };
         }
         return g;
-      })
-    );
+      });
+      persistAndSyncMasterGroups(updated);
+      return updated;
+    });
   };
 
   // Sub-Group Operations
   const addSubGroup = (groupId, { titleBn, titleEn }) => {
-    setCategoryMasterGroups((prev) =>
-      prev.map((g) => {
+    setCategoryMasterGroups((prev) => {
+      const updated = prev.map((g) => {
         if (g.id === groupId) {
           return {
             ...g,
@@ -1308,15 +1474,16 @@ export function NewsProvider({ children }) {
           };
         }
         return g;
-      })
-    );
+      });
+      persistAndSyncMasterGroups(updated);
+      return updated;
+    });
   };
 
   const updateSubGroup = (groupId, oldTitleBn, { titleBn, titleEn, targetGroupId }) => {
     setCategoryMasterGroups((prev) => {
       const destinationGroupId = targetGroupId || groupId;
-
-      // If transferring to another master group
+      let updated;
       if (destinationGroupId !== groupId) {
         let subGroupToTransfer = null;
         const cleaned = prev.map((g) => {
@@ -1338,7 +1505,7 @@ export function NewsProvider({ children }) {
         });
 
         if (subGroupToTransfer) {
-          return cleaned.map((g) => {
+          updated = cleaned.map((g) => {
             if (g.id === destinationGroupId) {
               return {
                 ...g,
@@ -1347,34 +1514,36 @@ export function NewsProvider({ children }) {
             }
             return g;
           });
+        } else {
+          updated = cleaned;
         }
-        return cleaned;
-      }
-
-      // If updating within the same master group
-      return prev.map((g) => {
-        if (g.id === groupId) {
-          return {
-            ...g,
-            subGroups: g.subGroups.map((sub) =>
-              sub.titleBn === oldTitleBn
-                ? {
+      } else {
+        updated = prev.map((g) => {
+          if (g.id === groupId) {
+            return {
+              ...g,
+              subGroups: g.subGroups.map((sub) =>
+                sub.titleBn === oldTitleBn
+                  ? {
                     ...sub,
                     titleBn: (titleBn || '').trim(),
                     titleEn: (titleEn || sub.titleEn || '').trim()
                   }
-                : sub
-            )
-          };
-        }
-        return g;
-      });
+                  : sub
+              )
+            };
+          }
+          return g;
+        });
+      }
+      persistAndSyncMasterGroups(updated);
+      return updated;
     });
   };
 
   const deleteSubGroup = (groupId, titleBn) => {
-    setCategoryMasterGroups((prev) =>
-      prev.map((g) => {
+    setCategoryMasterGroups((prev) => {
+      const updated = prev.map((g) => {
         if (g.id === groupId) {
           return {
             ...g,
@@ -1382,8 +1551,10 @@ export function NewsProvider({ children }) {
           };
         }
         return g;
-      })
-    );
+      });
+      persistAndSyncMasterGroups(updated);
+      return updated;
+    });
   };
 
   // Reset Master Groups and Categories to System Default
@@ -1404,75 +1575,194 @@ export function NewsProvider({ children }) {
   };
 
   // Podcast Actions
-  const addPodcast = (pod) => {
+  const addPodcast = async (pod) => {
+    const podId = pod.id || `pod-${Date.now()}`;
+    let thumb = pod.thumbnail || '';
+    let ytId = pod.youtubeId || pod.youtube_id;
+    const ytUrl = pod.youtubeUrl || pod.youtube_url || '';
+    if (!ytId && ytUrl) {
+      const match = ytUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+      if (match) ytId = match[1];
+    }
+    if (ytId && (!thumb || thumb.includes('unsplash.com'))) {
+      thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+    }
+
     const podWithId = {
       ...pod,
-      id: `pod-${Date.now()}`,
-      dateBn: new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }),
-      dateEn: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      id: podId,
+      podcast_id: podId,
+      youtubeId: ytId || pod.youtubeId,
+      youtubeUrl: ytUrl,
+      thumbnail: thumb,
+      dateBn: pod.dateBn || new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }),
+      dateEn: pod.dateEn || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
     };
-    setPodcasts((prev) => [podWithId, ...prev]);
+    setPodcasts((prev) => [podWithId, ...(Array.isArray(prev) ? prev : [])]);
+    safeSetLocalStorage('jonogon_podcasts', [podWithId, ...(Array.isArray(podcasts) ? podcasts : [])]);
+
+    try {
+      const res = await savePodcastToMariaDb(podWithId);
+      syncModuleToMariaDb('podcasts', [podWithId, ...(Array.isArray(podcasts) ? podcasts : [])]).catch(() => { });
+      return res;
+    } catch (err) {
+      console.warn('Podcast MariaDB save error:', err);
+      return { success: false, error: err?.message };
+    }
   };
 
-  const updatePodcast = (id, updatedData) => {
-    setPodcasts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updatedData } : p))
-    );
+  const updatePodcast = async (id, updatedData) => {
+    let fullPod = null;
+    let nextList = [];
+    let thumb = updatedData.thumbnail;
+    let ytId = updatedData.youtubeId || updatedData.youtube_id;
+    const ytUrl = updatedData.youtubeUrl || updatedData.youtube_url;
+    if (!ytId && ytUrl) {
+      const match = ytUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+      if (match) ytId = match[1];
+    }
+    if (ytId && (!thumb || thumb.includes('unsplash.com'))) {
+      thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+    }
+
+    const cleanUpdated = {
+      ...updatedData,
+      ...(ytId ? { youtubeId: ytId } : {}),
+      ...(thumb ? { thumbnail: thumb } : {})
+    };
+
+    setPodcasts((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
+      let found = false;
+      nextList = list.map((p) => {
+        if (p.id === id || p.podcast_id === id) {
+          found = true;
+          fullPod = { ...p, ...cleanUpdated, id, podcast_id: id };
+          return fullPod;
+        }
+        return p;
+      });
+      if (!found) {
+        fullPod = { ...cleanUpdated, id, podcast_id: id };
+        nextList = [fullPod, ...list];
+      }
+      return nextList;
+    });
+
+    const payload = fullPod || { ...cleanUpdated, id, podcast_id: id };
+    safeSetLocalStorage('jonogon_podcasts', nextList);
+
+    try {
+      const res = await savePodcastToMariaDb(payload);
+      syncModuleToMariaDb('podcasts', nextList).catch(() => { });
+      return res;
+    } catch (err) {
+      console.warn('Podcast update MariaDB save error:', err);
+      return { success: false, error: err?.message };
+    }
   };
 
-  const deletePodcast = (id) => {
-    setPodcasts((prev) => prev.filter((p) => p.id !== id));
+  const deletePodcast = async (id) => {
+    let remaining = [];
+    setPodcasts((prev) => {
+      remaining = (Array.isArray(prev) ? prev : []).filter((p) => p.id !== id && p.podcast_id !== id);
+      return remaining;
+    });
+    safeSetLocalStorage('jonogon_podcasts', remaining);
+
+    try {
+      const res = await deletePodcastFromMariaDb(id);
+      syncModuleToMariaDb('podcasts', remaining).catch(() => { });
+      return res;
+    } catch (err) {
+      console.warn('Podcast delete MariaDB error:', err);
+      return false;
+    }
   };
 
   // Emergency Services Actions
   const addEmergencyService = (service) => {
     const itemWithId = {
       ...service,
-      id: `srv-${Date.now()}`
+      id: `srv-${Date.now()}`,
+      nameBn: service.nameBn ? String(service.nameBn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() : '',
+      nameEn: service.nameEn ? String(service.nameEn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() : ''
     };
-    setEmergencyServices((prev) => [itemWithId, ...prev]);
+    setEmergencyServices((prev) => {
+      const nextList = [itemWithId, ...prev];
+      safeSetLocalStorage('jonogon_emergency_services', nextList);
+      syncModuleToMariaDb('emergencyServices', nextList).catch(() => {});
+      return nextList;
+    });
   };
 
   const updateEmergencyService = (id, updatedData) => {
-    setEmergencyServices((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, ...updatedData } : s))
-    );
+    const cleaned = {
+      ...updatedData,
+      ...(updatedData.nameBn ? { nameBn: String(updatedData.nameBn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() } : {}),
+      ...(updatedData.nameEn ? { nameEn: String(updatedData.nameEn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() } : {})
+    };
+    setEmergencyServices((prev) => {
+      const nextList = prev.map((s) => (s.id === id ? { ...s, ...cleaned } : s));
+      safeSetLocalStorage('jonogon_emergency_services', nextList);
+      syncModuleToMariaDb('emergencyServices', nextList).catch(() => {});
+      return nextList;
+    });
   };
 
   const deleteEmergencyService = (id) => {
-    setEmergencyServices((prev) => prev.filter((s) => s.id !== id));
+    setEmergencyServices((prev) => {
+      const nextList = prev.filter((s) => s.id !== id);
+      safeSetLocalStorage('jonogon_emergency_services', nextList);
+      syncModuleToMariaDb('emergencyServices', nextList).catch(() => {});
+      return nextList;
+    });
   };
 
   // ==========================================
   // HOMEPAGE MODULAR SECTIONS ACTIONS
   // ==========================================
+  const persistAndSyncHomepageSections = (updatedSections) => {
+    safeSetLocalStorage('jonogon_homepage_sections', updatedSections);
+    syncModuleToMariaDb('sections', updatedSections).catch((err) =>
+      console.warn('MariaDB homepage sections sync notice:', err)
+    );
+  };
+
   const moveHomepageSection = (fromIndex, toIndex) => {
     setHomepageSections((prev) => {
       if (fromIndex < 0 || toIndex < 0 || fromIndex >= prev.length || toIndex >= prev.length) return prev;
       const updated = [...prev];
       const [moved] = updated.splice(fromIndex, 1);
       updated.splice(toIndex, 0, moved);
-      return updated;
+      const reindexed = updated.map((sec, idx) => ({ ...sec, orderIndex: idx }));
+      persistAndSyncHomepageSections(reindexed);
+      return reindexed;
     });
   };
 
   const setHomepageSectionsOrder = (newSectionsList) => {
     if (Array.isArray(newSectionsList)) {
-      setHomepageSections(newSectionsList);
+      const reindexed = newSectionsList.map((sec, idx) => ({ ...sec, orderIndex: idx }));
+      setHomepageSections(reindexed);
+      persistAndSyncHomepageSections(reindexed);
     }
   };
 
   const toggleHomepageSectionVisibility = (sectionId) => {
-    setHomepageSections((prev) =>
-      prev.map((sec) =>
+    setHomepageSections((prev) => {
+      const updated = prev.map((sec) =>
         sec.id === sectionId ? { ...sec, isVisible: sec.isVisible === false ? true : false } : sec
-      )
-    );
+      );
+      persistAndSyncHomepageSections(updated);
+      return updated;
+    });
   };
 
   const resetHomepageSectionsToDefault = () => {
-    setHomepageSections(defaultHomepageSections);
-    safeSetLocalStorage('jonogon_homepage_sections', defaultHomepageSections);
+    const reindexed = defaultHomepageSections.map((sec, idx) => ({ ...sec, orderIndex: idx }));
+    setHomepageSections(reindexed);
+    persistAndSyncHomepageSections(reindexed);
   };
 
   // 3-Column Grid Order Handlers
@@ -1480,35 +1770,48 @@ export function NewsProvider({ children }) {
     setSectionColumnsOrder((prev) => {
       const currentList = prev[sectionId] || defaultSectionColumnsOrder[sectionId] || ['col1', 'col2', 'col3'];
       if (fromIndex < 0 || toIndex < 0 || fromIndex >= currentList.length || toIndex >= currentList.length) return prev;
-      const updated = [...currentList];
-      const [moved] = updated.splice(fromIndex, 1);
-      updated.splice(toIndex, 0, moved);
-      return {
+      const updatedList = [...currentList];
+      const [moved] = updatedList.splice(fromIndex, 1);
+      updatedList.splice(toIndex, 0, moved);
+      const updated = {
         ...prev,
-        [sectionId]: updated
+        [sectionId]: updatedList
       };
+      safeSetLocalStorage('jonogon_section_columns', updated);
+      syncModuleToMariaDb('siteSettings', { sectionColumnsOrder: updated }).catch(() => {});
+      return updated;
     });
   };
 
   const setSectionColumnOrder = (sectionId, newOrder) => {
     if (Array.isArray(newOrder)) {
-      setSectionColumnsOrder((prev) => ({
-        ...prev,
-        [sectionId]: newOrder
-      }));
+      setSectionColumnsOrder((prev) => {
+        const updated = {
+          ...prev,
+          [sectionId]: newOrder
+        };
+        safeSetLocalStorage('jonogon_section_columns', updated);
+        syncModuleToMariaDb('siteSettings', { sectionColumnsOrder: updated }).catch(() => {});
+        return updated;
+      });
     }
   };
 
   const resetSectionColumns = (sectionId) => {
-    if (sectionId) {
-      setSectionColumnsOrder((prev) => ({
-        ...prev,
-        [sectionId]: defaultSectionColumnsOrder[sectionId] || ['heroCard', 'colA', 'colB']
-      }));
-    } else {
-      setSectionColumnsOrder(defaultSectionColumnsOrder);
-      safeSetLocalStorage('jonogon_section_columns', defaultSectionColumnsOrder);
-    }
+    setSectionColumnsOrder((prev) => {
+      let updated;
+      if (sectionId) {
+        updated = {
+          ...prev,
+          [sectionId]: defaultSectionColumnsOrder[sectionId] || ['heroCard', 'colA', 'colB']
+        };
+      } else {
+        updated = defaultSectionColumnsOrder;
+      }
+      safeSetLocalStorage('jonogon_section_columns', updated);
+      syncModuleToMariaDb('siteSettings', { sectionColumnsOrder: updated }).catch(() => {});
+      return updated;
+    });
   };
 
   const updateSiteSettings = (newSettings) => {
@@ -1518,6 +1821,15 @@ export function NewsProvider({ children }) {
       syncModuleToMariaDb('settings', merged).catch((err) => {
         console.warn('MariaDB site_settings sync notice:', err);
       });
+      if (newSettings.adSlots || newSettings.adSenseEnabled !== undefined || newSettings.adsenseClientId || newSettings.adSenseClientId) {
+        syncModuleToMariaDb('ads', {
+          adSlots: newSettings.adSlots || merged.adSlots,
+          adSenseEnabled: newSettings.adSenseEnabled !== undefined ? newSettings.adSenseEnabled : merged.adSenseEnabled,
+          adsenseClientId: newSettings.adsenseClientId || newSettings.adSenseClientId || merged.adsenseClientId || merged.adSenseClientId || ''
+        }).catch((err) => {
+          console.warn('MariaDB ads sync notice:', err);
+        });
+      }
       return merged;
     });
   };
@@ -1606,7 +1918,8 @@ export function NewsProvider({ children }) {
         addPodcast,
         updatePodcast,
         deletePodcast,
-        podcastSubjects,
+        podcastSubjects: dynamicPodcastSubjects,
+        addPodcastSubject,
         selectedPodcastSubject,
         setSelectedPodcastSubject,
         emergencyServices,
@@ -1651,7 +1964,9 @@ export function NewsProvider({ children }) {
         updateUploadProgress,
         closeUploadProgress,
         refreshCategories,
+        refreshPodcasts,
         refreshAllModulesFromDb,
+        savePodcastToMariaDb,
         syncModuleToMariaDb
       }}
     >

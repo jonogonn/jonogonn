@@ -272,12 +272,12 @@ export default function MainMenuManager({ triggerSaveToast }) {
     if (!groupForm.nameBn.trim()) return;
 
     if (editingGroup) {
-      updateMasterGroup(editingGroup.id, { nameBn: groupForm.nameBn, nameEn: groupForm.nameEn });
-      // If position changed
       const targetIndex = Math.max(0, Math.min(categoryMasterGroups.length - 1, parseInt(groupForm.position, 10) - 1));
-      if (editingGroup.currentIndex !== targetIndex) {
-        moveMasterGroup(editingGroup.currentIndex, targetIndex);
-      }
+      updateMasterGroup(editingGroup.id, {
+        nameBn: groupForm.nameBn,
+        nameEn: groupForm.nameEn,
+        targetPosition: editingGroup.currentIndex !== targetIndex ? targetIndex : undefined
+      });
       showToast(isBn ? 'মাস্টার গ্রুপের তথ্য ও অবস্থান আপডেট হয়েছে!' : 'Master group updated!');
     } else {
       addMasterGroup({ nameBn: groupForm.nameBn, nameEn: groupForm.nameEn });

@@ -79,17 +79,17 @@ if ($method === 'GET') {
 
         // 2. Homepage Sections
         if (!$type || $type === 'sections' || $type === 'all') {
-            $secStmt = $pdo->query("SELECT * FROM `homepage_sections` ORDER BY `order_index` ASC");
+            $secStmt = $pdo->query("SELECT * FROM `homepage_sections` ORDER BY `order_index` ASC, `id` ASC");
             $secRows = $secStmt ? $secStmt->fetchAll(PDO::FETCH_ASSOC) : [];
             $homepageSections = [];
-            foreach ($secRows as $r) {
+            foreach ($secRows as $idx => $r) {
                 $cfg = json_decode($r['config_json'] ?? '{}', true) ?: [];
                 $homepageSections[] = array_merge($cfg, [
                     'id' => $r['section_id'] ?: ($cfg['id'] ?? ('sec-' . $r['id'])),
-                    'nameBn' => $r['title_bn'] ?: ($cfg['nameBn'] ?? ''),
-                    'nameEn' => $r['title_en'] ?: ($cfg['nameEn'] ?? ''),
+                    'nameBn' => $r['title_bn'] ?: ($r['name_bn'] ?: ($cfg['nameBn'] ?? '')),
+                    'nameEn' => $r['title_en'] ?: ($r['name_en'] ?: ($cfg['nameEn'] ?? '')),
                     'isVisible' => (bool)$r['is_visible'],
-                    'orderIndex' => (int)$r['order_index'],
+                    'orderIndex' => (int)($r['order_index'] ?? $idx),
                     'type' => $r['layout_type'] ?: ($cfg['type'] ?? 'main')
                 ]);
             }
@@ -107,6 +107,11 @@ if ($method === 'GET') {
                 if (preg_match('/(?:v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]+)/', $yt, $m)) {
                     $ytId = $m[1];
                 }
+                $thumb = $r['thumbnail'] ?: '';
+                if ($ytId && (empty($thumb) || strpos($thumb, 'unsplash') !== false)) {
+                    $thumb = "https://img.youtube.com/vi/{$ytId}/hqdefault.jpg";
+                }
+
                 $podcasts[] = [
                     'id' => $r['podcast_id'] ?: ('pod-' . $r['id']),
                     'titleBn' => $r['title_bn'] ?: '',
@@ -121,7 +126,7 @@ if ($method === 'GET') {
                     'guestBn' => $r['guest_bn'] ?: '',
                     'guestEn' => $r['guest_en'] ?: '',
                     'duration' => $r['duration'] ?: '২৫:০০',
-                    'thumbnail' => $r['thumbnail'] ?: '',
+                    'thumbnail' => $thumb,
                     'dateBn' => !empty($r['created_at']) ? date('d F Y', strtotime($r['created_at'])) : ''
                 ];
             }
@@ -154,7 +159,39 @@ if ($method === 'GET') {
         // 5. Ads Config
         if (!$type || $type === 'ads' || $type === 'all') {
             $adsStmt = $pdo->query("SELECT * FROM `ads_config` ORDER BY `id` ASC");
-            $results['adsConfig'] = $adsStmt ? $adsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $adsRows = $adsStmt ? $adsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $results['adsConfig'] = $adsRows;
+
+            $formattedAdSlots = [];
+            foreach ($adsRows as $r) {
+                $sId = $r['slot_id'];
+                if (!$sId) continue;
+                $formattedAdSlots[$sId] = [
+                    'enabled' => !empty($r['is_active']),
+                    'mode' => ($r['ad_type'] === 'html_script' || !empty($r['custom_html'])) ? 'code' : 'image',
+                    'imageUrl' => $r['banner_image_url'] ?: '',
+                    'targetUrl' => $r['target_url'] ?: '',
+                    'code' => $r['custom_html'] ?: ($r['slot_code'] ?: ''),
+                    'altText' => $r['slot_name_bn'] ?: '',
+                    'nameBn' => $r['slot_name_bn'] ?: '',
+                    'nameEn' => $r['slot_name_en'] ?: '',
+                    'fallbackText' => $r['slot_name_bn'] ?: ''
+                ];
+            }
+
+            // Also check site_settings for adSettings
+            $adSetStmt = $pdo->query("SELECT `setting_key`, `setting_value` FROM `site_settings` WHERE `setting_key` IN ('adSenseEnabled', 'adsenseClientId', 'adSenseClientId', 'adSlots')");
+            $adSetRows = $adSetStmt ? $adSetStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            foreach ($adSetRows as $ar) {
+                $k = $ar['setting_key'];
+                $val = json_decode($ar['setting_value'], true);
+                $val = ($val !== null) ? $val : $ar['setting_value'];
+                $results[$k] = $val;
+                if ($k === 'adSlots' && is_array($val)) {
+                    $formattedAdSlots = array_merge($val, $formattedAdSlots);
+                }
+            }
+            $results['adSlots'] = $formattedAdSlots;
         }
 
         // 6. Site Settings
@@ -211,8 +248,8 @@ if ($method === 'POST') {
             $payload = $_POST;
         }
 
-        $module = $payload['module'] ?? ($payload['type'] ?? '');
-        $data = $payload['data'] ?? $payload;
+        $module = $payload['module'] ?? ($payload['type'] ?? ($_GET['module'] ?? ($_GET['type'] ?? '')));
+        $data = $payload['data'] ?? ($payload ?? []);
 
         if (!$module) {
             http_response_code(400);
@@ -236,27 +273,23 @@ if ($method === 'POST') {
         // 2. Save Homepage Sections
         if ($module === 'sections' || $module === 'homepageSections' || $module === 'homepage_sections') {
             if (is_array($data)) {
+                $pdo->beginTransaction();
+                $pdo->exec("DELETE FROM `homepage_sections`");
                 $secStmt = $pdo->prepare("
-                    INSERT INTO `homepage_sections` (`section_id`, `title_bn`, `title_en`, `is_visible`, `order_index`, `layout_type`, `config_json`)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        `title_bn` = VALUES(`title_bn`),
-                        `title_en` = VALUES(`title_en`),
-                        `is_visible` = VALUES(`is_visible`),
-                        `order_index` = VALUES(`order_index`),
-                        `layout_type` = VALUES(`layout_type`),
-                        `config_json` = VALUES(`config_json`)
+                    INSERT INTO `homepage_sections` (
+                        `section_id`, `title_bn`, `name_bn`, `title_en`, `name_en`, `is_visible`, `order_index`, `layout_type`, `config_json`
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 foreach ($data as $idx => $s) {
                     $secId = $s['id'] ?? ('sec-' . $idx);
                     $titleBn = $s['nameBn'] ?? ($s['title_bn'] ?? '');
                     $titleEn = $s['nameEn'] ?? ($s['title_en'] ?? '');
                     $visible = !empty($s['isVisible']) ? 1 : 0;
-                    $order = (int)($s['orderIndex'] ?? $idx);
                     $layout = $s['type'] ?? ($s['layout_type'] ?? 'main');
                     $configJson = json_encode($s, JSON_UNESCAPED_UNICODE);
-                    $secStmt->execute([$secId, $titleBn, $titleEn, $visible, $order, $layout, $configJson]);
+                    $secStmt->execute([$secId, $titleBn, $titleBn, $titleEn, $titleEn, $visible, $idx, $layout, $configJson]);
                 }
+                $pdo->commit();
             }
             echo json_encode(['success' => true, 'message' => 'হোমপেজ লেআউট সেকশনগুলো MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
             exit;
@@ -265,23 +298,21 @@ if ($method === 'POST') {
         // 3. Save Categories & Master Groups
         if ($module === 'categories' || $module === 'categoryMasterGroups') {
             if (!empty($data['masterGroups']) && is_array($data['masterGroups'])) {
+                $pdo->beginTransaction();
+                $pdo->exec("DELETE FROM `category_master_groups`");
                 $grpStmt = $pdo->prepare("
-                    INSERT INTO `category_master_groups` (`group_id`, `title_bn`, `title_en`, `order_index`, `sub_groups_json`)
-                    VALUES (?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        `title_bn` = VALUES(`title_bn`),
-                        `title_en` = VALUES(`title_en`),
-                        `order_index` = VALUES(`order_index`),
-                        `sub_groups_json` = VALUES(`sub_groups_json`)
+                    INSERT INTO `category_master_groups` (
+                        `group_id`, `group_key`, `title_bn`, `name_bn`, `title_en`, `name_en`, `order_index`, `sub_groups_json`
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 foreach ($data['masterGroups'] as $idx => $g) {
                     $grpId = $g['id'] ?? ($g['group_id'] ?? ('grp-' . $idx));
                     $titleBn = $g['nameBn'] ?? ($g['title_bn'] ?? '');
                     $titleEn = $g['nameEn'] ?? ($g['title_en'] ?? '');
-                    $order = (int)($g['orderIndex'] ?? $idx);
                     $subGroupsJson = json_encode($g['subGroups'] ?? [], JSON_UNESCAPED_UNICODE);
-                    $grpStmt->execute([$grpId, $titleBn, $titleEn, $order, $subGroupsJson]);
+                    $grpStmt->execute([$grpId, $grpId, $titleBn, $titleBn, $titleEn, $titleEn, $idx, $subGroupsJson]);
                 }
+                $pdo->commit();
             }
 
             if (!empty($data['categories']) && is_array($data['categories'])) {
@@ -320,52 +351,145 @@ if ($method === 'POST') {
 
         // 4. Save Podcasts
         if ($module === 'podcasts' || $module === 'podcastSubjects') {
-            if (is_array($data)) {
-                $podStmt = $pdo->prepare("
-                    INSERT INTO `podcasts` (
-                        `podcast_id`, `title_bn`, `title_en`, `subject_id`, `subject_bn`, `subject_en`,
-                        `youtube_url`, `video_url`, `host_name`, `host_bn`, `host_en`, `guest_bn`, `guest_en`,
-                        `duration`, `thumbnail`, `status`
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        `title_bn` = VALUES(`title_bn`),
-                        `title_en` = VALUES(`title_en`),
-                        `subject_id` = VALUES(`subject_id`),
-                        `subject_bn` = VALUES(`subject_bn`),
-                        `subject_en` = VALUES(`subject_en`),
-                        `youtube_url` = VALUES(`youtube_url`),
-                        `video_url` = VALUES(`video_url`),
-                        `host_name` = VALUES(`host_name`),
-                        `host_bn` = VALUES(`host_bn`),
-                        `host_en` = VALUES(`host_en`),
-                        `guest_bn` = VALUES(`guest_bn`),
-                        `guest_en` = VALUES(`guest_en`),
-                        `duration` = VALUES(`duration`),
-                        `thumbnail` = VALUES(`thumbnail`)
-                ");
-                foreach ($data as $idx => $p) {
-                    $podId = $p['id'] ?? ($p['podcast_id'] ?? ('pod-' . $idx));
-                    $titleBn = $p['titleBn'] ?? ($p['title_bn'] ?? '');
-                    $titleEn = $p['titleEn'] ?? ($p['title_en'] ?? '');
-                    $subId = $p['subjectId'] ?? ($p['subject_id'] ?? 'politics');
-                    $subBn = $p['subjectBn'] ?? ($p['subject_bn'] ?? 'রাজনীতি ও রাষ্ট্র');
-                    $subEn = $p['subjectEn'] ?? ($p['subject_en'] ?? 'Politics & Governance');
-                    $ytUrl = $p['youtubeUrl'] ?? ($p['youtube_url'] ?? '');
-                    $hostBn = $p['hostBn'] ?? ($p['host_name'] ?? 'মোঃ বিপ্লব হোসেন');
-                    $hostEn = $p['hostEn'] ?? 'Md. Biplob Hossain';
-                    $guestBn = $p['guestBn'] ?? '';
-                    $guestEn = $p['guestEn'] ?? '';
-                    $duration = $p['duration'] ?? '২৫:০০';
-                    $thumbnail = $p['thumbnail'] ?? '';
+            // Auto-migrate columns if needed
+            try {
+                $checkCols = $pdo->query("SHOW COLUMNS FROM `podcasts`")->fetchAll(PDO::FETCH_ASSOC);
+                $cMap = [];
+                foreach ($checkCols as $c) {
+                    $cMap[strtolower($c['Field'])] = true;
+                }
+                $needCols = [
+                    'podcast_id' => "VARCHAR(64) NOT NULL UNIQUE",
+                    'title_bn' => "VARCHAR(500) NOT NULL",
+                    'title_en' => "VARCHAR(500) NULL",
+                    'subject_id' => "VARCHAR(100) NOT NULL DEFAULT 'politics'",
+                    'subject_bn' => "VARCHAR(150) NOT NULL DEFAULT 'রাজনীতি ও রাষ্ট্র'",
+                    'subject_en' => "VARCHAR(150) NOT NULL DEFAULT 'Politics & Governance'",
+                    'youtube_url' => "TEXT NULL",
+                    'youtube_id' => "VARCHAR(50) NULL",
+                    'video_url' => "TEXT NULL",
+                    'audio_url' => "TEXT NULL",
+                    'host_bn' => "VARCHAR(150) NOT NULL DEFAULT 'মোঃ বিপ্লব হোসেন'",
+                    'host_en' => "VARCHAR(150) NOT NULL DEFAULT 'Md. Biplob Hossain'",
+                    'host_name' => "VARCHAR(150) NULL",
+                    'guest_bn' => "VARCHAR(150) NULL",
+                    'guest_en' => "VARCHAR(150) NULL",
+                    'duration' => "VARCHAR(50) NOT NULL DEFAULT '২৫:০০'",
+                    'thumbnail' => "TEXT NULL",
+                    'status' => "VARCHAR(50) NOT NULL DEFAULT 'published'",
+                    'views' => "BIGINT(20) UNSIGNED NOT NULL DEFAULT 0",
+                    'is_featured' => "TINYINT(1) NOT NULL DEFAULT 0"
+                ];
+                foreach ($needCols as $col => $def) {
+                    if (!isset($cMap[strtolower($col)])) {
+                        try {
+                            $pdo->exec("ALTER TABLE `podcasts` ADD COLUMN `{$col}` {$def}");
+                        } catch (Exception $alterEx) {}
+                    }
+                }
+            } catch (Exception $e) {}
 
-                    $podStmt->execute([
-                        $podId, $titleBn, $titleEn, $subId, $subBn, $subEn,
-                        $ytUrl, $ytUrl, $hostBn, $hostBn, $hostEn, $guestBn, $guestEn,
-                        $duration, $thumbnail, 'published'
-                    ]);
+            $colStmt = $pdo->query("SHOW COLUMNS FROM `podcasts`");
+            $podCols = [];
+            while ($c = $colStmt->fetch(PDO::FETCH_ASSOC)) {
+                $podCols[strtolower($c['Field'])] = true;
+            }
+
+            if (is_array($data)) {
+                $items = (isset($data['titleBn']) || isset($data['title_bn'])) ? [$data] : (array_values($data));
+                $syncedIds = [];
+
+                foreach ($items as $idx => $p) {
+                    if (!is_array($p)) continue;
+
+                    $podId = trim($p['id'] ?? ($p['podcast_id'] ?? ''));
+                    if (!$podId) {
+                        $podId = 'pod-' . time() . '-' . rand(100, 999);
+                    }
+                    $syncedIds[] = $podId;
+
+                    $titleBn = trim($p['titleBn'] ?? ($p['title_bn'] ?? ($p['title'] ?? '')));
+                    if (!$titleBn) continue;
+
+                    $titleEn = trim($p['titleEn'] ?? ($p['title_en'] ?? ''));
+                    $subId = trim($p['subjectId'] ?? ($p['subject_id'] ?? 'politics'));
+                    $subBn = trim($p['subjectBn'] ?? ($p['subject_bn'] ?? 'রাজনীতি ও রাষ্ট্র'));
+                    $subEn = trim($p['subjectEn'] ?? ($p['subject_en'] ?? 'Politics & Governance'));
+                    $ytUrl = trim($p['youtubeUrl'] ?? ($p['youtube_url'] ?? ($p['videoUrl'] ?? ($p['video_url'] ?? ''))));
+
+                    $ytId = trim($p['youtubeId'] ?? ($p['youtube_id'] ?? ''));
+                    if (empty($ytId) && preg_match('/(?:v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]+)/', $ytUrl, $m)) {
+                        $ytId = $m[1];
+                    }
+
+                    $hostBn = trim($p['hostBn'] ?? ($p['host_bn'] ?? ($p['host_name'] ?? 'মোঃ বিপ্লব হোসেন')));
+                    $hostEn = trim($p['hostEn'] ?? ($p['host_en'] ?? 'Md. Biplob Hossain'));
+                    $guestBn = trim($p['guestBn'] ?? ($p['guest_bn'] ?? ''));
+                    $guestEn = trim($p['guestEn'] ?? ($p['guest_en'] ?? ''));
+                    $duration = trim($p['duration'] ?? '২৫:০০');
+                    $thumbnail = trim($p['thumbnail'] ?? ($p['thumbnail_url'] ?? ''));
+                    if ($ytId && (empty($thumbnail) || strpos($thumbnail, 'unsplash') !== false)) {
+                        $thumbnail = "https://img.youtube.com/vi/{$ytId}/hqdefault.jpg";
+                    }
+
+                    $rowFields = [
+                        'podcast_id' => $podId,
+                        'title_bn' => $titleBn,
+                        'title_en' => $titleEn,
+                        'subject_id' => $subId,
+                        'subject_bn' => $subBn,
+                        'subject_en' => $subEn,
+                        'youtube_url' => $ytUrl,
+                        'youtube_id' => $ytId,
+                        'video_url' => $ytUrl,
+                        'audio_url' => $p['audioUrl'] ?? ($p['audio_url'] ?? ''),
+                        'host_bn' => $hostBn,
+                        'host_en' => $hostEn,
+                        'host_name' => $hostBn,
+                        'guest_bn' => $guestBn,
+                        'guest_en' => $guestEn,
+                        'duration' => $duration,
+                        'thumbnail' => $thumbnail,
+                        'status' => 'published'
+                    ];
+
+                    $validFields = [];
+                    foreach ($rowFields as $k => $v) {
+                        if (isset($podCols[strtolower($k)])) {
+                            $validFields[$k] = $v;
+                        }
+                    }
+
+                    $chk = $pdo->prepare("SELECT `id` FROM `podcasts` WHERE `podcast_id` = ? LIMIT 1");
+                    $chk->execute([$podId]);
+                    $exists = $chk->fetch(PDO::FETCH_ASSOC);
+
+                    if ($exists) {
+                        $setClauses = [];
+                        $vals = [];
+                        foreach ($validFields as $k => $v) {
+                            $setClauses[] = "`{$k}` = ?";
+                            $vals[] = $v;
+                        }
+                        $vals[] = $exists['id'];
+                        $upStmt = $pdo->prepare("UPDATE `podcasts` SET " . implode(', ', $setClauses) . " WHERE `id` = ?");
+                        $upStmt->execute($vals);
+                    } else {
+                        $colNames = array_keys($validFields);
+                        $placeholders = array_fill(0, count($colNames), '?');
+                        $insStmt = $pdo->prepare("INSERT INTO `podcasts` (" . implode(', ', array_map(fn($k) => "`$k`", $colNames)) . ") VALUES (" . implode(', ', $placeholders) . ")");
+                        $insStmt->execute(array_values($validFields));
+                    }
+                }
+
+                if (count($syncedIds) > 0 && !isset($data['titleBn']) && !isset($data['title_bn'])) {
+                    $ph = implode(',', array_fill(0, count($syncedIds), '?'));
+                    $delStmt = $pdo->prepare("DELETE FROM `podcasts` WHERE `podcast_id` NOT IN ($ph)");
+                    $delStmt->execute($syncedIds);
                 }
             }
-            echo json_encode(['success' => true, 'message' => 'পডকাস্ট ডাটা MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
+
+            echo json_encode(['success' => true, 'message' => 'পডকাস্ট ডাটা MariaDB podcasts টেবিলে সফলভাবে সংরক্ষিত হয়েছে।'], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
@@ -445,24 +569,89 @@ if ($method === 'POST') {
         // 7. Save Ads Config
         if ($module === 'ads' || $module === 'adsConfig' || $module === 'ads_config') {
             if (is_array($data)) {
+                $slots = isset($data['adSlots']) ? $data['adSlots'] : $data;
+                $adSenseEnabled = isset($data['adSenseEnabled']) ? ($data['adSenseEnabled'] ? 1 : 0) : null;
+                $clientId = $data['adsenseClientId'] ?? ($data['adSenseClientId'] ?? '');
+
+                // Ensure table ads_config exists
+                try {
+                    $pdo->exec("
+                        CREATE TABLE IF NOT EXISTS `ads_config` (
+                            `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+                            `slot_id` varchar(100) NOT NULL,
+                            `slot_name_bn` varchar(200) NOT NULL DEFAULT '',
+                            `slot_name_en` varchar(200) NOT NULL DEFAULT '',
+                            `ad_type` enum('adsense','custom_banner','html_script') NOT NULL DEFAULT 'custom_banner',
+                            `client_id` varchar(100) DEFAULT '',
+                            `slot_code` varchar(100) DEFAULT '',
+                            `banner_image_url` text DEFAULT NULL,
+                            `target_url` text DEFAULT NULL,
+                            `custom_html` longtext DEFAULT NULL,
+                            `display_location` varchar(100) NOT NULL DEFAULT 'main',
+                            `is_active` tinyint(1) NOT NULL DEFAULT 1,
+                            `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+                            PRIMARY KEY (`id`),
+                            UNIQUE KEY `slot_id` (`slot_id`)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                    ");
+                } catch (Exception $tblEx) {}
+
                 $adsStmt = $pdo->prepare("
-                    INSERT INTO `ads_config` (`ad_slot`, `ad_code`, `image_url`, `target_url`, `is_active`)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO `ads_config` (
+                        `slot_id`, `slot_name_bn`, `slot_name_en`, `ad_type`,
+                        `client_id`, `slot_code`, `banner_image_url`, `target_url`,
+                        `custom_html`, `display_location`, `is_active`
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
-                        `ad_code` = VALUES(`ad_code`),
-                        `image_url` = VALUES(`image_url`),
+                        `slot_name_bn` = VALUES(`slot_name_bn`),
+                        `slot_name_en` = VALUES(`slot_name_en`),
+                        `ad_type` = VALUES(`ad_type`),
+                        `client_id` = VALUES(`client_id`),
+                        `slot_code` = VALUES(`slot_code`),
+                        `banner_image_url` = VALUES(`banner_image_url`),
                         `target_url` = VALUES(`target_url`),
+                        `custom_html` = VALUES(`custom_html`),
+                        `display_location` = VALUES(`display_location`),
                         `is_active` = VALUES(`is_active`)
                 ");
-                foreach ($data as $slotKey => $slotVal) {
-                    $adCode = is_array($slotVal) ? ($slotVal['code'] ?? '') : '';
-                    $imageUrl = is_array($slotVal) ? ($slotVal['imageUrl'] ?? '') : '';
-                    $targetUrl = is_array($slotVal) ? ($slotVal['targetUrl'] ?? '') : '';
-                    $isActive = is_array($slotVal) ? (!empty($slotVal['enabled']) ? 1 : 0) : 1;
-                    $adsStmt->execute([$slotKey, $adCode, $imageUrl, $targetUrl, $isActive]);
+
+                foreach ($slots as $slotKey => $slotVal) {
+                    if (!is_array($slotVal) || !is_string($slotKey)) continue;
+
+                    $slotNameBn = $slotVal['altText'] ?? ($slotVal['nameBn'] ?? ($slotVal['fallbackText'] ?? $slotKey));
+                    $slotNameEn = $slotVal['nameEn'] ?? $slotKey;
+                    $mode = $slotVal['mode'] ?? 'image';
+                    $adType = ($mode === 'code' || !empty($slotVal['code'])) ? 'html_script' : 'custom_banner';
+                    if (!empty($adSenseEnabled) && empty($slotVal['imageUrl']) && empty($slotVal['code'])) {
+                        $adType = 'adsense';
+                    }
+                    $code = $slotVal['code'] ?? '';
+                    $imgUrl = $slotVal['imageUrl'] ?? '';
+                    $target = $slotVal['targetUrl'] ?? '';
+                    $isActive = !empty($slotVal['enabled']) ? 1 : 0;
+                    $location = $slotVal['location'] ?? $slotKey;
+
+                    $adsStmt->execute([
+                        $slotKey, $slotNameBn, $slotNameEn, $adType,
+                        $clientId, $code, $imgUrl, $target,
+                        $code, $location, $isActive
+                    ]);
+                }
+
+                // Also persist to site_settings table
+                $setStmt = $pdo->prepare("INSERT INTO `site_settings` (`setting_key`, `setting_value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)");
+                if ($adSenseEnabled !== null) {
+                    $setStmt->execute(['adSenseEnabled', (string)$adSenseEnabled]);
+                }
+                if ($clientId !== '') {
+                    $setStmt->execute(['adSenseClientId', (string)$clientId]);
+                    $setStmt->execute(['adsenseClientId', (string)$clientId]);
+                }
+                if (!empty($slots)) {
+                    $setStmt->execute(['adSlots', json_encode($slots, JSON_UNESCAPED_UNICODE)]);
                 }
             }
-            echo json_encode(['success' => true, 'message' => 'বিজ্ঞাপন কনফিগারেশন MariaDB-তে সংরক্ষিত হয়েছে।']);
+            echo json_encode(['success' => true, 'message' => 'বিজ্ঞাপন কনফিগারেশন MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।'], JSON_UNESCAPED_UNICODE);
             exit;
         }
 

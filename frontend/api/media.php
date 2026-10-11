@@ -11,6 +11,9 @@
 require_once __DIR__ . '/db.php';
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
@@ -181,6 +184,27 @@ function getB2DownloadToken($auth, $validSeconds = 604800) {
     return '';
 }
 
+function getCachedB2DownloadAuth() {
+    $cacheFile = __DIR__ . '/.b2_token_cache.json';
+    if (file_exists($cacheFile)) {
+        $cached = json_decode(file_get_contents($cacheFile), true);
+        if ($cached && !empty($cached['token']) && !empty($cached['downloadUrl']) && ($cached['expires_at'] ?? 0) > time()) {
+            return $cached;
+        }
+    }
+
+    $auth = b2Auth();
+    if (!$auth) return null;
+    $dlToken = getB2DownloadToken($auth, 604800);
+    $data = [
+        'token' => $dlToken,
+        'downloadUrl' => $auth['downloadUrl'] ?? "https://f005.backblazeb2.com",
+        'expires_at' => time() + 86400 * 5
+    ];
+    @file_put_contents($cacheFile, json_encode($data));
+    return $data;
+}
+
 // -------------------------------------------------------------
 // HELPER: FETCH FILES DIRECTLY FROM BACKBLAZE B2 BUCKET
 // -------------------------------------------------------------
@@ -347,141 +371,62 @@ if ($action === 'download_zip') {
 // -------------------------------------------------------------
 if ($requestMethod === 'GET') {
     try {
-        $forceRefresh = !empty($_GET['refresh']) || !empty($_GET['sync_b2']);
-
-        // 1. Instant response from MariaDB media_gallery cache (takes <2ms)
-        if ($pdo && !$forceRefresh) {
-            $stmt = $pdo->query("SELECT * FROM `media_gallery` ORDER BY `id` DESC LIMIT 500");
+        // Strictly fetch ONLY images that are present in MariaDB `media_gallery` table
+        if ($pdo) {
+            $stmt = $pdo->query("SELECT * FROM `media_gallery` ORDER BY `id` DESC");
             $galleryRows = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
-            if (!empty($galleryRows)) {
-                $auth = b2Auth();
-                $dlToken = $auth ? getB2DownloadToken($auth, 604800) : '';
-                $downloadUrl = $auth['downloadUrl'] ?? "https://f005.backblazeb2.com";
 
-                $formattedList = [];
-                foreach ($galleryRows as $row) {
-                    $pubUrl = !empty($row['public_url']) ? $row['public_url'] : ($row['file_url'] ?? '');
-                    $stKey = !empty($row['storage_key']) ? $row['storage_key'] : ($row['file_name'] ?? '');
-                    $fName = !empty($row['file_name']) ? $row['file_name'] : ($row['original_name'] ?? basename($pubUrl));
-                    $oName = !empty($row['original_name']) ? $row['original_name'] : $fName;
+            $b2Dl = getCachedB2DownloadAuth();
+            $dlToken = $b2Dl['token'] ?? '';
+            $downloadUrl = $b2Dl['downloadUrl'] ?? "https://f005.backblazeb2.com";
 
-                    if ($dlToken && $stKey && (strpos($pubUrl, 'cdn.jonogon.news') !== false || strpos($pubUrl, 'backblazeb2.com') !== false || empty($pubUrl))) {
-                        $workingUrl = rtrim($downloadUrl, '/') . '/file/' . B2_BUCKET_NAME . '/' . ltrim($stKey, '/') . '?Authorization=' . $dlToken;
-                    } else {
-                        $workingUrl = $pubUrl;
-                    }
+            $formattedList = [];
+            foreach ($galleryRows as $row) {
+                $pubUrl = !empty($row['public_url']) ? $row['public_url'] : ($row['file_url'] ?? '');
+                $stKey = !empty($row['storage_key']) ? $row['storage_key'] : ($row['file_name'] ?? '');
+                $fName = !empty($row['file_name']) ? $row['file_name'] : ($row['original_name'] ?? basename($pubUrl));
+                $oName = !empty($row['original_name']) ? $row['original_name'] : $fName;
 
-                    $formattedList[] = [
-                        'id' => $row['id'],
-                        'original_name' => $oName,
-                        'file_name' => $fName,
-                        'storage_key' => $stKey,
-                        'public_url' => $workingUrl,
-                        'file_url' => $workingUrl,
-                        'file_format' => str_replace('image/', '', $row['file_type'] ?: 'webp'),
-                        'size_bytes' => (int)($row['file_size'] ?? 0),
-                        'dimensions' => $row['dimensions'] ?: '1200x630',
-                        'provider' => $row['storage_provider'] ?? 'backblaze',
-                        'caption' => $row['caption'] ?? '',
-                        'category' => $row['category'] ?? 'general',
-                        'associated_news' => $row['category'] ?? 'general gallery',
-                        'created_at' => $row['created_at']
-                    ];
+                if ($dlToken && $stKey && (strpos($pubUrl, 'cdn.jonogon.news') !== false || strpos($pubUrl, 'backblazeb2.com') !== false || empty($pubUrl))) {
+                    $workingUrl = rtrim($downloadUrl, '/') . '/file/' . B2_BUCKET_NAME . '/' . ltrim($stKey, '/') . '?Authorization=' . $dlToken;
+                } else {
+                    $workingUrl = $pubUrl;
                 }
 
-                echo json_encode([
-                    'success' => true,
-                    'total' => count($formattedList),
-                    'data' => $formattedList,
-                    'source' => 'mariadb_gallery'
-                ], JSON_UNESCAPED_UNICODE);
-                exit;
+                $formattedList[] = [
+                    'id' => (int)$row['id'],
+                    'original_name' => $oName,
+                    'file_name' => $fName,
+                    'storage_key' => $stKey,
+                    'public_url' => $workingUrl,
+                    'file_url' => $workingUrl,
+                    'file_format' => str_replace('image/', '', $row['file_type'] ?: 'webp'),
+                    'size_bytes' => (int)($row['file_size'] ?? 0),
+                    'dimensions' => $row['dimensions'] ?: '1200x630',
+                    'provider' => $row['storage_provider'] ?? 'backblaze',
+                    'caption' => $row['caption'] ?? '',
+                    'category' => $row['category'] ?? 'general',
+                    'associated_news' => $row['category'] ?? 'general gallery',
+                    'created_at' => $row['created_at']
+                ];
             }
-        }
 
-        // 2. Fetch directly from Backblaze B2 (when DB is empty or forceRefresh requested)
-        $mediaList = getB2FilesList();
-
-        // Sync B2 files into media_gallery in MariaDB
-        if ($pdo && !empty($mediaList)) {
-            // First ensure columns exist
-            try {
-                $colStmt = $pdo->query("SHOW COLUMNS FROM `media_gallery`");
-                $mgCols = [];
-                while ($c = $colStmt->fetch(PDO::FETCH_ASSOC)) {
-                    $mgCols[strtolower($c['Field'])] = true;
-                }
-                if (!isset($mgCols['storage_key'])) {
-                    @$pdo->exec("ALTER TABLE `media_gallery` ADD COLUMN `storage_key` VARCHAR(500) NULL");
-                }
-                if (!isset($mgCols['public_url'])) {
-                    @$pdo->exec("ALTER TABLE `media_gallery` ADD COLUMN `public_url` TEXT NULL");
-                }
-                if (!isset($mgCols['file_url'])) {
-                    @$pdo->exec("ALTER TABLE `media_gallery` ADD COLUMN `file_url` TEXT NULL");
-                }
-                if (!isset($mgCols['original_name'])) {
-                    @$pdo->exec("ALTER TABLE `media_gallery` ADD COLUMN `original_name` VARCHAR(255) NULL");
-                }
-            } catch (Exception $e) {}
-
-            foreach ($mediaList as $f) {
-                try {
-                    $chk = $pdo->prepare("SELECT id FROM `media_gallery` WHERE `storage_key` = ? OR `public_url` = ? OR `file_url` = ? LIMIT 1");
-                    $chk->execute([$f['storage_key'], $f['public_url'], $f['public_url']]);
-                    if (!$chk->fetch()) {
-                        $mStmt = $pdo->prepare("
-                            INSERT INTO `media_gallery` (`file_name`, `original_name`, `storage_key`, `public_url`, `file_url`, `file_type`, `file_size`, `dimensions`)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        ");
-                        $mStmt->execute([
-                            $f['file_name'] ?? $f['original_name'],
-                            $f['original_name'],
-                            $f['storage_key'],
-                            $f['public_url'],
-                            $f['public_url'],
-                            'image/' . ($f['file_format'] ?? 'webp'),
-                            $f['size_bytes'] ?? 0,
-                            ($f['width'] ?? 1200) . 'x' . ($f['height'] ?? 630)
-                        ]);
-                    }
-                } catch (Exception $e) {}
-            }
-        }
-
-        if (!empty($mediaList)) {
             echo json_encode([
                 'success' => true,
-                'total' => count($mediaList),
-                'data' => $mediaList,
-                'source' => 'backblaze_b2'
+                'total' => count($formattedList),
+                'data' => $formattedList,
+                'source' => 'mariadb_gallery'
             ], JSON_UNESCAPED_UNICODE);
             exit;
-        }
-
-        // Fallback to MariaDB media_uploads
-        if ($pdo) {
-            $stmt = $pdo->query("SELECT * FROM `media_uploads` ORDER BY `created_at` DESC LIMIT 200");
-            $dbList = $stmt->fetchAll() ?: [];
-            if (!empty($dbList)) {
-                echo json_encode([
-                    'success' => true,
-                    'total' => count($dbList),
-                    'data' => $dbList,
-                    'source' => 'mariadb'
-                ], JSON_UNESCAPED_UNICODE);
-                exit;
-            }
         }
 
         echo json_encode([
             'success' => true,
             'total' => 0,
             'data' => [],
-            'source' => 'empty'
+            'message' => 'MariaDB ডাটাবেজ সংযোগ সক্রিয় নেই।'
         ], JSON_UNESCAPED_UNICODE);
         exit;
-
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
@@ -490,50 +435,72 @@ if ($requestMethod === 'GET') {
 }
 
 // -------------------------------------------------------------
-// 3. DELETE: REMOVE FILE FROM BACKBLAZE B2 & DB
+// 3. DELETE / BULK DELETE: REMOVE FILES FROM B2 & DB
 // -------------------------------------------------------------
-if ($requestMethod === 'DELETE') {
+require_once __DIR__ . '/b2_storage.php';
+
+function deleteMediaItemFromAll($b2Auth, $pdo, $id, $storageKey, $fileName, $fileId = '') {
+    return deleteMediaComplete($pdo, $id, $storageKey, $fileName, $fileId, $b2Auth);
+}
+
+if ($requestMethod === 'DELETE' || ($requestMethod === 'POST' && in_array($action, ['delete', 'delete_multiple', 'bulk_delete']))) {
     try {
-        $fileId = $_GET['file_id'] ?? ($_GET['id'] ?? '');
-        $fileName = $_GET['file_name'] ?? ($_GET['fileName'] ?? '');
+        $rawInput = file_get_contents('php://input');
+        $payload = json_decode($rawInput, true) ?: [];
 
-        if ($fileId && $fileName) {
-            $auth = b2Auth();
-            if ($auth && !empty($auth['apiUrl']) && !empty($auth['authorizationToken'])) {
-                $delUrl = $auth['apiUrl'] . "/b2api/v2/b2_delete_file_version";
-                $ch = curl_init($delUrl);
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch, CURLOPT_POST, true);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-                    'fileName' => $fileName,
-                    'fileId' => $fileId
-                ]));
-                curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                    "Authorization: " . $auth['authorizationToken'],
-                    "Content-Type: application/json"
-                ]);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-                curl_exec($ch);
-                curl_close($ch);
+        $itemsToDelete = [];
+        if (!empty($payload['items']) && is_array($payload['items'])) {
+            $itemsToDelete = $payload['items'];
+        } elseif (!empty($payload['ids']) && is_array($payload['ids'])) {
+            foreach ($payload['ids'] as $id) {
+                $itemsToDelete[] = ['id' => $id];
+            }
+        } else {
+            $id = $payload['id'] ?? ($_GET['id'] ?? '');
+            $fileId = $payload['file_id'] ?? ($_GET['file_id'] ?? '');
+            $fileName = $payload['file_name'] ?? ($_GET['file_name'] ?? ($_GET['fileName'] ?? ''));
+            $storageKey = $payload['storage_key'] ?? ($_GET['storage_key'] ?? $fileName);
+            if ($id || $fileName || $storageKey || $fileId) {
+                $itemsToDelete[] = [
+                    'id' => $id,
+                    'file_id' => $fileId,
+                    'file_name' => $fileName,
+                    'storage_key' => $storageKey
+                ];
             }
         }
 
-        if ($pdo) {
-            if (is_numeric($fileId)) {
-                $stmt = $pdo->prepare("DELETE FROM `media_uploads` WHERE `id` = ?");
-                $stmt->execute([$fileId]);
-                $stmt2 = $pdo->prepare("DELETE FROM `media_gallery` WHERE `id` = ?");
-                $stmt2->execute([$fileId]);
+        $b2Auth = b2Auth();
+        $deletedCount = 0;
+
+        foreach ($itemsToDelete as $item) {
+            $id = $item['id'] ?? '';
+            $fileId = $item['file_id'] ?? '';
+            $storageKey = $item['storage_key'] ?? ($item['fileName'] ?? '');
+            $fileName = $item['file_name'] ?? ($item['original_name'] ?? basename($storageKey));
+
+            // If storage_key is missing, lookup row from DB
+            if (empty($storageKey) && !empty($id) && $pdo) {
+                try {
+                    $q = $pdo->prepare("SELECT `storage_key`, `file_name` FROM `media_gallery` WHERE `id` = ?");
+                    $q->execute([$id]);
+                    $r = $q->fetch(PDO::FETCH_ASSOC);
+                    if ($r) {
+                        $storageKey = $r['storage_key'] ?: $storageKey;
+                        $fileName = $r['file_name'] ?: $fileName;
+                    }
+                } catch (Exception $e) {}
             }
-            if ($fileName) {
-                $stmt3 = $pdo->prepare("DELETE FROM `media_gallery` WHERE `file_name` = ? OR `storage_key` LIKE ?");
-                $stmt3->execute([$fileName, "%$fileName%"]);
-            }
+
+            deleteMediaItemFromAll($b2Auth, $pdo, $id, $storageKey, $fileName, $fileId);
+            $deletedCount++;
         }
 
-        echo json_encode(['success' => true, 'message' => 'মিডিয়া ফাইল সফলভাবে মুছে ফেলা হয়েছে।'], JSON_UNESCAPED_UNICODE);
+        echo json_encode([
+            'success' => true,
+            'message' => "সফলভাবে {$deletedCount}টি ছবি Backblaze B2 ও MariaDB ডাটাবেজ থেকে মুছে ফেলা হয়েছে।",
+            'deleted_count' => $deletedCount
+        ], JSON_UNESCAPED_UNICODE);
         exit;
     } catch (Exception $e) {
         http_response_code(500);

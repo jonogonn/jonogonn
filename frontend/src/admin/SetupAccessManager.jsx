@@ -510,13 +510,34 @@ export default function SetupAccessManager({ triggerSaveToast }) {
       console.warn('Supabase Auth exception:', err);
     }
 
+    // 2. Insert member row into Supabase admin_users table
+    try {
+      const supabaseRow = {
+        id: supabaseAuthUser?.id || undefined,
+        user_code: finalUserCode,
+        username: finalUsername,
+        name: newMemberPayload.name,
+        designation: newMemberPayload.designation,
+        role: newMemberPayload.role,
+        phone: cleanPhone,
+        email: newMemberPayload.email,
+        avatar: newMemberPayload.avatar,
+        status: 'pending',
+        allowed_tabs: newMemberPayload.allowed_tabs
+      };
+      await supabase.from('admin_users').insert([supabaseRow]);
+    } catch (insertErr) {
+      console.warn('Supabase admin_users table insert notice:', insertErr);
+    }
+
     const localItem = {
       id: supabaseAuthUser?.id || `user-${Date.now()}`,
       supabase_id: supabaseAuthUser?.id || null,
-      ...newMemberPayload
+      ...newMemberPayload,
+      status: 'pending'
     };
 
-    // Update local state and localStorage immediately (No MariaDB member storage per user privacy policy)
+    // Update local state and localStorage for instant offline access (No MariaDB storage per privacy requirement)
     setMembers((prev) => {
       const filtered = prev.filter((m) => m.username !== localItem.username && m.email !== localItem.email);
       const updated = [localItem, ...filtered];
@@ -526,9 +547,10 @@ export default function SetupAccessManager({ triggerSaveToast }) {
       return updated;
     });
 
-    // 3. Dispatch Automated Email via backend API
+    // 3. Dispatch Automated Credentials Email via backend API
     let emailSentResult = false;
     let emailPreviewHtml = '';
+    const adminLoginUrl = window.location.origin + (window.location.pathname.includes('/janogon') ? '/janogon/admin' : '/admin');
     try {
       const emailResp = await fetch('/api/send_access_email.php', {
         method: 'POST',
@@ -542,7 +564,7 @@ export default function SetupAccessManager({ triggerSaveToast }) {
           role: newMemberPayload.role,
           designation: newMemberPayload.designation,
           allowedTabs: newMemberPayload.allowed_tabs,
-          loginUrl: window.location.origin
+          loginUrl: adminLoginUrl
         })
       });
 

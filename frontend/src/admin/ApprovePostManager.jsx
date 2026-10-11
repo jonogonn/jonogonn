@@ -333,7 +333,7 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
     });
 
     if (confirmed) {
-      deleteArticle(article.id);
+      deleteArticle(article.id, article.post_id);
       if (triggerSaveToast) triggerSaveToast(isBn ? 'সংবাদটি মুছে ফেলা হয়েছে!' : 'Post deleted!');
       if (previewArticle && previewArticle.id === article.id) setPreviewArticle(null);
     }
