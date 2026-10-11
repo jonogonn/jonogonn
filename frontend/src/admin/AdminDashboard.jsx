@@ -2702,7 +2702,7 @@ export default function AdminDashboard() {
 
           {/* TAB: MY PROFILE & PASSWORD SETTINGS (Requirement 2) */}
           {activeTab === 'my-profile' && (
-            <UserProfileManager triggerSaveToast={triggerSaveToast} />
+            <UserProfileManager triggerSaveToast={triggerSaveToast} currentMember={currentMember} />
           )}
 
           {/* TAB: SETUP ACCESS & ROLE PERMISSIONS (Requirement 3) */}

@@ -299,12 +299,12 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
       if (uploadedUrl) {
         showSuccess(
           isBn
-            ? 'সোশ্যাল ফটোকার্ডটি সফলভাবে Backblaze B2 ক্লাউডে আপলোড ও ডাটাবেজে সংরক্ষণ করা হয়েছে!'
-            : 'Social news card uploaded to Backblaze B2 cloud successfully!',
-          isBn ? 'ক্লাউড আপলোড সম্পন্ন' : 'Upload Complete'
+            ? 'সোশ্যাল ফটোকার্ডটি সফলভাবে ক্লাউডে আপলোড ও সংরক্ষণ করা হয়েছে!'
+            : 'Social news card uploaded and saved successfully!',
+          isBn ? 'আপলোড সম্পন্ন' : 'Upload Complete'
         );
         if (triggerSaveToast) {
-          triggerSaveToast(isBn ? 'ফটোকার্ড Backblaze B2 তে আপলোড সম্পন্ন!' : 'Card uploaded to Backblaze B2!');
+          triggerSaveToast(isBn ? 'ফটোকার্ড ক্লাউডে আপলোড সম্পন্ন!' : 'Card uploaded successfully!');
         }
       } else {
         throw new Error('Upload returned empty response');

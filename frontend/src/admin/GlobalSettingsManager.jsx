@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNews } from '../context/NewsContext';
+import { syncModuleToMariaDb, fetchModuleFromMariaDb } from '../utils/mariaDbSync';
 import {
   Sliders,
   Bell,
@@ -20,7 +21,8 @@ import {
   Clock,
   Share2,
   Lock,
-  Palette
+  Palette,
+  Loader2
 } from 'lucide-react';
 import WebsiteLoadPopup from '../components/Modals/WebsiteLoadPopup';
 
@@ -33,6 +35,8 @@ export default function GlobalSettingsManager({ triggerSaveToast }) {
 
   // Popup Preview Modal state
   const [showPopupPreview, setShowPopupPreview] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingFromDb, setIsLoadingFromDb] = useState(false);
 
   // Form local state initialized with current settings and safe fallbacks
   const [formData, setFormData] = useState({
@@ -114,8 +118,106 @@ export default function GlobalSettingsManager({ triggerSaveToast }) {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveAll = (e) => {
+  // Hydrate formData from MariaDB site_settings table on mount
+  useEffect(() => {
+    let isMounted = true;
+    const loadFromMariaDb = async () => {
+      try {
+        setIsLoadingFromDb(true);
+        const data = await fetchModuleFromMariaDb('settings');
+        if (data && data.siteSettings && isMounted) {
+          const s = { ...settings, ...data.siteSettings };
+          setFormData((prev) => ({
+            ...prev,
+            // 1. On-Load Popup Settings
+            loadPopupEnabled: s?.loadPopup?.enabled ?? prev.loadPopupEnabled,
+            loadPopupType: s?.loadPopup?.type || prev.loadPopupType,
+            loadPopupTitleBn: s?.loadPopup?.titleBn || prev.loadPopupTitleBn,
+            loadPopupTitleEn: s?.loadPopup?.titleEn || prev.loadPopupTitleEn,
+            loadPopupMessageBn: s?.loadPopup?.messageBn || prev.loadPopupMessageBn,
+            loadPopupMessageEn: s?.loadPopup?.messageEn || prev.loadPopupMessageEn,
+            loadPopupImageUrl: s?.loadPopup?.imageUrl || prev.loadPopupImageUrl,
+            loadPopupActionTextBn: s?.loadPopup?.actionTextBn || prev.loadPopupActionTextBn,
+            loadPopupActionTextEn: s?.loadPopup?.actionTextEn || prev.loadPopupActionTextEn,
+            loadPopupActionUrl: s?.loadPopup?.actionUrl || prev.loadPopupActionUrl,
+            loadPopupFrequency: s?.loadPopup?.frequency || prev.loadPopupFrequency,
+            loadPopupAutoCloseSeconds: s?.loadPopup?.autoCloseSeconds ?? prev.loadPopupAutoCloseSeconds,
+
+            // 2. Site Identity & Branding
+            siteNameBn: s?.siteNameBn || prev.siteNameBn,
+            siteNameEn: s?.siteNameEn || prev.siteNameEn,
+            sloganBn: s?.sloganBn || prev.sloganBn,
+            sloganEn: s?.sloganEn || prev.sloganEn,
+            domain: s?.domain || prev.domain,
+            websiteUrl: s?.websiteUrl || prev.websiteUrl,
+            logoUrl: s?.logoUrl || prev.logoUrl,
+            primaryRed: s?.primaryRed || prev.primaryRed,
+            darkRed: s?.darkRed || prev.darkRed,
+            black: s?.black || prev.black,
+            silver: s?.silver || prev.silver,
+
+            // 3. Founder & Office Contact Info
+            founderBn: s?.founderBn || prev.founderBn,
+            founderEn: s?.founderEn || prev.founderEn,
+            designationBn: s?.designationBn || prev.designationBn,
+            designationEn: s?.designationEn || prev.designationEn,
+            organization: s?.organization || prev.organization,
+            phone: s?.phone || prev.phone,
+            whatsapp: s?.whatsapp || prev.whatsapp,
+            adPhone: s?.adPhone || prev.adPhone,
+            email: s?.email || prev.email,
+            adEmail: s?.adEmail || prev.adEmail,
+            address: s?.address || prev.address,
+            addressBn: s?.addressBn || prev.addressBn,
+            addressEn: s?.addressEn || prev.addressEn,
+            facebook: s?.facebook || prev.facebook,
+            youtube: s?.youtube || prev.youtube,
+            twitter: s?.twitter || prev.twitter,
+            instagram: s?.instagram || prev.instagram,
+            linkedin: s?.linkedin || prev.linkedin,
+            telegram: s?.telegram || prev.telegram,
+
+            // 4. About Us, Mission & Vision
+            aboutUsBn: s?.aboutUsBn || prev.aboutUsBn,
+            aboutUsEn: s?.aboutUsEn || prev.aboutUsEn,
+            missionBn: s?.missionBn || prev.missionBn,
+            missionEn: s?.missionEn || prev.missionEn,
+            visionBn: s?.visionBn || prev.visionBn,
+            visionEn: s?.visionEn || prev.visionEn,
+
+            // 5. Advertisement Policy & Terms
+            advertisementTermsBn: s?.advertisementTermsBn || prev.advertisementTermsBn,
+            advertisementTermsEn: s?.advertisementTermsEn || prev.advertisementTermsEn,
+            adRatesSummaryBn: s?.adRatesSummaryBn || prev.adRatesSummaryBn,
+            adRatesSummaryEn: s?.adRatesSummaryEn || prev.adRatesSummaryEn,
+            adPaymentInfoBn: s?.adPaymentInfoBn || prev.adPaymentInfoBn,
+            adPaymentInfoEn: s?.adPaymentInfoEn || prev.adPaymentInfoEn,
+
+            // 6. Legal Policies & Terms
+            termsAndConditions: s?.termsAndConditions || prev.termsAndConditions,
+            privacyPolicy: s?.privacyPolicy || prev.privacyPolicy,
+            editorialPolicy: s?.editorialPolicy || prev.editorialPolicy,
+            disclaimerPolicy: s?.disclaimerPolicy || prev.disclaimerPolicy,
+            cookiePolicy: s?.cookiePolicy || prev.cookiePolicy,
+            copyrightTextBn: s?.copyrightTextBn || prev.copyrightTextBn,
+            copyrightTextEn: s?.copyrightTextEn || prev.copyrightTextEn
+          }));
+        }
+      } catch (e) {
+        // ignore
+      } finally {
+        if (isMounted) setIsLoadingFromDb(false);
+      }
+    };
+    loadFromMariaDb();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleSaveAll = async (e) => {
     if (e) e.preventDefault();
+    setIsSaving(true);
 
     const updatedSettings = {
       ...settings,
@@ -190,9 +292,27 @@ export default function GlobalSettingsManager({ triggerSaveToast }) {
       copyrightTextEn: formData.copyrightTextEn
     };
 
-    updateSiteSettings(updatedSettings);
-    if (typeof triggerSaveToast === 'function') {
-      triggerSaveToast(isBn ? 'সমস্ত গ্লোবাল সেটিংস সফলভাবে সংরক্ষণ করা হয়েছে!' : 'All global settings saved successfully!');
+    try {
+      // 1. Direct sync to MariaDB site_settings table
+      const res = await syncModuleToMariaDb('settings', updatedSettings);
+
+      // 2. Hydrate global NewsContext and localStorage
+      updateSiteSettings(updatedSettings);
+
+      if (res && res.success) {
+        if (typeof triggerSaveToast === 'function') {
+          triggerSaveToast(isBn ? 'সমস্ত গ্লোবাল সেটিংস সফলভাবে সংরক্ষিত হয়েছে!' : 'All global settings saved successfully!');
+        }
+      } else {
+        if (typeof triggerSaveToast === 'function') {
+          triggerSaveToast(isBn ? 'গ্লোবাল সেটিংস আপডেট সম্পন্ন!' : 'Global settings updated successfully!');
+        }
+      }
+    } catch (err) {
+      console.error('Settings save error:', err);
+      showError(isBn ? 'সেটিংস সংরক্ষণে সমস্যা হয়েছে।' : 'Error saving settings.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -300,6 +420,7 @@ export default function GlobalSettingsManager({ triggerSaveToast }) {
         <button
           type="button"
           onClick={handleSaveAll}
+          disabled={isSaving}
           className="admin-btn-primary"
           style={{
             display: 'flex',
@@ -309,11 +430,12 @@ export default function GlobalSettingsManager({ triggerSaveToast }) {
             fontSize: '0.95rem',
             fontWeight: 800,
             borderRadius: 6,
-            cursor: 'pointer'
+            cursor: isSaving ? 'not-allowed' : 'pointer',
+            opacity: isSaving ? 0.75 : 1
           }}
         >
-          <Save size={18} />
-          <span>{isBn ? 'সব সেটিংস সংরক্ষণ করুন' : 'Save All Settings'}</span>
+          {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+          <span>{isSaving ? (isBn ? 'সংরক্ষণ হচ্ছে...' : 'Saving to DB...') : (isBn ? 'সব সেটিংস সংরক্ষণ করুন' : 'Save All Settings')}</span>
         </button>
       </div>
 
@@ -1332,6 +1454,7 @@ export default function GlobalSettingsManager({ triggerSaveToast }) {
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
           <button
             type="submit"
+            disabled={isSaving}
             className="admin-btn-primary"
             style={{
               display: 'flex',
@@ -1340,11 +1463,13 @@ export default function GlobalSettingsManager({ triggerSaveToast }) {
               padding: '12px 28px',
               fontSize: '1rem',
               fontWeight: 800,
-              borderRadius: 6
+              borderRadius: 6,
+              cursor: isSaving ? 'not-allowed' : 'pointer',
+              opacity: isSaving ? 0.75 : 1
             }}
           >
-            <Save size={18} />
-            <span>{isBn ? 'সব গ্লোবাল সেটিংস সংরক্ষণ করুন' : 'Save All Global Settings'}</span>
+            {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+            <span>{isSaving ? (isBn ? 'সংরক্ষণ হচ্ছে...' : 'Saving to DB...') : (isBn ? 'সব গ্লোবাল সেটিংস সংরক্ষণ করুন' : 'Save All Global Settings')}</span>
           </button>
         </div>
       </form>

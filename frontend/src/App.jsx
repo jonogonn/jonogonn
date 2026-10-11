@@ -64,14 +64,19 @@ export default function App() {
     }
   }, [activePage, isBn, settings]);
 
-  // If Admin Dashboard View is toggled or URL route is /admin
+  // If Admin Dashboard View is toggled or URL route is /admin or Supabase email confirmation callback
   const isDirectAdminUrl =
     typeof window !== 'undefined' &&
     (window.location.pathname === '/admin' ||
       window.location.pathname === '/admin/' ||
       window.location.pathname.includes('/admin') ||
       window.location.hash === '#admin' ||
-      window.location.hash.startsWith('#admin'));
+      window.location.hash.startsWith('#admin') ||
+      window.location.hash.includes('type=signup') ||
+      window.location.hash.includes('type=recovery') ||
+      window.location.hash.includes('access_token=') ||
+      window.location.search.includes('type=signup') ||
+      window.location.search.includes('code='));
 
   if (isAdminOpen || activePage === 'admin' || isDirectAdminUrl) {
     return <AdminDashboard />;

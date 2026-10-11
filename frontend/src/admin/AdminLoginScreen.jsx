@@ -25,6 +25,20 @@ export default function AdminLoginScreen({ onLoginSuccess, isBn = true }) {
   const [unconfirmedWarning, setUnconfirmedWarning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
+  const [confirmedSuccess, setConfirmedSuccess] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash || '';
+      const search = window.location.search || '';
+      return (
+        hash.includes('type=signup') ||
+        hash.includes('type=recovery') ||
+        hash.includes('access_token=') ||
+        search.includes('type=signup') ||
+        search.includes('confirmed=true')
+      );
+    }
+    return false;
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -77,6 +91,22 @@ export default function AdminLoginScreen({ onLoginSuccess, isBn = true }) {
       if (cleanInput.includes('@')) {
         // Direct email provided
         targetEmail = cleanInput.toLowerCase();
+        try {
+          const { data: dbUser } = await supabase
+            .from('admin_users')
+            .select('*')
+            .eq('email', targetEmail)
+            .maybeSingle();
+          if (dbUser) memberProfile = dbUser;
+        } catch (e) {}
+
+        if (!memberProfile) {
+          try {
+            const cached = JSON.parse(localStorage.getItem('jonogon_access_members') || '[]');
+            const matched = cached.find((m) => m.email && m.email.toLowerCase() === targetEmail);
+            if (matched) memberProfile = matched;
+          } catch (e) {}
+        }
       } else {
         // Username or User ID (e.g., 'tye' or 'JNG-1002') provided
         // Step A: Search in Supabase admin_users table
@@ -167,24 +197,38 @@ export default function AdminLoginScreen({ onLoginSuccess, isBn = true }) {
       // 4. LOGIN SUCCESS VIA SUPABASE!
       if (authData?.user) {
         const userMeta = authData.user.user_metadata || {};
-        const activeProfile = memberProfile || {
-          name: userMeta.name || targetEmail.split('@')[0],
-          username: userMeta.username || targetEmail.split('@')[0],
-          user_code: userMeta.user_code || 'JNG-USER',
-          role: userMeta.role || 'Reporter',
-          designation: userMeta.designation || 'টিম সদস্য',
-          allowed_tabs: userMeta.allowed_tabs || ['overview', 'create-post', 'edit-post', 'gallery'],
-          email: targetEmail
+        const activeProfile = {
+          id: authData.user.id,
+          name: userMeta.name || memberProfile?.name || targetEmail.split('@')[0],
+          username: userMeta.username || memberProfile?.username || cleanInput.split('@')[0],
+          user_code: userMeta.user_code || memberProfile?.user_code || 'JNG-USER',
+          role: userMeta.role || memberProfile?.role || 'Staff Member',
+          designation: userMeta.designation || memberProfile?.designation || 'টিম সদস্য',
+          phone: userMeta.phone || memberProfile?.phone || '',
+          email: targetEmail,
+          avatar:
+            userMeta.avatar ||
+            memberProfile?.avatar ||
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(userMeta.name || memberProfile?.name || 'User')}&background=E50914&color=fff&size=160`,
+          allowed_tabs:
+            userMeta.allowed_tabs ||
+            memberProfile?.allowed_tabs ||
+            ['overview', 'create-post', 'edit-post', 'gallery']
         };
 
-        if (rememberMe) {
-          localStorage.setItem('jonogon_admin_logged_in', 'true');
-          localStorage.setItem('jonogon_admin_user', targetEmail);
-          localStorage.setItem('jonogon_current_member', JSON.stringify(activeProfile));
-        } else {
-          sessionStorage.setItem('jonogon_admin_logged_in', 'true');
-          sessionStorage.setItem('jonogon_current_member', JSON.stringify(activeProfile));
-        }
+        // Persist in localStorage & sessionStorage
+        localStorage.setItem('jonogon_admin_logged_in', 'true');
+        localStorage.setItem('jonogon_admin_user', targetEmail);
+        localStorage.setItem('jonogon_current_member', JSON.stringify(activeProfile));
+        localStorage.setItem('jonogon_admin_name', activeProfile.name);
+        localStorage.setItem('jonogon_admin_username', activeProfile.username);
+        localStorage.setItem('jonogon_admin_email', activeProfile.email);
+        localStorage.setItem('jonogon_admin_phone', activeProfile.phone);
+        localStorage.setItem('jonogon_admin_avatar', activeProfile.avatar);
+
+        sessionStorage.setItem('jonogon_admin_logged_in', 'true');
+        sessionStorage.setItem('jonogon_admin_user', targetEmail);
+        sessionStorage.setItem('jonogon_current_member', JSON.stringify(activeProfile));
 
         setLoginSuccess(true);
         setTimeout(() => onLoginSuccess(), 350);
@@ -301,6 +345,33 @@ export default function AdminLoginScreen({ onLoginSuccess, isBn = true }) {
               : 'Sign in to access editorial & management tools'}
           </p>
         </div>
+
+        {/* Email Confirmation Success Banner */}
+        {confirmedSuccess && (
+          <div
+            style={{
+              backgroundColor: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              borderRadius: 10,
+              padding: '12px 14px',
+              marginBottom: 16,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              color: '#34D399',
+              fontSize: '0.84rem',
+              lineHeight: 1.5
+            }}
+          >
+            <CheckCircle size={18} style={{ flexShrink: 0, color: '#10B981' }} />
+            <div>
+              <strong>{isBn ? 'অভিনন্দন!' : 'Success!'}</strong>{' '}
+              {isBn
+                ? 'আপনার ইমেইল সফলভাবে ভেরিফাই ও সক্রিয় (Activated) হয়েছে! আপনার ইউজারনেম/আইডি ও পাসওয়ার্ড দিয়ে নিচে লগইন করুন।'
+                : 'Your email has been successfully verified! Please log in below.'}
+            </div>
+          </div>
+        )}
 
         {/* Warning / Confirmation Notice Banner */}
         {unconfirmedWarning && (

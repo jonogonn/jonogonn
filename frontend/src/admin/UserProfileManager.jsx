@@ -24,21 +24,43 @@ import {
 } from 'lucide-react';
 import { uploadImageToStorage } from '../utils/imageUploader';
 
-export default function UserProfileManager({ triggerSaveToast }) {
+export default function UserProfileManager({ triggerSaveToast, currentMember: propMember }) {
   const { adminLanguage, language, showSuccess, showError } = useNews();
   const isBn = (adminLanguage || language) === 'bn';
 
+  // Helper to read currently authenticated / logged-in member
+  const getInitialMember = () => {
+    if (propMember && (propMember.name || propMember.username)) return propMember;
+    try {
+      const stored =
+        localStorage.getItem('jonogon_current_member') ||
+        sessionStorage.getItem('jonogon_current_member');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return {
+      name: localStorage.getItem('jonogon_admin_name') || 'টিম সদস্য',
+      username: localStorage.getItem('jonogon_admin_username') || 'user',
+      email: localStorage.getItem('jonogon_admin_email') || '',
+      phone: localStorage.getItem('jonogon_admin_phone') || '',
+      designation: 'টিম সদস্য',
+      role: 'Staff Member',
+      avatar: localStorage.getItem('jonogon_admin_avatar') || ''
+    };
+  };
+
+  const initial = getInitialMember();
+
   // User Profile Form State
   const [profileForm, setProfileForm] = useState({
-    name: localStorage.getItem('jonogon_admin_name') || 'মোঃ বিপ্লব হোসেন',
-    username: localStorage.getItem('jonogon_admin_username') || 'biplob.admin',
-    email: localStorage.getItem('jonogon_admin_email') || 'brandbiplob1234@gmail.com',
-    phone: localStorage.getItem('jonogon_admin_phone') || '01936618534',
-    designation: 'প্রধান সম্পাদক ও প্রকাশক',
-    role: 'Super Admin',
+    name: initial.name || 'টিম সদস্য',
+    username: initial.username || 'user',
+    email: initial.email || '',
+    phone: initial.phone || '',
+    designation: initial.designation || 'টিম সদস্য',
+    role: initial.role || 'Staff Member',
     avatar:
-      localStorage.getItem('jonogon_admin_avatar') ||
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&q=80'
+      initial.avatar ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(initial.name || 'User')}&background=E50914&color=fff&size=160`
   });
 
   // Password Change State
@@ -53,32 +75,85 @@ export default function UserProfileManager({ triggerSaveToast }) {
   const [isSaving, setIsSaving] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('profile'); // 'profile' | 'password'
 
-  // Fetch initial profile from MariaDB / Supabase if available
+  // Fetch dynamic profile from Supabase Auth & admin_users table
   useEffect(() => {
+    let isMounted = true;
     const loadProfile = async () => {
       try {
-        const res = await fetch(`/api/profile.php?username=${encodeURIComponent(profileForm.username)}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.user) {
-            setProfileForm((prev) => ({
-              ...prev,
-              name: json.user.name || prev.name,
-              username: json.user.username || prev.username,
-              email: json.user.email || prev.email,
-              phone: json.user.phone || prev.phone,
-              avatar: json.user.avatar || prev.avatar,
-              designation: json.user.designation || prev.designation,
-              role: json.user.role || prev.role
-            }));
-          }
+        // 1. Get current Supabase Auth user
+        const { data: authData } = await supabase.auth.getUser();
+        const authUser = authData?.user;
+
+        // 2. Read stored member from local storage
+        let stored = getInitialMember();
+
+        if (authUser && isMounted) {
+          const meta = authUser.user_metadata || {};
+          const currentEmail = authUser.email || stored?.email || '';
+
+          // 3. Try to fetch row from Supabase admin_users table
+          let dbUser = null;
+          try {
+            const { data } = await supabase
+              .from('admin_users')
+              .select('*')
+              .or(`email.eq.${currentEmail},username.eq.${meta.username || stored?.username}`)
+              .maybeSingle();
+            if (data) dbUser = data;
+          } catch (e) {}
+
+          const resolvedName = meta.name || dbUser?.name || stored?.name || currentEmail.split('@')[0];
+          const resolvedUsername = meta.username || dbUser?.username || stored?.username || currentEmail.split('@')[0];
+          const resolvedEmail = currentEmail;
+          const resolvedPhone = meta.phone || dbUser?.phone || stored?.phone || '';
+          const resolvedRole = meta.role || dbUser?.role || stored?.role || 'Staff Member';
+          const resolvedDesignation = meta.designation || dbUser?.designation || stored?.designation || 'টিম সদস্য';
+          const resolvedAvatar =
+            meta.avatar ||
+            dbUser?.avatar ||
+            stored?.avatar ||
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(resolvedName)}&background=E50914&color=fff&size=160`;
+
+          setProfileForm({
+            name: resolvedName,
+            username: resolvedUsername,
+            email: resolvedEmail,
+            phone: resolvedPhone,
+            designation: resolvedDesignation,
+            role: resolvedRole,
+            avatar: resolvedAvatar
+          });
+
+          // Sync into localStorage
+          const updatedMember = {
+            ...(stored || {}),
+            name: resolvedName,
+            username: resolvedUsername,
+            email: resolvedEmail,
+            phone: resolvedPhone,
+            designation: resolvedDesignation,
+            role: resolvedRole,
+            avatar: resolvedAvatar
+          };
+          try {
+            localStorage.setItem('jonogon_current_member', JSON.stringify(updatedMember));
+            sessionStorage.setItem('jonogon_current_member', JSON.stringify(updatedMember));
+            localStorage.setItem('jonogon_admin_name', resolvedName);
+            localStorage.setItem('jonogon_admin_username', resolvedUsername);
+            localStorage.setItem('jonogon_admin_email', resolvedEmail);
+            localStorage.setItem('jonogon_admin_phone', resolvedPhone);
+            localStorage.setItem('jonogon_admin_avatar', resolvedAvatar);
+          } catch (e) {}
         }
       } catch (err) {
         console.warn('Profile sync notice:', err);
       }
     };
     loadProfile();
-  }, []);
+    return () => {
+      isMounted = false;
+    };
+  }, [propMember]);
 
   // Password strength calculation
   const getPasswordStrength = (pass) => {
@@ -151,19 +226,19 @@ export default function UserProfileManager({ triggerSaveToast }) {
     setIsSaving(true);
 
     try {
-      // 1. Update MariaDB via PHP endpoint
-      const res = await fetch('/api/profile.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentUsername: profileForm.username,
-          name: profileForm.name,
-          username: profileForm.username,
-          email: profileForm.email,
-          phone: profileForm.phone,
-          avatar: profileForm.avatar
-        })
-      });
+      // 1. Update Supabase Auth user metadata
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            name: profileForm.name,
+            phone: profileForm.phone,
+            avatar: profileForm.avatar,
+            designation: profileForm.designation
+          }
+        });
+      } catch (sbAuthErr) {
+        console.warn('Supabase auth metadata update notice:', sbAuthErr);
+      }
 
       // 2. Update Supabase admin_users table
       try {
@@ -172,29 +247,52 @@ export default function UserProfileManager({ triggerSaveToast }) {
           .update({
             name: profileForm.name,
             username: profileForm.username,
-            email: profileForm.email,
             phone: profileForm.phone,
             avatar: profileForm.avatar,
+            designation: profileForm.designation,
             updated_at: new Date().toISOString()
           })
-          .eq('username', profileForm.username);
+          .or(`email.eq.${profileForm.email},username.eq.${profileForm.username}`);
       } catch (sbErr) {
         console.warn('Supabase sync notice:', sbErr);
       }
 
-      // 3. Update localStorage
+      // 3. Update localStorage & sessionStorage
+      const currentStored = getInitialMember() || {};
+      const updatedMember = {
+        ...currentStored,
+        name: profileForm.name,
+        username: profileForm.username,
+        email: profileForm.email,
+        phone: profileForm.phone,
+        avatar: profileForm.avatar,
+        designation: profileForm.designation,
+        role: profileForm.role
+      };
       try {
+        localStorage.setItem('jonogon_current_member', JSON.stringify(updatedMember));
+        sessionStorage.setItem('jonogon_current_member', JSON.stringify(updatedMember));
         localStorage.setItem('jonogon_admin_name', profileForm.name);
         localStorage.setItem('jonogon_admin_username', profileForm.username);
         localStorage.setItem('jonogon_admin_email', profileForm.email);
         localStorage.setItem('jonogon_admin_phone', profileForm.phone);
         localStorage.setItem('jonogon_admin_avatar', profileForm.avatar);
+
+        // Update cached members list if present
+        const cached = JSON.parse(localStorage.getItem('jonogon_access_members') || '[]');
+        const updatedList = cached.map((m) =>
+          (m.email && m.email.toLowerCase() === profileForm.email.toLowerCase()) ||
+          (m.username && m.username.toLowerCase() === profileForm.username.toLowerCase())
+            ? { ...m, ...profileForm }
+            : m
+        );
+        localStorage.setItem('jonogon_access_members', JSON.stringify(updatedList));
       } catch (e) {}
 
       showSuccess(
         isBn
-          ? 'প্রোফাইলের তথ্য MariaDB ও ক্লাউড ডাটাবেজে সফলভাবে আপডেট হয়েছে!'
-          : 'Profile details updated in database!'
+          ? 'প্রোফাইলের তথ্য সফলভাবে আপডেট ও সংরক্ষিত হয়েছে!'
+          : 'Profile details updated successfully!'
       );
       if (triggerSaveToast) triggerSaveToast(isBn ? 'প্রোফাইল তথ্য আপডেট সম্পন্ন' : 'Profile updated');
     } catch (err) {
@@ -226,17 +324,16 @@ export default function UserProfileManager({ triggerSaveToast }) {
     setIsSaving(true);
 
     try {
-      // 1. Update in MariaDB
-      const res = await fetch('/api/profile.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentUsername: profileForm.username,
-          newPassword: passwordForm.newPassword
-        })
+      // 1. Update in Supabase Auth directly
+      const { error: authErr } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword
       });
 
-      // 2. Update in Supabase
+      if (authErr) {
+        throw authErr;
+      }
+
+      // 2. Update temp_password in admin_users table for team access reference
       try {
         await supabase
           .from('admin_users')
@@ -244,7 +341,7 @@ export default function UserProfileManager({ triggerSaveToast }) {
             temp_password: passwordForm.newPassword,
             updated_at: new Date().toISOString()
           })
-          .eq('username', profileForm.username);
+          .or(`email.eq.${profileForm.email},username.eq.${profileForm.username}`);
       } catch (sbErr) {
         console.warn('Supabase sync notice:', sbErr);
       }
@@ -258,7 +355,7 @@ export default function UserProfileManager({ triggerSaveToast }) {
       );
       if (triggerSaveToast) triggerSaveToast(isBn ? 'পাসওয়ার্ড সফলভাবে পরিবর্তিত' : 'Password changed');
     } catch (err) {
-      showError(isBn ? 'পাসওয়ার্ড পরিবর্তনে সমস্যা হয়েছে।' : 'Error changing password.');
+      showError(err.message || (isBn ? 'পাসওয়ার্ড পরিবর্তনে সমস্যা হয়েছে।' : 'Error changing password.'));
     } finally {
       setIsSaving(false);
     }

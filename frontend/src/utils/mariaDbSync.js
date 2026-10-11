@@ -281,3 +281,82 @@ export async function fetchPodcastsFromMariaDb() {
   return null;
 }
 
+function getCommentsEndpoints(query = '') {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isJanogon = pathname.includes('/janogon');
+  const q = query ? (query.startsWith('?') ? query : `?${query}`) : '';
+  const list = [
+    isJanogon ? `/janogon/api/comments.php${q}` : `/api/comments.php${q}`,
+    `/janogon/api/comments.php${q}`,
+    `/api/comments.php${q}`,
+    `api/comments.php${q}`,
+    `./api/comments.php${q}`,
+    `http://localhost/janogon/api/comments.php${q}`,
+    `http://127.0.0.1/janogon/api/comments.php${q}`,
+    `https://jonogon.news/api/comments.php${q}`
+  ];
+  if (origin) {
+    if (isJanogon) {
+      list.unshift(`${origin}/janogon/api/comments.php${q}`);
+    }
+    list.unshift(`${origin}/api/comments.php${q}`);
+  }
+  return [...new Set(list)];
+}
+
+export async function fetchCommentsFromMariaDb(postId) {
+  if (!postId) return [];
+  const endpoints = getCommentsEndpoints(`post_id=${encodeURIComponent(postId)}`);
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result && result.success && Array.isArray(result.comments)) {
+          return result.comments;
+        }
+      }
+    } catch (err) {
+      // continue fallback
+    }
+  }
+  return [];
+}
+
+export async function saveCommentToMariaDb(commentPayload) {
+  let lastError = null;
+  const endpoints = getCommentsEndpoints();
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(commentPayload)
+      });
+
+      let result = null;
+      try {
+        result = await response.json();
+      } catch (jsonErr) {}
+
+      if (response.ok && result?.success) {
+        return { success: true, comment: result.comment, result };
+      } else {
+        const errorMsg = result?.message || `HTTP ${response.status} from ${endpoint}`;
+        lastError = new Error(errorMsg);
+      }
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  return { success: false, error: lastError?.message || 'Failed to submit comment' };
+}

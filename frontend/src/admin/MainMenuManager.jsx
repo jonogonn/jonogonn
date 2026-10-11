@@ -119,12 +119,12 @@ export default function MainMenuManager({ triggerSaveToast }) {
         categories
       });
       if (res?.success) {
-        showToast(isBn ? 'ক্যাটাগরি ও মেনু ডাটাবেজে (MariaDB) সফলভাবে সংরক্ষিত হয়েছে!' : 'Categories successfully saved to MariaDB!');
+        showToast(isBn ? 'ক্যাটাগরি ও মেনু সফলভাবে সংরক্ষিত হয়েছে!' : 'Categories successfully saved!');
       } else {
-        showToast(isBn ? 'সংরক্ষিত হয়েছে।' : 'Saved.');
+        showToast(isBn ? 'ক্যাটাগরি ও মেনু সংরক্ষিত হয়েছে।' : 'Saved.');
       }
     } catch (e) {
-      showToast(isBn ? 'ডাটাবেজ সেভ নোটিশ' : 'Saved');
+      showToast(isBn ? 'সংরক্ষণে সমস্যা হয়েছে।' : 'Error saving categories.');
     } finally {
       setIsSavingDb(false);
     }
@@ -357,10 +357,10 @@ export default function MainMenuManager({ triggerSaveToast }) {
             style={{ backgroundColor: '#10B981', borderColor: '#10B981', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800 }}
             onClick={handleSaveToMariaDb}
             disabled={isSavingDb}
-            title={isBn ? 'ডাটাবেজে ক্যাটাগরি ও মেনু ডাটা সংরক্ষণ করুন' : 'Save categories & menu to MariaDB'}
+            title={isBn ? 'পরিবর্তন সংরক্ষণ করুন' : 'Save Changes'}
           >
             <Save size={16} />
-            <span>{isSavingDb ? (isBn ? 'সংরক্ষণ হচ্ছে...' : 'Saving...') : (isBn ? 'ডাটাবেজে সংরক্ষণ' : 'Save to DB')}</span>
+            <span>{isSavingDb ? (isBn ? 'সংরক্ষণ হচ্ছে...' : 'Saving...') : (isBn ? 'পরিবর্তন সংরক্ষণ' : 'Save Changes')}</span>
           </button>
 
           <button

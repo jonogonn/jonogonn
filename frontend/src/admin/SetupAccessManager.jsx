@@ -477,19 +477,23 @@ export default function SetupAccessManager({ triggerSaveToast }) {
 
     setIsSendingEmail(true);
 
-    // 1. Create real Supabase Auth user
+    // 1. Create real Supabase Auth user & Trigger SINGLE automated credential + activation email
     let supabaseAuthUser = null;
     let supabaseInsertError = null;
+    let emailSentResult = false;
+    const adminLoginUrl = window.location.origin + (window.location.pathname.includes('/janogon') ? '/janogon/admin' : '/admin');
 
     try {
       const { data: authData, error: authErr } = await supabase.auth.signUp({
         email: newMemberPayload.email,
         password: finalPassword,
         options: {
+          emailRedirectTo: adminLoginUrl,
           data: {
             name: newMemberPayload.name,
             username: finalUsername,
             user_code: finalUserCode,
+            password: finalPassword,
             role: newMemberPayload.role,
             designation: newMemberPayload.designation,
             phone: cleanPhone,
@@ -501,6 +505,7 @@ export default function SetupAccessManager({ triggerSaveToast }) {
       if (!authErr && authData?.user) {
         supabaseAuthUser = authData.user;
         setSupabaseConnected(true);
+        emailSentResult = true;
       } else if (authErr) {
         supabaseInsertError = authErr;
         console.warn('Supabase Auth warning:', authErr.message);
@@ -523,6 +528,7 @@ export default function SetupAccessManager({ triggerSaveToast }) {
         email: newMemberPayload.email,
         avatar: newMemberPayload.avatar,
         status: 'pending',
+        temp_password: finalPassword,
         allowed_tabs: newMemberPayload.allowed_tabs
       };
       await supabase.from('admin_users').insert([supabaseRow]);
@@ -547,36 +553,7 @@ export default function SetupAccessManager({ triggerSaveToast }) {
       return updated;
     });
 
-    // 3. Dispatch Automated Credentials Email via backend API
-    let emailSentResult = false;
-    let emailPreviewHtml = '';
-    const adminLoginUrl = window.location.origin + (window.location.pathname.includes('/janogon') ? '/janogon/admin' : '/admin');
-    try {
-      const emailResp = await fetch('/api/send_access_email.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newMemberPayload.name,
-          email: newMemberPayload.email,
-          username: finalUsername,
-          password: finalPassword,
-          userCode: finalUserCode,
-          role: newMemberPayload.role,
-          designation: newMemberPayload.designation,
-          allowedTabs: newMemberPayload.allowed_tabs,
-          loginUrl: adminLoginUrl
-        })
-      });
-
-      if (emailResp.ok) {
-        const json = await emailResp.json();
-        emailSentResult = json.success;
-        emailPreviewHtml = json.html_preview || '';
-      }
-    } catch (mailErr) {
-      console.warn('Mail dispatch fallback:', mailErr);
-    }
-
+    // 3. Single email strategy: Supabase Auth sends the single unified credentials & activation email via Resend SMTP
     setIsSendingEmail(false);
     setIsAddModalOpen(false);
 

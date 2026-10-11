@@ -230,9 +230,9 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
         await syncModuleToMariaDb('siteSettings', { sectionColumnsOrder }).catch(() => {});
       }
       if (res?.success) {
-        if (triggerSaveToast) triggerSaveToast(isBn ? 'হোমপেজ লেআউট MariaDB ডাটাবেজে সফলভাবে সংরক্ষিত হয়েছে!' : 'Homepage sections saved to MariaDB!');
+        if (triggerSaveToast) triggerSaveToast(isBn ? 'হোমপেজ লেআউট সফলভাবে সংরক্ষিত হয়েছে!' : 'Homepage layout saved successfully!');
       } else {
-        if (triggerSaveToast) triggerSaveToast(isBn ? 'সংরক্ষিত হয়েছে।' : 'Saved.');
+        if (triggerSaveToast) triggerSaveToast(isBn ? 'হোমপেজ লেআউট সংরক্ষিত হয়েছে।' : 'Saved.');
       }
     } catch (e) {
       if (triggerSaveToast) triggerSaveToast('Notice: ' + e.message);
@@ -482,10 +482,10 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
             style={{ backgroundColor: '#10B981', borderColor: '#10B981', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 800 }}
             onClick={handleSaveToMariaDb}
             disabled={isSavingDb}
-            title={isBn ? 'হোমপেজ লেআউট MariaDB ডাটাবেজে সংরক্ষণ করুন' : 'Save homepage layout to MariaDB'}
+            title={isBn ? 'পরিবর্তন সংরক্ষণ করুন' : 'Save Changes'}
           >
             <Save size={15} />
-            <span>{isSavingDb ? (isBn ? 'সংরক্ষণ হচ্ছে...' : 'Saving...') : (isBn ? 'ডাটাবেজে সংরক্ষণ' : 'Save to DB')}</span>
+            <span>{isSavingDb ? (isBn ? 'সংরক্ষণ হচ্ছে...' : 'Saving...') : (isBn ? 'পরিবর্তন সংরক্ষণ' : 'Save Changes')}</span>
           </button>
 
           <button

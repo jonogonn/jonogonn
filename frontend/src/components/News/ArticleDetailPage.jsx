@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { FacebookIcon } from '../Icons/SocialIcons';
 import AdSenseSlot from '../Ads/AdSenseSlot';
+import { fetchCommentsFromMariaDb, saveCommentToMariaDb } from '../../utils/mariaDbSync';
 
 export default function ArticleDetailPage() {
   const {
@@ -33,15 +34,11 @@ export default function ArticleDetailPage() {
   const [copied, setCopied] = useState(false);
   const [commentName, setCommentName] = useState('');
   const [commentText, setCommentText] = useState('');
-  const [commentsList, setCommentsList] = useState([
-    {
-      id: 'c1',
-      name: 'আহমেদ তানভীর',
-      text: 'খুবই সময়োপযোগী এবং বিস্তারিত প্রতিবেদন। ধন্যবাদ জনগণ নিউজ টিমকে।',
-      date: 'আজ, সকাল ১১:৩০'
-    }
-  ]);
+  const [commentsList, setCommentsList] = useState([]);
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [commentSuccess, setCommentSuccess] = useState(false);
+  const [commentError, setCommentError] = useState('');
 
   const isBn = language === 'bn';
 
@@ -95,6 +92,31 @@ export default function ArticleDetailPage() {
     }
   }, [currentArticle?.id, isBn]);
 
+  useEffect(() => {
+    let isSubscribed = true;
+    if (currentArticle) {
+      const targetId = currentArticle.post_id || currentArticle.id || currentArticle.slug;
+      if (targetId) {
+        setCommentLoading(true);
+        fetchCommentsFromMariaDb(targetId)
+          .then((data) => {
+            if (isSubscribed) {
+              setCommentsList(Array.isArray(data) ? data : []);
+            }
+          })
+          .catch((err) => {
+            console.warn('Failed to load comments from MariaDB:', err);
+          })
+          .finally(() => {
+            if (isSubscribed) setCommentLoading(false);
+          });
+      }
+    }
+    return () => {
+      isSubscribed = false;
+    };
+  }, [currentArticle?.id, currentArticle?.post_id]);
+
   if (!currentArticle) return null;
 
   const handleCopyLink = () => {
@@ -118,22 +140,39 @@ export default function ArticleDetailPage() {
     window.print();
   };
 
-  const handleAddComment = (e) => {
+  const handleAddComment = async (e) => {
     e.preventDefault();
-    if (!commentName || !commentText) return;
-    setCommentsList([
-      {
-        id: `c-${Date.now()}`,
-        name: commentName,
-        text: commentText,
-        date: isBn ? 'এইমাত্র' : 'Just now'
-      },
-      ...commentsList
-    ]);
-    setCommentName('');
-    setCommentText('');
-    setCommentSuccess(true);
-    setTimeout(() => setCommentSuccess(false), 4000);
+    if (!commentName.trim() || !commentText.trim() || commentSubmitting) return;
+
+    const targetId = currentArticle?.post_id || currentArticle?.id || currentArticle?.slug;
+    if (!targetId) return;
+
+    setCommentSubmitting(true);
+    setCommentError('');
+
+    try {
+      const res = await saveCommentToMariaDb({
+        post_id: targetId,
+        name: commentName.trim(),
+        text: commentText.trim()
+      });
+
+      if (res.success && res.comment) {
+        setCommentsList((prev) => [res.comment, ...prev]);
+        setCommentName('');
+        setCommentText('');
+        setCommentSuccess(true);
+        setTimeout(() => setCommentSuccess(false), 4500);
+      } else {
+        setCommentError(res.error || (isBn ? 'মন্তব্য প্রকাশ করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Failed to publish comment. Please try again.'));
+        setTimeout(() => setCommentError(''), 4500);
+      }
+    } catch (err) {
+      setCommentError(err?.message || (isBn ? 'মন্তব্য প্রকাশ করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Failed to post comment. Please try again.'));
+      setTimeout(() => setCommentError(''), 4500);
+    } finally {
+      setCommentSubmitting(false);
+    }
   };
 
   // Category matching
@@ -312,13 +351,23 @@ export default function ArticleDetailPage() {
               <div className="article-comments-header">
                 <MessageSquare size={22} color="var(--primary-red)" />
                 <h3>
-                  {isBn ? 'পাঠকের মন্তব্য' : 'Reader Comments'} ({commentsList.length})
+                  {isBn ? 'পাঠকের মন্তব্য' : 'Reader Comments'} (
+                  {isBn
+                    ? String(commentsList.length).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[d])
+                    : commentsList.length}
+                  )
                 </h3>
               </div>
 
               {commentSuccess && (
                 <div className="article-comment-alert-success">
-                  {isBn ? 'আপনার মন্তব্য সফলভাবে জমা হয়েছে!' : 'Your comment has been submitted successfully!'}
+                  {isBn ? 'আপনার মন্তব্য সফলভাবে প্রকাশিত হয়েছে!' : 'Your comment has been posted successfully!'}
+                </div>
+              )}
+
+              {commentError && (
+                <div className="article-comment-alert-error">
+                  {commentError}
                 </div>
               )}
 
@@ -331,6 +380,7 @@ export default function ArticleDetailPage() {
                     placeholder={isBn ? 'আপনার নাম লিখুন *' : 'Your name *'}
                     value={commentName}
                     onChange={(e) => setCommentName(e.target.value)}
+                    disabled={commentSubmitting}
                     required
                   />
                 </div>
@@ -341,26 +391,46 @@ export default function ArticleDetailPage() {
                     placeholder={isBn ? 'এই সংবাদের বিষয়ে আপনার মতামত লিখুন...' : 'Write your comment here...'}
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
+                    disabled={commentSubmitting}
                     required
                   />
                 </div>
-                <button type="submit" className="admin-btn-primary">
+                <button
+                  type="submit"
+                  className="admin-btn-primary"
+                  disabled={commentSubmitting}
+                  style={{ opacity: commentSubmitting ? 0.7 : 1, cursor: commentSubmitting ? 'not-allowed' : 'pointer' }}
+                >
                   <Send size={15} />
-                  <span>{isBn ? 'মন্তব্য পাঠান' : 'Post Comment'}</span>
+                  <span>
+                    {commentSubmitting
+                      ? (isBn ? 'মন্তব্য পাঠানো হচ্ছে...' : 'Posting...')
+                      : (isBn ? 'মন্তব্য প্রকাশ করুন' : 'Post Comment')}
+                  </span>
                 </button>
               </form>
 
               {/* Comments List */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {commentsList.map((c) => (
-                  <div key={c.id} className="article-comment-item">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>{c.name}</span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{c.date}</span>
-                    </div>
-                    <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>{c.text}</p>
+                {commentLoading ? (
+                  <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-light)', fontSize: '0.9rem' }}>
+                    {isBn ? 'মন্তব্য লোড হচ্ছে...' : 'Loading comments...'}
                   </div>
-                ))}
+                ) : commentsList.length === 0 ? (
+                  <div style={{ padding: '16px', backgroundColor: 'var(--bg-subtle)', borderRadius: 4, textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.92rem' }}>
+                    {isBn ? 'এই সংবাদে এখনও কোনো মন্তব্য করা হয়নি। আপনার মূল্যবান মতামত প্রথম জানান!' : 'No comments on this article yet. Be the first to share your thoughts!'}
+                  </div>
+                ) : (
+                  commentsList.map((c) => (
+                    <div key={c.id} className="article-comment-item">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>{c.name}</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{c.date}</span>
+                      </div>
+                      <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>{c.text}</p>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 

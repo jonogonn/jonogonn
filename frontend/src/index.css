@@ -10917,6 +10917,16 @@ ol {
   font-weight: 600;
 }
 
+.article-comment-alert-error {
+  padding: 10px 14px;
+  background-color: #FEE2E2;
+  color: #991B1B;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .article-comment-form {
   background-color: var(--bg-subtle);
   padding: 18px;

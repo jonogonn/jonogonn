@@ -228,22 +228,22 @@ export default function AdsManager({ triggerSaveToast }) {
       setDbSyncTime(new Date());
 
       if (triggerSaveToast) {
-        triggerSaveToast(isBn ? 'MariaDB ডাটাবেজে বিজ্ঞাপন সেটিংস সফলভাবে সংরক্ষিত হয়েছে!' : 'Ads settings saved to MariaDB successfully!');
+        triggerSaveToast(isBn ? 'বিজ্ঞাপন সেটিংস সফলভাবে সংরক্ষিত হয়েছে!' : 'Ads settings saved successfully!');
       }
 
       if (showSuccess) {
         showSuccess(
           isBn
-            ? 'MariaDB ads_config টেবিলে বিজ্ঞাপনের সকল ব্যানার ও কোড সরাসরি সংরক্ষিত হয়েছে।'
-            : 'All advertisements and banner slots saved directly to MariaDB database.',
-          isBn ? 'MariaDB ডাটাবেজে সংরক্ষিত' : 'Saved to MariaDB'
+            ? 'বিজ্ঞাপনের সকল ব্যানার ও কোড সফলভাবে হালনাগাদ করা হয়েছে।'
+            : 'All advertisements and banner slots updated successfully.',
+          isBn ? 'সফলভাবে সংরক্ষিত' : 'Saved'
         );
       }
     } catch (err) {
       setIsSavingDb(false);
-      console.error('Save to MariaDB failed:', err);
+      console.error('Save failed:', err);
       if (showError) {
-        showError(isBn ? 'MariaDB ডাটাবেজে সংরক্ষণ ব্যর্থ হয়েছে।' : 'Failed to save to MariaDB.');
+        showError(isBn ? 'বিজ্ঞাপন সেটিংস সংরক্ষণ করতে সমস্যা হয়েছে।' : 'Failed to save ads settings.');
       }
     }
   };
