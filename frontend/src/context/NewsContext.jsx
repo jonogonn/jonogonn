@@ -25,7 +25,8 @@ import {
   syncModuleToMariaDb,
   savePodcastToMariaDb,
   deletePodcastFromMariaDb,
-  fetchPodcastsFromMariaDb
+  fetchPodcastsFromMariaDb,
+  normalizeImageUrl
 } from '../utils/mariaDbSync';
 import { safeSetLocalStorage, safeGetLocalStorage, safeRemoveLocalStorage } from '../utils/safeStorage';
 
@@ -157,7 +158,12 @@ export function NewsProvider({ children }) {
               !a.id.startsWith('video-') &&
               a.id !== 'bd-main')
         );
-        if (dbItems.length > 0) return dbItems;
+        if (dbItems.length > 0) {
+          return dbItems.map((a) => {
+            const clean = normalizeImageUrl(a.imageUrl || a.featuredImage);
+            return { ...a, imageUrl: clean, featuredImage: clean, thumbnail_image: clean };
+          });
+        }
       }
     } catch (e) {
       console.warn('Error reading cached jonogon_articles', e);

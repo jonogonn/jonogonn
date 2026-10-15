@@ -28,6 +28,17 @@ function getAndEnsureNewsTable($pdo) {
     return 'news_posts';
 }
 
+function normalizeNewsImageUrl($url) {
+    if (!$url || !is_string($url)) return '';
+    $url = trim($url);
+    if (strpos($url, 'backblazeb2.com') !== false) {
+        if (preg_match('#(uploads/\d{4}/\d{2}/[^?\&"\']+)#', $url, $m)) {
+            return 'https://jonogon.news/' . $m[1];
+        }
+    }
+    return $url;
+}
+
 // -------------------------------------------------------------
 // 1. GET: Fetch News Articles (Optimized Query & Caching)
 // -------------------------------------------------------------
@@ -97,7 +108,7 @@ if ($method === 'GET') {
                 }
             }
 
-            $featuredImg = $row['featured_image'] ?? ($row['thumbnail_image'] ?? '');
+            $featuredImg = normalizeNewsImageUrl($row['featured_image'] ?? ($row['thumbnail_image'] ?? ''));
 
             $articles[] = [
                 'id' => $row['post_id'] ?? ('news-' . ($row['id'] ?? uniqid())),

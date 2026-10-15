@@ -42,8 +42,13 @@ import {
   Video,
   Inbox,
   MessageSquare,
-  MoreVertical
+  MoreVertical,
+  ChevronUp,
+  ChevronDown,
+  ArrowUpDown,
+  GripVertical
 } from 'lucide-react';
+import { syncModuleToMariaDb, fetchModuleFromMariaDb } from '../utils/mariaDbSync';
 
 // Master list of all admin panel sidebar tabs with professional, meaningful names & descriptions
 export const ADMIN_AVAILABLE_TABS = [
@@ -245,17 +250,47 @@ function suggestUsername(name) {
   return clean ? `${clean}.${Math.floor(10 + Math.random() * 90)}` : 'user_' + Date.now().toString().slice(-4);
 }
 
+// Helper to sort members array using an ordered list of IDs
+export const sortMembersWithOrder = (list, orderIds) => {
+  if (!Array.isArray(orderIds) || orderIds.length === 0 || !Array.isArray(list)) return list || [];
+  const orderMap = new Map();
+  orderIds.forEach((id, index) => {
+    if (id !== undefined && id !== null) {
+      orderMap.set(String(id).toLowerCase().trim(), index);
+    }
+  });
+
+  return [...list].sort((a, b) => {
+    const getPos = (m) => {
+      if (m.id && orderMap.has(String(m.id).toLowerCase().trim())) return orderMap.get(String(m.id).toLowerCase().trim());
+      if (m.username && orderMap.has(String(m.username).toLowerCase().trim())) return orderMap.get(String(m.username).toLowerCase().trim());
+      if (m.user_code && orderMap.has(String(m.user_code).toLowerCase().trim())) return orderMap.get(String(m.user_code).toLowerCase().trim());
+      return 9999;
+    };
+    return getPos(a) - getPos(b);
+  });
+};
+
 export default function SetupAccessManager({ triggerSaveToast }) {
-  const { adminLanguage, language, showConfirm, showSuccess, showError } = useNews();
+  const { adminLanguage, language, showConfirm, showSuccess, showError, showWarning } = useNews();
   const isBn = (adminLanguage || language) === 'bn';
 
   // Members list & Loading state
   const [members, setMembers] = useState(() => {
     try {
       const saved = localStorage.getItem('jonogon_access_members');
+      const orderSaved = localStorage.getItem('jonogon_team_order');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          if (orderSaved) {
+            try {
+              const orderIds = JSON.parse(orderSaved);
+              return sortMembersWithOrder(parsed, orderIds);
+            } catch (e) {}
+          }
+          return parsed;
+        }
       }
     } catch (e) {}
     return DEFAULT_MEMBERS;
@@ -264,6 +299,7 @@ export default function SetupAccessManager({ triggerSaveToast }) {
   const [isLoadingSupabase, setIsLoadingSupabase] = useState(false);
   const [supabaseConnected, setSupabaseConnected] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [draggedMemberIndex, setDraggedMemberIndex] = useState(null);
 
   // Permission Modal State
   const [permissionModalMember, setPermissionModalMember] = useState(null);
@@ -355,9 +391,31 @@ export default function SetupAccessManager({ triggerSaveToast }) {
           temp_password: d.temp_password || '********',
           allowed_tabs: Array.isArray(d.allowed_tabs) ? d.allowed_tabs : []
         }));
-        setMembers(formatted);
+
+        let sortedFormatted = formatted;
         try {
-          localStorage.setItem('jonogon_access_members', JSON.stringify(formatted));
+          const localOrder = localStorage.getItem('jonogon_team_order');
+          let orderIds = localOrder ? JSON.parse(localOrder) : null;
+          if (!orderIds) {
+            const remoteData = await fetchModuleFromMariaDb('team_order');
+            if (remoteData?.teamOrder) {
+              orderIds = Array.isArray(remoteData.teamOrder)
+                ? remoteData.teamOrder
+                : (remoteData.teamOrder.order_ids || []);
+            }
+          }
+          if (Array.isArray(orderIds) && orderIds.length > 0) {
+            sortedFormatted = sortMembersWithOrder(formatted, orderIds);
+          }
+        } catch (orderErr) {
+          console.warn('Order sort note:', orderErr);
+        }
+
+        setMembers(sortedFormatted);
+        try {
+          localStorage.setItem('jonogon_access_members', JSON.stringify(sortedFormatted));
+          const activeOnly = sortedFormatted.filter((m) => m.status !== 'inactive' && m.status !== 'suspended');
+          localStorage.setItem('jonogon_access_members_public', JSON.stringify(activeOnly));
         } catch (e) {}
         setSupabaseConnected(true);
       } else {
@@ -370,6 +428,94 @@ export default function SetupAccessManager({ triggerSaveToast }) {
     } finally {
       setIsLoadingSupabase(false);
     }
+  };
+
+  // Persist member order to localStorage and MariaDB
+  const persistMemberOrder = async (orderedList) => {
+    try {
+      const orderedIds = orderedList.map((m) => m.id || m.username || m.user_code);
+
+      // Save in localStorage
+      localStorage.setItem('jonogon_team_order', JSON.stringify(orderedIds));
+      localStorage.setItem('jonogon_access_members', JSON.stringify(orderedList));
+
+      const activeOnly = orderedList.filter((m) => m.status !== 'inactive' && m.status !== 'suspended');
+      localStorage.setItem('jonogon_access_members_public', JSON.stringify(activeOnly));
+
+      // Broadcast custom event so open public pages update immediately
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('jonogon_team_order_updated', { detail: { orderIds: orderedIds } }));
+      }
+
+      // Sync to MariaDB so public site visitors on any browser/device see this exact order
+      syncModuleToMariaDb('team_order', {
+        order_ids: orderedIds,
+        members: activeOnly
+      });
+
+      if (triggerSaveToast) {
+        triggerSaveToast(isBn ? 'সদস্যের পজিশন সফলভাবে সংরক্ষিত হয়েছে!' : 'Team member order updated!');
+      }
+    } catch (err) {
+      console.warn('Persist order note:', err);
+    }
+  };
+
+  // Move member up or down by 1 step
+  const handleMoveMember = async (index, direction) => {
+    if (searchQuery.trim()) {
+      showWarning(
+        isBn ? 'অর্ডার পরিবর্তন করতে অনুগ্রহ করে সার্চ ফিল্টারটি খালি করুন।' : 'Please clear search filter before reordering.',
+        isBn ? 'ফিল্টার সক্রিয়' : 'Filter Active'
+      );
+      return;
+    }
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= members.length) return;
+
+    const newMembers = [...members];
+    const [movedItem] = newMembers.splice(index, 1);
+    newMembers.splice(targetIndex, 0, movedItem);
+
+    setMembers(newMembers);
+    await persistMemberOrder(newMembers);
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (e, index) => {
+    setDraggedMemberIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    try {
+      e.dataTransfer.setData('text/plain', String(index));
+    } catch (err) {}
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e, dropIndex) => {
+    e.preventDefault();
+    if (draggedMemberIndex === null || draggedMemberIndex === dropIndex) {
+      setDraggedMemberIndex(null);
+      return;
+    }
+    if (searchQuery.trim()) {
+      showWarning(
+        isBn ? 'অর্ডার পরিবর্তন করতে অনুগ্রহ করে সার্চ ফিল্টারটি খালি করুন।' : 'Please clear search filter before reordering.'
+      );
+      setDraggedMemberIndex(null);
+      return;
+    }
+
+    const newMembers = [...members];
+    const [movedItem] = newMembers.splice(draggedMemberIndex, 1);
+    newMembers.splice(dropIndex, 0, movedItem);
+
+    setDraggedMemberIndex(null);
+    setMembers(newMembers);
+    await persistMemberOrder(newMembers);
   };
 
   // Seed default team members into Supabase if table is empty
@@ -1098,17 +1244,30 @@ export default function SetupAccessManager({ triggerSaveToast }) {
           />
         </div>
 
-        <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-          {isBn ? `মোট ${filteredMembers.length} জন সদস্য প্রদর্শিত` : `Showing ${filteredMembers.length} members`}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            <ArrowUpDown size={13} color="var(--primary-red)" />
+            <span>{isBn ? '▲ বা ▼ চেপে অথবা ড্র্যাগ করে সদস্যদের প্রদর্শন ক্রম সাজান' : 'Use ▲ / ▼ or drag to control public display order'}</span>
+          </div>
+          <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+            {isBn ? `মোট ${filteredMembers.length} জন সদস্য প্রদর্শিত` : `Showing ${filteredMembers.length} members`}
+          </div>
         </div>
       </div>
 
-      {/* 4. TEAM MEMBERS TABLE (With WhatsApp & Permission Buttons) */}
+      {/* 4. TEAM MEMBERS TABLE (With WhatsApp, Order Control & Permission Buttons) */}
       <div className="admin-card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="publish-posts-table-wrap setup-access-table-wrap" style={{ overflowX: 'auto' }}>
           <table className="admin-responsive-table setup-access-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead className="desktop-only-header">
               <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
+                {/* 1. ORDER & PRIORITY COLUMN */}
+                <th style={{ padding: '14px 10px', textAlign: 'center', width: 95, fontSize: '0.82rem', fontWeight: 800 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <ArrowUpDown size={13} color="var(--primary-red)" />
+                    <span>{isBn ? 'ক্রম / পজিশন' : 'Order'}</span>
+                  </span>
+                </th>
                 <th style={{ padding: '14px 18px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 800 }}>
                   {isBn ? 'সদস্য ও ইউজার আইডি' : 'Member & User ID'}
                 </th>
@@ -1132,23 +1291,135 @@ export default function SetupAccessManager({ triggerSaveToast }) {
             <tbody>
               {filteredMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
                     {isBn ? 'কোন সদস্য পাওয়া যায়নি।' : 'No team members found.'}
                   </td>
                 </tr>
               ) : (
-                filteredMembers.map((member) => {
+                filteredMembers.map((member, index) => {
                   const allowedList = member.allowed_tabs || member.allowedTabs || [];
                   const isSuper = (member.role || '').toLowerCase().includes('super');
 
                   return (
                     <tr
                       key={member.id}
+                      draggable={!searchQuery.trim()}
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDrop={(e) => handleDrop(e, index)}
                       style={{
                         borderBottom: '1px solid var(--border-color)',
+                        backgroundColor: draggedMemberIndex === index ? 'rgba(229, 9, 20, 0.08)' : 'transparent',
                         transition: 'background-color 0.15s ease'
                       }}
                     >
+                      {/* Order Controls (Desktop) */}
+                      <td
+                        className="col-desktop-only"
+                        style={{
+                          padding: '12px 10px',
+                          textAlign: 'center',
+                          verticalAlign: 'middle',
+                          width: 95,
+                          userSelect: 'none'
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            justifyContent: 'center'
+                          }}
+                        >
+                          {/* Drag Handle */}
+                          <span
+                            style={{
+                              color: 'var(--text-muted)',
+                              cursor: !searchQuery.trim() ? 'grab' : 'not-allowed',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              opacity: !searchQuery.trim() ? 0.7 : 0.3
+                            }}
+                            title={isBn ? 'ড্র্যাগ করে পজিশন পরিবর্তন করুন' : 'Drag to reorder position'}
+                          >
+                            <GripVertical size={16} />
+                          </span>
+
+                          {/* Rank / Serial Badge */}
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              minWidth: 26,
+                              height: 26,
+                              padding: '0 6px',
+                              borderRadius: 13,
+                              backgroundColor: index === 0 ? 'rgba(229, 9, 20, 0.15)' : 'var(--bg-secondary)',
+                              color: index === 0 ? 'var(--primary-red)' : 'var(--text-secondary)',
+                              fontSize: '0.78rem',
+                              fontWeight: 900,
+                              border: index === 0 ? '1.5px solid var(--primary-red)' : '1px solid var(--border-color)',
+                              boxShadow: index === 0 ? '0 2px 6px rgba(229, 9, 20, 0.2)' : 'none'
+                            }}
+                            title={isBn ? `পজিশন #${index + 1} (ওয়েবসাইটে এই ক্রমে শো করবে)` : `Position #${index + 1}`}
+                          >
+                            {index + 1}
+                          </span>
+
+                          {/* Up & Down Arrow Buttons */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveMember(index, 'up')}
+                              disabled={index === 0 || !!searchQuery.trim()}
+                              style={{
+                                width: 22,
+                                height: 18,
+                                borderRadius: 4,
+                                border: '1px solid var(--border-color)',
+                                backgroundColor: 'var(--bg-secondary)',
+                                color: index === 0 || !!searchQuery.trim() ? 'var(--text-muted)' : 'var(--text-primary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: index === 0 || !!searchQuery.trim() ? 'not-allowed' : 'pointer',
+                                opacity: index === 0 || !!searchQuery.trim() ? 0.35 : 1,
+                                padding: 0,
+                                transition: 'all 0.15s ease'
+                              }}
+                              title={isBn ? 'উপরে নিন (আগে দেখাবে)' : 'Move up (shown earlier)'}
+                            >
+                              <ChevronUp size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveMember(index, 'down')}
+                              disabled={index === members.length - 1 || !!searchQuery.trim()}
+                              style={{
+                                width: 22,
+                                height: 18,
+                                borderRadius: 4,
+                                border: '1px solid var(--border-color)',
+                                backgroundColor: 'var(--bg-secondary)',
+                                color: index === members.length - 1 || !!searchQuery.trim() ? 'var(--text-muted)' : 'var(--text-primary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: index === members.length - 1 || !!searchQuery.trim() ? 'not-allowed' : 'pointer',
+                                opacity: index === members.length - 1 || !!searchQuery.trim() ? 0.35 : 1,
+                                padding: 0,
+                                transition: 'all 0.15s ease'
+                              }}
+                              title={isBn ? 'নিচে নিন (পরে দেখাবে)' : 'Move down (shown later)'}
+                            >
+                              <ChevronDown size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+
                       {/* Member Info */}
                       <td className="col-article-main" style={{ padding: '14px 18px' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, width: '100%' }}>
@@ -1263,6 +1534,56 @@ export default function SetupAccessManager({ triggerSaveToast }) {
                                   <span>WA</span>
                                 </a>
                               )}
+
+                              {/* Mobile Reorder Controls */}
+                              <div
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  backgroundColor: index === 0 ? 'rgba(229, 9, 20, 0.1)' : 'var(--bg-secondary)',
+                                  padding: '2px 8px',
+                                  borderRadius: 12,
+                                  border: index === 0 ? '1px solid rgba(229, 9, 20, 0.3)' : '1px solid var(--border-color)',
+                                  marginTop: 3
+                                }}
+                              >
+                                <span style={{ fontSize: '0.72rem', fontWeight: 900, color: index === 0 ? 'var(--primary-red)' : 'var(--text-secondary)' }}>
+                                  #{index + 1}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleMoveMember(index, 'up'); }}
+                                  disabled={index === 0 || !!searchQuery.trim()}
+                                  style={{
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: '0 3px',
+                                    fontSize: '0.72rem',
+                                    cursor: index === 0 || !!searchQuery.trim() ? 'not-allowed' : 'pointer',
+                                    color: index === 0 || !!searchQuery.trim() ? 'var(--text-muted)' : 'var(--text-primary)'
+                                  }}
+                                  title={isBn ? 'উপরে নিন' : 'Move Up'}
+                                >
+                                  ▲
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleMoveMember(index, 'down'); }}
+                                  disabled={index === members.length - 1 || !!searchQuery.trim()}
+                                  style={{
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: '0 3px',
+                                    fontSize: '0.72rem',
+                                    cursor: index === members.length - 1 || !!searchQuery.trim() ? 'not-allowed' : 'pointer',
+                                    color: index === members.length - 1 || !!searchQuery.trim() ? 'var(--text-muted)' : 'var(--text-primary)'
+                                  }}
+                                  title={isBn ? 'নিচে নিন' : 'Move Down'}
+                                >
+                                  ▼
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>

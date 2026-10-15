@@ -28,6 +28,17 @@ function getAndEnsureNewsTable($pdo) {
     return 'news_posts';
 }
 
+function normalizeNewsImageUrl($url) {
+    if (!$url || !is_string($url)) return '';
+    $url = trim($url);
+    if (strpos($url, 'backblazeb2.com') !== false) {
+        if (preg_match('#(uploads/\d{4}/\d{2}/[^?\&"\']+)#', $url, $m)) {
+            return 'https://jonogon.news/' . $m[1];
+        }
+    }
+    return $url;
+}
+
 // -------------------------------------------------------------
 // 1. GET: Fetch News Articles (Optimized Query & Caching)
 // -------------------------------------------------------------
@@ -97,7 +108,7 @@ if ($method === 'GET') {
                 }
             }
 
-            $featuredImg = $row['featured_image'] ?? ($row['thumbnail_image'] ?? '');
+            $featuredImg = normalizeNewsImageUrl($row['featured_image'] ?? ($row['thumbnail_image'] ?? ''));
 
             $articles[] = [
                 'id' => $row['post_id'] ?? ('news-' . ($row['id'] ?? uniqid())),
@@ -124,7 +135,6 @@ if ($method === 'GET') {
                 'categories' => !empty($row['categories']) ? (is_array($row['categories']) ? $row['categories'] : json_decode($row['categories'], true)) : [$row['category_id'] ?? 'bangladesh'],
                 'cardCategory' => $row['card_category'] ?? ($row['category_bn'] ?? 'সারাদেশ । বাংলাদেশ'),
                 'cardImagePosition' => $row['card_image_position'] ?? 'center center',
-                'cardImageUrl' => $row['card_image_url'] ?? '',
                 'cardTitleFontSize' => isset($row['card_title_font_size']) && $row['card_title_font_size'] ? (int)$row['card_title_font_size'] : 24,
                 'cardKickerFontSize' => isset($row['card_kicker_font_size']) && $row['card_kicker_font_size'] ? (int)$row['card_kicker_font_size'] : 15,
                 'cardColorMode' => $row['card_color_mode'] ?? 'dual',
@@ -330,7 +340,6 @@ if ($method === 'POST') {
             'categories' => $categories,
             'card_category' => $cardCategory,
             'card_image_position' => $data['cardImagePosition'] ?? ($data['card_image_position'] ?? ($data['imagePosition'] ?? 'center center')),
-            'card_image_url' => $data['cardImageUrl'] ?? ($data['card_image_url'] ?? ''),
             'card_title_font_size' => isset($data['cardTitleFontSize']) ? (int)$data['cardTitleFontSize'] : (isset($data['card_title_font_size']) ? (int)$data['card_title_font_size'] : 24),
             'card_kicker_font_size' => isset($data['cardKickerFontSize']) ? (int)$data['cardKickerFontSize'] : (isset($data['card_kicker_font_size']) ? (int)$data['card_kicker_font_size'] : 15),
             'card_color_mode' => $data['cardColorMode'] ?? ($data['card_color_mode'] ?? 'dual'),

@@ -159,39 +159,7 @@ if ($method === 'GET') {
         // 5. Ads Config
         if (!$type || $type === 'ads' || $type === 'all') {
             $adsStmt = $pdo->query("SELECT * FROM `ads_config` ORDER BY `id` ASC");
-            $adsRows = $adsStmt ? $adsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
-            $results['adsConfig'] = $adsRows;
-
-            $formattedAdSlots = [];
-            foreach ($adsRows as $r) {
-                $sId = $r['slot_id'];
-                if (!$sId) continue;
-                $formattedAdSlots[$sId] = [
-                    'enabled' => !empty($r['is_active']),
-                    'mode' => ($r['ad_type'] === 'html_script' || !empty($r['custom_html'])) ? 'code' : 'image',
-                    'imageUrl' => $r['banner_image_url'] ?: '',
-                    'targetUrl' => $r['target_url'] ?: '',
-                    'code' => $r['custom_html'] ?: ($r['slot_code'] ?: ''),
-                    'altText' => $r['slot_name_bn'] ?: '',
-                    'nameBn' => $r['slot_name_bn'] ?: '',
-                    'nameEn' => $r['slot_name_en'] ?: '',
-                    'fallbackText' => $r['slot_name_bn'] ?: ''
-                ];
-            }
-
-            // Also check site_settings for adSettings
-            $adSetStmt = $pdo->query("SELECT `setting_key`, `setting_value` FROM `site_settings` WHERE `setting_key` IN ('adSenseEnabled', 'adsenseClientId', 'adSenseClientId', 'adSlots')");
-            $adSetRows = $adSetStmt ? $adSetStmt->fetchAll(PDO::FETCH_ASSOC) : [];
-            foreach ($adSetRows as $ar) {
-                $k = $ar['setting_key'];
-                $val = json_decode($ar['setting_value'], true);
-                $val = ($val !== null) ? $val : $ar['setting_value'];
-                $results[$k] = $val;
-                if ($k === 'adSlots' && is_array($val)) {
-                    $formattedAdSlots = array_merge($val, $formattedAdSlots);
-                }
-            }
-            $results['adSlots'] = $formattedAdSlots;
+            $results['adsConfig'] = $adsStmt ? $adsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
         }
 
         // 6. Site Settings
@@ -216,6 +184,13 @@ if ($method === 'GET') {
         if (!$type || $type === 'media' || $type === 'all') {
             $medStmt = $pdo->query("SELECT * FROM `media_gallery` ORDER BY `id` DESC LIMIT 300");
             $results['mediaGallery'] = $medStmt ? $medStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+        }
+
+        // 9. Team Members Order
+        if (!$type || $type === 'team_order' || $type === 'teamOrder' || $type === 'all') {
+            $tStmt = $pdo->query("SELECT `setting_value` FROM `site_settings` WHERE `setting_key` = 'team_members_order' LIMIT 1");
+            $tRow = $tStmt ? $tStmt->fetch(PDO::FETCH_ASSOC) : null;
+            $results['teamOrder'] = $tRow ? json_decode($tRow['setting_value'] ?? '[]', true) : [];
         }
 
         echo json_encode([
@@ -248,8 +223,8 @@ if ($method === 'POST') {
             $payload = $_POST;
         }
 
-        $module = $payload['module'] ?? ($payload['type'] ?? ($_GET['module'] ?? ($_GET['type'] ?? '')));
-        $data = $payload['data'] ?? ($payload ?? []);
+        $module = $payload['module'] ?? ($payload['type'] ?? '');
+        $data = $payload['data'] ?? $payload;
 
         if (!$module) {
             http_response_code(400);
@@ -569,89 +544,33 @@ if ($method === 'POST') {
         // 7. Save Ads Config
         if ($module === 'ads' || $module === 'adsConfig' || $module === 'ads_config') {
             if (is_array($data)) {
-                $slots = isset($data['adSlots']) ? $data['adSlots'] : $data;
-                $adSenseEnabled = isset($data['adSenseEnabled']) ? ($data['adSenseEnabled'] ? 1 : 0) : null;
-                $clientId = $data['adsenseClientId'] ?? ($data['adSenseClientId'] ?? '');
-
-                // Ensure table ads_config exists
-                try {
-                    $pdo->exec("
-                        CREATE TABLE IF NOT EXISTS `ads_config` (
-                            `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-                            `slot_id` varchar(100) NOT NULL,
-                            `slot_name_bn` varchar(200) NOT NULL DEFAULT '',
-                            `slot_name_en` varchar(200) NOT NULL DEFAULT '',
-                            `ad_type` enum('adsense','custom_banner','html_script') NOT NULL DEFAULT 'custom_banner',
-                            `client_id` varchar(100) DEFAULT '',
-                            `slot_code` varchar(100) DEFAULT '',
-                            `banner_image_url` text DEFAULT NULL,
-                            `target_url` text DEFAULT NULL,
-                            `custom_html` longtext DEFAULT NULL,
-                            `display_location` varchar(100) NOT NULL DEFAULT 'main',
-                            `is_active` tinyint(1) NOT NULL DEFAULT 1,
-                            `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-                            PRIMARY KEY (`id`),
-                            UNIQUE KEY `slot_id` (`slot_id`)
-                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-                    ");
-                } catch (Exception $tblEx) {}
-
                 $adsStmt = $pdo->prepare("
-                    INSERT INTO `ads_config` (
-                        `slot_id`, `slot_name_bn`, `slot_name_en`, `ad_type`,
-                        `client_id`, `slot_code`, `banner_image_url`, `target_url`,
-                        `custom_html`, `display_location`, `is_active`
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO `ads_config` (`ad_slot`, `ad_code`, `image_url`, `target_url`, `is_active`)
+                    VALUES (?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
-                        `slot_name_bn` = VALUES(`slot_name_bn`),
-                        `slot_name_en` = VALUES(`slot_name_en`),
-                        `ad_type` = VALUES(`ad_type`),
-                        `client_id` = VALUES(`client_id`),
-                        `slot_code` = VALUES(`slot_code`),
-                        `banner_image_url` = VALUES(`banner_image_url`),
+                        `ad_code` = VALUES(`ad_code`),
+                        `image_url` = VALUES(`image_url`),
                         `target_url` = VALUES(`target_url`),
-                        `custom_html` = VALUES(`custom_html`),
-                        `display_location` = VALUES(`display_location`),
                         `is_active` = VALUES(`is_active`)
                 ");
-
-                foreach ($slots as $slotKey => $slotVal) {
-                    if (!is_array($slotVal) || !is_string($slotKey)) continue;
-
-                    $slotNameBn = $slotVal['altText'] ?? ($slotVal['nameBn'] ?? ($slotVal['fallbackText'] ?? $slotKey));
-                    $slotNameEn = $slotVal['nameEn'] ?? $slotKey;
-                    $mode = $slotVal['mode'] ?? 'image';
-                    $adType = ($mode === 'code' || !empty($slotVal['code'])) ? 'html_script' : 'custom_banner';
-                    if (!empty($adSenseEnabled) && empty($slotVal['imageUrl']) && empty($slotVal['code'])) {
-                        $adType = 'adsense';
-                    }
-                    $code = $slotVal['code'] ?? '';
-                    $imgUrl = $slotVal['imageUrl'] ?? '';
-                    $target = $slotVal['targetUrl'] ?? '';
-                    $isActive = !empty($slotVal['enabled']) ? 1 : 0;
-                    $location = $slotVal['location'] ?? $slotKey;
-
-                    $adsStmt->execute([
-                        $slotKey, $slotNameBn, $slotNameEn, $adType,
-                        $clientId, $code, $imgUrl, $target,
-                        $code, $location, $isActive
-                    ]);
-                }
-
-                // Also persist to site_settings table
-                $setStmt = $pdo->prepare("INSERT INTO `site_settings` (`setting_key`, `setting_value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)");
-                if ($adSenseEnabled !== null) {
-                    $setStmt->execute(['adSenseEnabled', (string)$adSenseEnabled]);
-                }
-                if ($clientId !== '') {
-                    $setStmt->execute(['adSenseClientId', (string)$clientId]);
-                    $setStmt->execute(['adsenseClientId', (string)$clientId]);
-                }
-                if (!empty($slots)) {
-                    $setStmt->execute(['adSlots', json_encode($slots, JSON_UNESCAPED_UNICODE)]);
+                foreach ($data as $slotKey => $slotVal) {
+                    $adCode = is_array($slotVal) ? ($slotVal['code'] ?? '') : '';
+                    $imageUrl = is_array($slotVal) ? ($slotVal['imageUrl'] ?? '') : '';
+                    $targetUrl = is_array($slotVal) ? ($slotVal['targetUrl'] ?? '') : '';
+                    $isActive = is_array($slotVal) ? (!empty($slotVal['enabled']) ? 1 : 0) : 1;
+                    $adsStmt->execute([$slotKey, $adCode, $imageUrl, $targetUrl, $isActive]);
                 }
             }
-            echo json_encode(['success' => true, 'message' => 'বিজ্ঞাপন কনফিগারেশন MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['success' => true, 'message' => 'বিজ্ঞাপন কনফিগারেশন MariaDB-তে সংরক্ষিত হয়েছে।']);
+            exit;
+        }
+
+        // 8. Save Team Members Order
+        if ($module === 'team_order' || $module === 'teamOrder' || $module === 'team_members') {
+            $jsonVal = is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE) : (string)$data;
+            $stmt = $pdo->prepare("INSERT INTO `site_settings` (`setting_key`, `setting_value`) VALUES ('team_members_order', ?) ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)");
+            $stmt->execute([$jsonVal]);
+            echo json_encode(['success' => true, 'message' => 'টিম সদস্যদের ক্রম MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
             exit;
         }
 

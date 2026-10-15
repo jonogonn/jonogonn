@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNews } from '../context/NewsContext';
 import { supabase } from '../supabase';
 import { updateSEO } from '../services/seoService';
+import { fetchModuleFromMariaDb } from '../utils/mariaDbSync';
 import {
   Users,
   ChevronRight,
@@ -35,22 +36,54 @@ const DEFAULT_TEAM_MEMBERS = [
   }
 ];
 
+// Helper to sort members array using an ordered list of IDs
+export const sortMembersWithOrder = (list, orderIds) => {
+  if (!Array.isArray(orderIds) || orderIds.length === 0 || !Array.isArray(list)) return list || [];
+  const orderMap = new Map();
+  orderIds.forEach((id, index) => {
+    if (id !== undefined && id !== null) {
+      orderMap.set(String(id).toLowerCase().trim(), index);
+    }
+  });
+
+  return [...list].sort((a, b) => {
+    const getPos = (m) => {
+      if (m.id && orderMap.has(String(m.id).toLowerCase().trim())) return orderMap.get(String(m.id).toLowerCase().trim());
+      if (m.username && orderMap.has(String(m.username).toLowerCase().trim())) return orderMap.get(String(m.username).toLowerCase().trim());
+      if (m.user_code && orderMap.has(String(m.user_code).toLowerCase().trim())) return orderMap.get(String(m.user_code).toLowerCase().trim());
+      return 9999;
+    };
+    return getPos(a) - getPos(b);
+  });
+};
+
 export default function TeamPage() {
   const { language, settings, goToHome, navigateTo } = useNews();
   const isBn = language === 'bn';
 
   const [teamMembers, setTeamMembers] = useState(() => {
     try {
+      let orderIds = null;
+      const orderSaved = localStorage.getItem('jonogon_team_order');
+      if (orderSaved) {
+        try {
+          orderIds = JSON.parse(orderSaved);
+        } catch (e) {}
+      }
+
       const publicSaved = localStorage.getItem('jonogon_access_members_public');
       if (publicSaved) {
         const parsed = JSON.parse(publicSaved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return sortMembersWithOrder(parsed, orderIds);
+        }
       }
       const adminSaved = localStorage.getItem('jonogon_access_members');
       if (adminSaved) {
         const parsed = JSON.parse(adminSaved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.filter((m) => m.status !== 'inactive' && m.status !== 'suspended');
+          const activeOnly = parsed.filter((m) => m.status !== 'inactive' && m.status !== 'suspended');
+          return sortMembersWithOrder(activeOnly, orderIds);
         }
       }
     } catch (e) {}
@@ -61,21 +94,45 @@ export default function TeamPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'editorial', 'reporters', 'multimedia'
 
-  // Fetch dynamic members from Supabase admin_users
+  // Fetch dynamic members from Supabase admin_users and apply admin ordering
   const fetchTeamMembers = async () => {
     setIsLoading(true);
     try {
+      // 1. Resolve custom order list from localStorage or MariaDB
+      let orderIds = null;
+      try {
+        const localOrder = localStorage.getItem('jonogon_team_order');
+        if (localOrder) orderIds = JSON.parse(localOrder);
+      } catch (e) {}
+
+      if (!orderIds) {
+        try {
+          const remoteData = await fetchModuleFromMariaDb('team_order');
+          if (remoteData?.teamOrder) {
+            orderIds = Array.isArray(remoteData.teamOrder)
+              ? remoteData.teamOrder
+              : (remoteData.teamOrder.order_ids || []);
+            if (Array.isArray(orderIds) && orderIds.length > 0) {
+              try {
+                localStorage.setItem('jonogon_team_order', JSON.stringify(orderIds));
+              } catch (e) {}
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 2. Fetch from Supabase
       const { data, error } = await supabase
         .from('admin_users')
         .select('id, name, designation, role, avatar, email, phone, status, user_code, created_at')
         .order('created_at', { ascending: true });
 
       if (!error && data && data.length > 0) {
-        // Exclude suspended and inactive members from public view
         const activeOnly = data.filter((m) => m.status !== 'inactive' && m.status !== 'suspended');
-        setTeamMembers(activeOnly);
+        const sorted = sortMembersWithOrder(activeOnly, orderIds);
+        setTeamMembers(sorted);
         try {
-          localStorage.setItem('jonogon_access_members_public', JSON.stringify(activeOnly));
+          localStorage.setItem('jonogon_access_members_public', JSON.stringify(sorted));
         } catch (e) {}
       } else {
         // Fallback to local access members
@@ -84,7 +141,13 @@ export default function TeamPage() {
           if (local) {
             const parsed = JSON.parse(local);
             const activeOnly = parsed.filter((m) => m.status !== 'inactive' && m.status !== 'suspended');
-            if (activeOnly.length > 0) setTeamMembers(activeOnly);
+            if (activeOnly.length > 0) {
+              const sorted = sortMembersWithOrder(activeOnly, orderIds);
+              setTeamMembers(sorted);
+              try {
+                localStorage.setItem('jonogon_access_members_public', JSON.stringify(sorted));
+              } catch (e) {}
+            }
           }
         } catch (e) {}
       }
@@ -110,6 +173,13 @@ export default function TeamPage() {
 
     fetchTeamMembers();
 
+    // Listen to local reorder events from admin panel in same window
+    const handleOrderEvent = () => {
+      fetchTeamMembers();
+    };
+    window.addEventListener('jonogon_team_order_updated', handleOrderEvent);
+    window.addEventListener('storage', handleOrderEvent);
+
     // Subscribe to realtime updates if admin adds or updates member in Team & Access Control
     const channel = supabase
       .channel('team_page_realtime')
@@ -119,6 +189,8 @@ export default function TeamPage() {
       .subscribe();
 
     return () => {
+      window.removeEventListener('jonogon_team_order_updated', handleOrderEvent);
+      window.removeEventListener('storage', handleOrderEvent);
       supabase.removeChannel(channel);
     };
   }, [isBn]);

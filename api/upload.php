@@ -152,18 +152,23 @@ if ($requestMethod === 'POST') {
         $scriptPath = rtrim($scriptPath, '/\\');
         $localUrl = $protocol . $host . $scriptPath . '/uploads/' . date('Y/m') . '/' . $finalFileName;
 
+        $canonicalUrl = (strpos($host, 'jonogon.news') !== false) 
+            ? "https://jonogon.news/uploads/" . date('Y/m') . '/' . $finalFileName 
+            : $localUrl;
+
         if ($b2Configured) {
             $contentType = ($finalFormat === 'webp') ? 'image/webp' : ($mime ?: 'image/jpeg');
             $b2Result = uploadToBackblazeB2($finalUploadPath, $storageKey, $contentType);
             if ($b2Result && !empty($b2Result['publicUrl'])) {
-                $publicUrl = $b2Result['publicUrl'];
-                $provider = 'backblaze';
+                // Keep canonical server URL as primary public URL so Backblaze free download cap never blocks images
+                $publicUrl = $canonicalUrl;
+                $provider = 'jonogon_cloud';
             }
         }
 
         // Fallback to local storage if Backblaze failed or not configured
         if (!$publicUrl) {
-            $publicUrl = $localUrl;
+            $publicUrl = $canonicalUrl;
             $provider = 'local_server';
         }
 

@@ -186,6 +186,13 @@ if ($method === 'GET') {
             $results['mediaGallery'] = $medStmt ? $medStmt->fetchAll(PDO::FETCH_ASSOC) : [];
         }
 
+        // 9. Team Members Order
+        if (!$type || $type === 'team_order' || $type === 'teamOrder' || $type === 'all') {
+            $tStmt = $pdo->query("SELECT `setting_value` FROM `site_settings` WHERE `setting_key` = 'team_members_order' LIMIT 1");
+            $tRow = $tStmt ? $tStmt->fetch(PDO::FETCH_ASSOC) : null;
+            $results['teamOrder'] = $tRow ? json_decode($tRow['setting_value'] ?? '[]', true) : [];
+        }
+
         echo json_encode([
             'success' => true,
             'source' => 'mariadb',
@@ -555,6 +562,15 @@ if ($method === 'POST') {
                 }
             }
             echo json_encode(['success' => true, 'message' => 'বিজ্ঞাপন কনফিগারেশন MariaDB-তে সংরক্ষিত হয়েছে।']);
+            exit;
+        }
+
+        // 8. Save Team Members Order
+        if ($module === 'team_order' || $module === 'teamOrder' || $module === 'team_members') {
+            $jsonVal = is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE) : (string)$data;
+            $stmt = $pdo->prepare("INSERT INTO `site_settings` (`setting_key`, `setting_value`) VALUES ('team_members_order', ?) ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)");
+            $stmt->execute([$jsonVal]);
+            echo json_encode(['success' => true, 'message' => 'টিম সদস্যদের ক্রম MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
             exit;
         }
 

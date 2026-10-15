@@ -109,6 +109,18 @@ export async function deleteArticleFromMariaDb(postIdOrId) {
   return false;
 }
 
+export function normalizeImageUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (trimmed.includes('backblazeb2.com')) {
+    const match = trimmed.match(/uploads\/\d{4}\/\d{2}\/[^?&"'\s]+/);
+    if (match) {
+      return `https://jonogon.news/${match[0]}`;
+    }
+  }
+  return trimmed;
+}
+
 export async function fetchArticlesFromMariaDb(options = {}) {
   let queryString = '';
   if (typeof options === 'string') {
@@ -131,7 +143,15 @@ export async function fetchArticlesFromMariaDb(options = {}) {
       if (response.ok) {
         const result = await response.json();
         if (result && result.success && Array.isArray(result.data)) {
-          return result.data;
+          return result.data.map((art) => {
+            const cleanUrl = normalizeImageUrl(art.imageUrl || art.featuredImage);
+            return {
+              ...art,
+              imageUrl: cleanUrl,
+              featuredImage: cleanUrl,
+              thumbnail_image: cleanUrl
+            };
+          });
         }
       }
     } catch (err) {
