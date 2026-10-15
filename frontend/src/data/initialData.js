@@ -2020,3 +2020,58 @@ export const defaultHomepageSections = [
     "type": "subgroup"
   }
 ];
+
+export const initialVideoNews = [
+  {
+    id: 'video-main',
+    titleBn: 'পদ্মা সেতুতে নতুন রেললাইন: যা জানালেন কর্তৃপক্ষ',
+    titleEn: 'New rail link on Padma Bridge: Key official insights',
+    category: 'bangladesh',
+    categoryBn: 'বাংলাদেশ',
+    youtubeId: 'dQw4w9WgXcQ',
+    youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    imageUrl: 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=800&q=80',
+    dateBn: '২৮ সেপ্টেম্বর ২০২৪, ১০:০৫',
+    dateEn: '28 Sep 2026',
+    videoDuration: '০:৩২'
+  },
+  {
+    id: 'video-sub-1',
+    titleBn: 'চাকরির বৃত্তি পরীক্ষার প্রস্তুতির প্রতিবেদন',
+    titleEn: 'Special report on competitive scholarship exam strategies',
+    category: 'education',
+    categoryBn: 'শিক্ষা',
+    youtubeId: '3JZ_D3ELwOQ',
+    youtubeUrl: 'https://www.youtube.com/watch?v=3JZ_D3ELwOQ',
+    imageUrl: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=400&q=80',
+    dateBn: '২৭ সেপ্টেম্বর ২০২৪',
+    dateEn: '27 Sep 2026',
+    videoDuration: '২:২৩'
+  },
+  {
+    id: 'video-sub-2',
+    titleBn: 'বাজারে নিত্যপণ্যের দাম নিয়ে বিশেষ প্রতিবেদন',
+    titleEn: 'In-depth market overview on essential consumer pricing',
+    category: 'economy',
+    categoryBn: 'অর্থনীতি',
+    youtubeId: 'L_LUpnjgPso',
+    youtubeUrl: 'https://www.youtube.com/watch?v=L_LUpnjgPso',
+    imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80',
+    dateBn: '২৬ সেপ্টেম্বর ২০২৪',
+    dateEn: '26 Sep 2026',
+    videoDuration: '১:৪৫'
+  },
+  {
+    id: 'video-sub-3',
+    titleBn: 'দক্ষিণাঞ্চলে বন্যা পরিস্থিতি ও ত্রাণ বিতরণ',
+    titleEn: 'Southern flood conditions and emergency relief logistics',
+    category: 'bangladesh',
+    categoryBn: 'জাতীয়',
+    youtubeId: 'kJQP7kiw5Fk',
+    youtubeUrl: 'https://www.youtube.com/watch?v=kJQP7kiw5Fk',
+    imageUrl: 'https://images.unsplash.com/photo-1547683905-f686c993aae5?w=400&q=80',
+    dateBn: '২৫ সেপ্টেম্বর ২০২৪',
+    dateEn: '25 Sep 2026',
+    videoDuration: '৩:৪৫'
+  }
+];

@@ -104,12 +104,37 @@ export async function generateSocialCardJpg({
         return null;
       };
 
-      const templateSrc = '/news-card-template.png';
+      // Multi-candidate paths for official template frame
+      const getTemplateCandidates = () => {
+        const candidates = [];
+        if (typeof window !== 'undefined') {
+          const origin = window.location.origin;
+          const isSubdir = window.location.pathname.includes('/janogon');
+          if (isSubdir) {
+            candidates.push(`${origin}/janogon/news-card-template.png`);
+            candidates.push('/janogon/news-card-template.png');
+          }
+          candidates.push(`${origin}/news-card-template.png`);
+        }
+        candidates.push('/news-card-template.png');
+        candidates.push('./news-card-template.png');
+        return [...new Set(candidates)];
+      };
+
+      const loadTemplateImage = async () => {
+        const paths = getTemplateCandidates();
+        for (const p of paths) {
+          const img = await loadImage(p);
+          if (img) return img;
+        }
+        return null;
+      };
+
       const userPhotoSrc = imageUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80';
 
       Promise.all([
         loadImage(userPhotoSrc).catch(() => null),
-        loadImage(templateSrc).catch(() => null)
+        loadTemplateImage().catch(() => null)
       ])
         .then(([userImg, templateImg]) => {
           try {
@@ -215,7 +240,10 @@ export async function generateSocialCardJpg({
             ctx.textBaseline = 'middle';
             ctx.fillText(fullCaption, 958, 696);
 
-            // 6. Draw Text Section (Kicker & Headline)
+            // 6. Draw Text Section (Kicker & Headline with Exact User Proportional Sizing)
+            const canvasTitleFontSize = titleFontSize > 36 ? titleFontSize : Math.round((titleFontSize || 24) * 2.25);
+            const canvasKickerFontSize = kickerFontSize > 22 ? kickerFontSize : Math.round((kickerFontSize || 15) * 1.85);
+
             const rawTitle = title || 'একবছরে গরিব জনগণ বেড়েছে প্রায় ২১ লাখ !';
             let line1 = '';
             let line2 = '';
@@ -256,35 +284,35 @@ export async function generateSocialCardJpg({
 
             // Coordinated Positioning in the text box (Y: 725px to 970px, Center: 848px)
             if (kicker && line1 && line2) {
-              ctx.font = `800 ${kickerFontSize || 28}px ${fontSans}`;
+              ctx.font = `800 ${canvasKickerFontSize}px ${fontSans}`;
               ctx.fillStyle = '#B82A24';
-              ctx.fillText(kicker, 512, 762);
+              ctx.fillText(kicker, 512, 758);
 
-              ctx.font = `900 ${titleFontSize || 48}px ${fontSans}`;
+              ctx.font = `900 ${canvasTitleFontSize}px ${fontSans}`;
               ctx.fillStyle = line1Color;
-              ctx.fillText(line1, 512, 826);
+              ctx.fillText(line1, 512, 822);
 
-              ctx.font = `900 ${(titleFontSize || 48) + 4}px ${fontSans}`;
+              ctx.font = `900 ${canvasTitleFontSize + 3}px ${fontSans}`;
               ctx.fillStyle = line2Color;
-              ctx.fillText(line2, 512, 888);
+              ctx.fillText(line2, 512, 886);
             } else if (kicker && line1 && !line2) {
-              ctx.font = `800 ${kickerFontSize || 28}px ${fontSans}`;
+              ctx.font = `800 ${canvasKickerFontSize}px ${fontSans}`;
               ctx.fillStyle = '#B82A24';
-              ctx.fillText(kicker, 512, 785);
+              ctx.fillText(kicker, 512, 780);
 
-              ctx.font = `900 ${titleFontSize || 50}px ${fontSans}`;
+              ctx.font = `900 ${canvasTitleFontSize}px ${fontSans}`;
               ctx.fillStyle = line1Color;
-              ctx.fillText(line1, 512, 856);
+              ctx.fillText(line1, 512, 852);
             } else if (!kicker && line1 && line2) {
-              ctx.font = `900 ${titleFontSize || 50}px ${fontSans}`;
+              ctx.font = `900 ${canvasTitleFontSize}px ${fontSans}`;
               ctx.fillStyle = line1Color;
-              ctx.fillText(line1, 512, 808);
+              ctx.fillText(line1, 512, 804);
 
-              ctx.font = `900 ${(titleFontSize || 50) + 4}px ${fontSans}`;
+              ctx.font = `900 ${canvasTitleFontSize + 3}px ${fontSans}`;
               ctx.fillStyle = line2Color;
-              ctx.fillText(line2, 512, 876);
+              ctx.fillText(line2, 512, 874);
             } else if (line1) {
-              ctx.font = `900 ${titleFontSize || 52}px ${fontSans}`;
+              ctx.font = `900 ${canvasTitleFontSize}px ${fontSans}`;
               ctx.fillStyle = line1Color;
               ctx.fillText(line1, 512, 848);
             }

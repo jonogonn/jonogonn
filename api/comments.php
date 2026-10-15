@@ -80,7 +80,29 @@ function getClientIP() {
     return $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
 }
 
+function ensureCommentsTable($pdo) {
+    if (!$pdo) return;
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `article_comments` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `post_id` VARCHAR(191) NOT NULL,
+            `user_name` VARCHAR(150) NOT NULL,
+            `user_email` VARCHAR(150) DEFAULT NULL,
+            `comment_text` TEXT NOT NULL,
+            `status` ENUM('approved', 'pending', 'rejected') DEFAULT 'approved',
+            `ip_address` VARCHAR(45) DEFAULT NULL,
+            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX (`post_id`),
+            INDEX (`status`),
+            INDEX (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (Exception $e) {}
+}
+
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+if ($pdo) {
+    ensureCommentsTable($pdo);
+}
 
 // -------------------------------------------------------------------------
 // 1. GET: FETCH COMMENTS FOR AN ARTICLE (OR ALL COMMENTS FOR ADMIN)
@@ -93,12 +115,29 @@ if ($method === 'GET') {
             throw new Exception("Database connection is not available.");
         }
 
-        // If no post_id specified, return recent approved comments (or limit 100)
+        $isAdmin = isset($_GET['admin']) && $_GET['admin'] === '1';
+        $statusFilter = $_GET['status'] ?? '';
+
+        // If no post_id specified, return recent comments (or limit 200 for admin)
         if (empty($postId)) {
-            $stmt = $pdo->query("SELECT `id`, `post_id`, `user_name`, `user_email`, `comment_text`, `status`, `created_at` 
-                                  FROM `article_comments` 
-                                  WHERE `status` = 'approved' 
-                                  ORDER BY `id` DESC LIMIT 50");
+            if ($isAdmin) {
+                if ($statusFilter && $statusFilter !== 'all') {
+                    $stmt = $pdo->prepare("SELECT `id`, `post_id`, `user_name`, `user_email`, `comment_text`, `status`, `created_at` 
+                                           FROM `article_comments` 
+                                           WHERE `status` = ? 
+                                           ORDER BY `id` DESC LIMIT 200");
+                    $stmt->execute([$statusFilter]);
+                } else {
+                    $stmt = $pdo->query("SELECT `id`, `post_id`, `user_name`, `user_email`, `comment_text`, `status`, `created_at` 
+                                           FROM `article_comments` 
+                                           ORDER BY `id` DESC LIMIT 200");
+                }
+            } else {
+                $stmt = $pdo->query("SELECT `id`, `post_id`, `user_name`, `user_email`, `comment_text`, `status`, `created_at` 
+                                       FROM `article_comments` 
+                                       WHERE `status` = 'approved' 
+                                       ORDER BY `id` DESC LIMIT 50");
+            }
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } else {
             // Find all identifiers that could belong to this post (id, post_id, slug)
@@ -164,6 +203,37 @@ if ($method === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
     if (!is_array($input)) {
         $input = $_POST;
+    }
+
+    // Admin Status Update (approve, reject, pending)
+    if (($input['action'] ?? '') === 'update_status' || isset($input['status_update'])) {
+        $commentId = (int)($input['id'] ?? 0);
+        $newStatus = trim($input['status'] ?? 'approved');
+        if (!in_array($newStatus, ['approved', 'pending', 'rejected'])) {
+            $newStatus = 'approved';
+        }
+
+        if ($commentId <= 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid comment ID'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        try {
+            $stmt = $pdo->prepare("UPDATE `article_comments` SET `status` = ? WHERE `id` = ?");
+            $stmt->execute([$newStatus, $commentId]);
+            echo json_encode([
+                'success' => true,
+                'message' => 'মন্তব্যের স্ট্যাটাস সফলভাবে আপডেট করা হয়েছে।',
+                'id' => $commentId,
+                'status' => $newStatus
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
     }
 
     $postId = trim($input['post_id'] ?? $input['article_id'] ?? '');

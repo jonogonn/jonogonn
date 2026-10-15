@@ -113,10 +113,15 @@ if ($requestMethod === 'POST') {
         $conversionSuccess = false;
 
         if ($isAlreadyWebp) {
-            // Already WebP, use directly
-            $conversionSuccess = true;
-            $finalUploadPath = $tmpPath;
-            $finalFormat = 'webp';
+            if (empty($_POST['skip_watermark'])) {
+                $conversionSuccess = convertToWebp($tmpPath, 'image/webp', $tempWebpPath, 85, true);
+                $finalUploadPath = $conversionSuccess ? $tempWebpPath : $tmpPath;
+                $finalFormat = 'webp';
+            } else {
+                $conversionSuccess = true;
+                $finalUploadPath = $tmpPath;
+                $finalFormat = 'webp';
+            }
         } else {
             // Convert using GD if available
             $conversionSuccess = convertToWebp($tmpPath, $mime, $tempWebpPath, 85);
@@ -313,7 +318,83 @@ if ($requestMethod === 'POST') {
 // -------------------------------------------------------------
 // HELPER: CONVERT IMAGE TO WEBP
 // -------------------------------------------------------------
-function convertToWebp($sourcePath, $mime, $destPath, $quality = 85) {
+// HELPER: APPLY WATERMARK TO GD IMAGE (38% OPACITY CENTER)
+// -------------------------------------------------------------
+function addWatermarkToGdImage($mainImage, $opacity = 38) {
+    if (!$mainImage || !function_exists('imagecreatefrompng') || !function_exists('imagecopyresampled')) {
+        return $mainImage;
+    }
+    $watermarkPaths = [
+        __DIR__ . '/../logo-watermark.png',
+        __DIR__ . '/../frontend/public/logo-watermark.png',
+        __DIR__ . '/../frontend/dist/logo-watermark.png',
+        __DIR__ . '/logo-watermark.png'
+    ];
+    $wmFile = null;
+    foreach ($watermarkPaths as $p) {
+        if (file_exists($p)) {
+            $wmFile = $p;
+            break;
+        }
+    }
+    if (!$wmFile) return $mainImage;
+
+    $wmImg = @imagecreatefrompng($wmFile);
+    if (!$wmImg) return $mainImage;
+
+    $mainW = imagesx($mainImage);
+    $mainH = imagesy($mainImage);
+    $wmOrigW = imagesx($wmImg);
+    $wmOrigH = imagesy($wmImg);
+
+    // Calculate watermark dimensions (approx 25% of image width)
+    $wmTargetW = (int)round($mainW * 0.25);
+    if ($mainW > 600) {
+        $wmTargetW = max(160, min($wmTargetW, 420));
+    } else {
+        $wmTargetW = max(100, min($wmTargetW, (int)round($mainW * 0.45)));
+    }
+    $wmTargetH = (int)round($wmTargetW * ($wmOrigH / $wmOrigW));
+
+    // Center position
+    $destX = (int)round(($mainW - $wmTargetW) / 2);
+    $destY = (int)round(($mainH - $wmTargetH) / 2);
+
+    $resizedWm = imagecreatetruecolor($wmTargetW, $wmTargetH);
+    imagealphablending($resizedWm, false);
+    imagesavealpha($resizedWm, true);
+    $transColor = imagecolorallocatealpha($resizedWm, 0, 0, 0, 127);
+    imagefill($resizedWm, 0, 0, $transColor);
+    imagecopyresampled($resizedWm, $wmImg, 0, 0, 0, 0, $wmTargetW, $wmTargetH, $wmOrigW, $wmOrigH);
+
+    imagealphablending($mainImage, true);
+    for ($x = 0; $x < $wmTargetW; $x++) {
+        for ($y = 0; $y < $wmTargetH; $y++) {
+            $color = imagecolorat($resizedWm, $x, $y);
+            $alpha = ($color >> 24) & 0x7F;
+            if ($alpha >= 127) continue;
+
+            $effectiveAlpha = 127 - (int)round((127 - $alpha) * ($opacity / 100));
+            $effectiveAlpha = min(127, max(0, $effectiveAlpha));
+
+            $r = ($color >> 16) & 0xFF;
+            $g = ($color >> 8) & 0xFF;
+            $b = $color & 0xFF;
+
+            $newColor = imagecolorallocatealpha($mainImage, $r, $g, $b, $effectiveAlpha);
+            imagesetpixel($mainImage, $destX + $x, $destY + $y, $newColor);
+        }
+    }
+
+    @imagedestroy($wmImg);
+    @imagedestroy($resizedWm);
+    return $mainImage;
+}
+
+// -------------------------------------------------------------
+// HELPER: CONVERT IMAGE TO WEBP FORMAT WITH WATERMARK
+// -------------------------------------------------------------
+function convertToWebp($sourcePath, $mime, $destPath, $quality = 85, $applyWatermark = true) {
     if (!extension_loaded('gd') || !function_exists('imagewebp')) {
         return false;
     }
@@ -342,6 +423,10 @@ function convertToWebp($sourcePath, $mime, $destPath, $quality = 85) {
 
     if (!$image) {
         return false;
+    }
+
+    if ($applyWatermark && empty($_POST['skip_watermark'])) {
+        $image = addWatermarkToGdImage($image, 38);
     }
 
     $result = @imagewebp($image, $destPath, $quality);

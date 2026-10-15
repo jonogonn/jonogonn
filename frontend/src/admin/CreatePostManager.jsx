@@ -64,7 +64,7 @@ import {
   RefreshCw,
   Crosshair
 } from 'lucide-react';
-import { uploadImageToStorage } from '../utils/imageUploader';
+import { uploadImageToStorage, convertImageToWebp } from '../utils/imageUploader';
 import SocialNewsCardPreview from './SocialNewsCardPreview';
 import { getCardCategoryLabel } from '../utils/cardCategoryHelper';
 
@@ -305,6 +305,8 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
   // Editor Layout State
   const [isLeftToolbarOpen, setIsLeftToolbarOpen] = useState(true);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
+  const [isMobileLeftDrawerOpen, setIsMobileLeftDrawerOpen] = useState(false);
+  const [isMobileSettingsOpen, setIsMobileSettingsOpen] = useState(false);
 
   // Post Meta State
   const [postId, setPostId] = useState(initialPost?.id || initialPostId || null);
@@ -330,6 +332,10 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
   const [cardCaption, setCardCaption] = useState('ছবি: সংগৃহীত');
   const [cardCategory, setCardCategory] = useState(''); // e.g. "{sub_group} । {category}"
   const [cardImagePosition, setCardImagePosition] = useState('center center'); // 3x3 Grid position
+  const [cardTitleFontSize, setCardTitleFontSize] = useState(24);
+  const [cardKickerFontSize, setCardKickerFontSize] = useState(15);
+  const [cardColorMode, setCardColorMode] = useState('dual');
+  const [cardManualLineBreak, setCardManualLineBreak] = useState('');
 
   // Media Gallery Picker Modal State (B2 Cloud Storage)
   const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
@@ -388,6 +394,10 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
       setCardCaption(art.cardCaption || 'ছবি: সংগৃহীত');
       setCardCategory(art.cardCategory || '');
       if (art.cardImagePosition) setCardImagePosition(art.cardImagePosition);
+      if (art.cardTitleFontSize) setCardTitleFontSize(Number(art.cardTitleFontSize));
+      if (art.cardKickerFontSize) setCardKickerFontSize(Number(art.cardKickerFontSize));
+      if (art.cardColorMode) setCardColorMode(art.cardColorMode);
+      if (art.cardManualLineBreak !== undefined && art.cardManualLineBreak !== null) setCardManualLineBreak(art.cardManualLineBreak);
 
       let articleBlocks = null;
       if (art.blocks) {
@@ -660,34 +670,35 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
     }
 
     try {
-      // 1. Show immediate preview via DataURL & set uploading state
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const previewUrl = e.target?.result;
-        updateBlock(index, { url: previewUrl, previewUrl: previewUrl, isUploading: true });
+      if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবিতে অফিসিয়াল ওয়াটারমার্ক ও WebP রূপান্তর হচ্ছে...' : 'Applying watermark & optimizing to WebP...');
 
-        if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি WebP রূপান্তর ও ক্লাউড আপলোড হচ্ছে...' : 'Converting to WebP & uploading to cloud...');
+      const newsSlugForImg = slug || mainTitle || kicker || 'news';
 
-        // 2. Upload to Backblaze B2 & MariaDB
-        try {
-          const newsSlugForImg = slug || mainTitle || kicker || 'news';
-          const uploadedUrl = await uploadImageToStorage(file, {
-            slug: newsSlugForImg,
-            newsSlug: newsSlugForImg,
-            associatedNews: slug || mainTitle || kicker || ''
-          });
-          if (uploadedUrl) {
-            updateBlock(index, { url: uploadedUrl, previewUrl: previewUrl, isUploading: false });
-            if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি সফলভাবে .webp ফরম্যাটে ক্লাউডে সংরক্ষিত হয়েছে!' : 'Image uploaded to cloud as .webp!');
-          } else {
-            updateBlock(index, { isUploading: false });
-          }
-        } catch (uploadErr) {
-          console.error('Upload failed:', uploadErr);
+      // 1. Convert to WebP and stamp official logo watermark immediately client-side
+      const watermarkedFile = await convertImageToWebp(file, 0.85, 1920, newsSlugForImg, true);
+
+      // 2. Show immediate preview with watermark embedded
+      const previewUrl = URL.createObjectURL(watermarkedFile);
+      updateBlock(index, { url: previewUrl, previewUrl: previewUrl, isUploading: true });
+
+      // 3. Upload the watermarked WebP to Backblaze B2 & MariaDB
+      try {
+        const uploadedUrl = await uploadImageToStorage(watermarkedFile, {
+          slug: newsSlugForImg,
+          newsSlug: newsSlugForImg,
+          associatedNews: slug || mainTitle || kicker || '',
+          skipWatermark: true // already watermarked!
+        });
+        if (uploadedUrl) {
+          updateBlock(index, { url: uploadedUrl, previewUrl: uploadedUrl, isUploading: false });
+          if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি ওয়াটারমার্ক সহ সফলভাবে ক্লাউডে সংরক্ষিত হয়েছে!' : 'Image with watermark uploaded to cloud as .webp!');
+        } else {
           updateBlock(index, { isUploading: false });
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (uploadErr) {
+        console.error('Upload failed:', uploadErr);
+        updateBlock(index, { isUploading: false });
+      }
     } catch (err) {
       console.error('File load error:', err);
       updateBlock(index, { isUploading: false });
@@ -955,6 +966,10 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
       cardCaption: cardCaption || 'ছবি: সংগৃহীত',
       cardCategory: cardCategoryDisplay,
       cardImagePosition: cardImagePosition,
+      cardTitleFontSize: cardTitleFontSize,
+      cardKickerFontSize: cardKickerFontSize,
+      cardColorMode: cardColorMode,
+      cardManualLineBreak: cardManualLineBreak,
       author: author || 'জনগণ নিউজ ডেস্ক',
       dateBn: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }),
       dateEn: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
@@ -1018,6 +1033,11 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
     setVideoDuration(draft.videoDuration || '');
     setCardCaption(draft.cardCaption || 'ছবি: সংগৃহীত');
     setCardCategory(draft.cardCategory || '');
+    if (draft.cardImagePosition) setCardImagePosition(draft.cardImagePosition);
+    if (draft.cardTitleFontSize) setCardTitleFontSize(Number(draft.cardTitleFontSize));
+    if (draft.cardKickerFontSize) setCardKickerFontSize(Number(draft.cardKickerFontSize));
+    if (draft.cardColorMode) setCardColorMode(draft.cardColorMode);
+    if (draft.cardManualLineBreak !== undefined && draft.cardManualLineBreak !== null) setCardManualLineBreak(draft.cardManualLineBreak);
     setIsDraftsModalOpen(false);
     showSuccess(isBn ? 'খসড়া পোস্ট এডিটরে লোড করা হয়েছে!' : 'Draft loaded into editor!');
   };
@@ -1053,7 +1073,13 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
       setPostId(null);
       setSlug('');
       setKicker('');
+      setCardCaption('ছবি: সংগৃহীত');
       setCardCategory('');
+      setCardImagePosition('center center');
+      setCardTitleFontSize(24);
+      setCardKickerFontSize(15);
+      setCardColorMode('dual');
+      setCardManualLineBreak('');
       setExcerpt('');
       setMetaTitle('');
       setMetaDesc('');
@@ -1160,6 +1186,10 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
       cardCaption: cardCaption || 'ছবি: সংগৃহীত',
       cardCategory: cardCategoryDisplay,
       cardImagePosition: cardImagePosition,
+      cardTitleFontSize: cardTitleFontSize,
+      cardKickerFontSize: cardKickerFontSize,
+      cardColorMode: cardColorMode,
+      cardManualLineBreak: cardManualLineBreak,
       author: author || 'জনগণ নিউজ ডেস্ক',
       dateBn: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }),
       dateEn: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
@@ -1234,6 +1264,10 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
       cardCaption: cardCaption || 'ছবি: সংগৃহীত',
       cardCategory: cardCategoryDisplay,
       cardImagePosition: cardImagePosition,
+      cardTitleFontSize: cardTitleFontSize,
+      cardKickerFontSize: cardKickerFontSize,
+      cardColorMode: cardColorMode,
+      cardManualLineBreak: cardManualLineBreak,
       author: author || 'জনগণ নিউজ ডেস্ক',
       dateBn: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }),
       dateEn: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
@@ -1297,7 +1331,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
           STICKY TOP HEADER BAR
           ======================================================== */}
       <div
-        className="admin-card"
+        className="create-post-topbar admin-card"
         style={{
           position: 'sticky',
           top: 0,
@@ -1313,14 +1347,20 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
         }}
       >
         {/* Left header controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* Toggle Left Toolbar */}
+        <div className="create-post-topbar-left" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Toggle Left Toolbar / Mobile Elements Drawer */}
           <button
             type="button"
-            onClick={() => setIsLeftToolbarOpen((prev) => !prev)}
-            className="admin-btn-secondary"
+            onClick={() => {
+              if (window.innerWidth <= 1024) {
+                setIsMobileLeftDrawerOpen((prev) => !prev);
+              } else {
+                setIsLeftToolbarOpen((prev) => !prev);
+              }
+            }}
+            className={`admin-btn-secondary ${isMobileLeftDrawerOpen ? 'active' : ''}`}
             style={{ padding: '7px 10px', fontSize: '0.85rem' }}
-            title={isBn ? 'ইনসার্ট টুলবার টগল করুন' : 'Toggle Insert Toolbar'}
+            title={isBn ? 'ইনসার্ট উপাদান টগল করুন' : 'Toggle Elements Drawer'}
           >
             <Sliders size={16} />
           </button>
@@ -1384,7 +1424,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
         </div>
 
         {/* Center / Right header stats and action buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div className="create-post-topbar-right" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {/* Word Count & Reading Time */}
           <div
             style={{
@@ -1523,13 +1563,19 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
             </span>
           </button>
 
-          {/* Toggle Right Settings Sidebar */}
+          {/* Toggle Right Settings Sidebar / Mobile Bottom Sheet */}
           <button
             type="button"
-            onClick={() => setIsRightSidebarOpen((prev) => !prev)}
-            className="admin-btn-secondary"
+            onClick={() => {
+              if (window.innerWidth <= 1024) {
+                setIsMobileSettingsOpen((prev) => !prev);
+              } else {
+                setIsRightSidebarOpen((prev) => !prev);
+              }
+            }}
+            className={`admin-btn-secondary ${isMobileSettingsOpen ? 'active' : ''}`}
             style={{ padding: '7px 10px', fontSize: '0.85rem' }}
-            title={isBn ? 'পোস্ট সেটিংস ও কার্ড প্রিভিউ টগল করুন' : 'Toggle Settings Sidebar'}
+            title={isBn ? 'পোস্ট সেটিংস ও বিবরণ' : 'Toggle Settings Sidebar'}
           >
             <Sliders size={16} />
           </button>
@@ -1540,6 +1586,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
           MAIN THREE-COLUMN LAYOUT: [TOOLBAR] [EDITOR] [SIDEBAR]
           ======================================================== */}
       <div
+        className="create-post-layout-grid"
         style={{
           display: 'grid',
           gridTemplateColumns: `${isLeftToolbarOpen ? '200px' : '58px'} 1fr ${isRightSidebarOpen ? '380px' : '0px'}`,
@@ -1556,7 +1603,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
             LEFT COLUMN: BLOCK INSERT TOOLBAR (Strictly hugs content height)
             ---------------------------------------------------- */}
         <div
-          className="admin-card"
+          className="create-post-toolbar-col admin-card"
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -1653,6 +1700,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
             CENTER COLUMN: VISUAL BLOCK EDITOR (Smooth Independent Scroll)
             ---------------------------------------------------- */}
         <div
+          className="create-post-editor-col"
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -2244,10 +2292,11 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
         </div>
 
         {/* ----------------------------------------------------
-            RIGHT COLUMN: SETTINGS, SOCIAL CARD & METADATA SIDEBAR (Independent Scroll)
+            RIGHT COLUMN: SETTINGS, SOCIAL CARD & METADATA SIDEBAR (Independent Scroll / Mobile Bottom Sheet)
             ---------------------------------------------------- */}
-        {isRightSidebarOpen && (
+        {(isRightSidebarOpen || isMobileSettingsOpen) && (
           <div
+            className={`create-post-sidebar-col ${isMobileSettingsOpen ? 'mobile-bottom-sheet' : ''}`}
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -2260,6 +2309,25 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
               paddingBottom: 60
             }}
           >
+            {/* Mobile Bottom Sheet Header Bar */}
+            <div className="mobile-sheet-header-bar">
+              <div className="mobile-sheet-drag-pill" />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 8, paddingBottom: 10, borderBottom: '1px solid var(--border-color)' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Sliders size={18} color="var(--primary-red)" />
+                  {isBn ? 'পোস্ট সেটিংস ও বিস্তারিত বিবরণ' : 'Post Settings & Details'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileSettingsOpen(false)}
+                  className="admin-btn-secondary"
+                  style={{ width: 32, height: 32, padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title={isBn ? 'বন্ধ করুন' : 'Close'}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
             {/* Card 0: Live 16:9 Thumbnail Preview & 3x3 Grid Position Selector (Task 6) */}
             <div className="admin-card" style={{ padding: '16px 18px', border: '2px solid var(--border-color)', margin: 0, flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -2395,6 +2463,16 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
                   dateBn={new Date(publishDate).toLocaleDateString(isBn ? 'bn-BD' : 'en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
                   imagePosition={cardImagePosition}
                   onPositionChange={setCardImagePosition}
+                  titleFontSize={cardTitleFontSize}
+                  onTitleFontSizeChange={setCardTitleFontSize}
+                  kickerFontSize={cardKickerFontSize}
+                  onKickerFontSizeChange={setCardKickerFontSize}
+                  colorMode={cardColorMode}
+                  onColorModeChange={setCardColorMode}
+                  manualLineBreak={cardManualLineBreak}
+                  onManualLineBreakChange={setCardManualLineBreak}
+                  slug={slug || 'news-card'}
+                  allowDownload={true}
                 />
               </div>
 
@@ -2886,14 +2964,26 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
                   </div>
 
                   <SocialNewsCardPreview
+                    isBn={isBn}
+                    language={isBn ? 'bn' : 'en'}
                     title={mainTitle}
                     kicker={kicker}
                     imageUrl={featuredImageUrl}
                     caption={cardCaption}
                     category={cardCategoryDisplay}
-                    dateBn={new Date(publishDate).toLocaleDateString('bn-BD', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    dateBn={new Date(publishDate).toLocaleDateString(isBn ? 'bn-BD' : 'en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
                     imagePosition={cardImagePosition}
                     onPositionChange={setCardImagePosition}
+                    titleFontSize={cardTitleFontSize}
+                    onTitleFontSizeChange={setCardTitleFontSize}
+                    kickerFontSize={cardKickerFontSize}
+                    onKickerFontSizeChange={setCardKickerFontSize}
+                    colorMode={cardColorMode}
+                    onColorModeChange={setCardColorMode}
+                    manualLineBreak={cardManualLineBreak}
+                    onManualLineBreakChange={setCardManualLineBreak}
+                    slug={slug || 'news-card'}
+                    allowDownload={true}
                   />
                 </div>
               ) : (
@@ -3478,6 +3568,123 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
               >
                 {isBn ? 'বন্ধ করুন' : 'Close'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Settings Bottom Sheet Overlay Backdrop */}
+      {isMobileSettingsOpen && (
+        <div
+          className="mobile-settings-overlay-backdrop"
+          onClick={() => setIsMobileSettingsOpen(false)}
+        />
+      )}
+
+      {/* Mobile Floating Action Button (+) for Adding Elements */}
+      <button
+        type="button"
+        className="create-post-mobile-fab"
+        onClick={() => setIsMobileLeftDrawerOpen(true)}
+        aria-label={isBn ? 'নতুন ব্লক উপাদান যুক্ত করুন' : 'Add block element'}
+        title={isBn ? 'নতুন উপাদান যুক্ত করুন (+)' : 'Add Element (+)'}
+      >
+        <Plus size={28} strokeWidth={2.6} />
+      </button>
+
+      {/* Mobile Left Drawer for Selecting Block Elements */}
+      {isMobileLeftDrawerOpen && (
+        <div
+          className="mobile-drawer-overlay"
+          onClick={() => setIsMobileLeftDrawerOpen(false)}
+        >
+          <div
+            className="mobile-left-drawer-panel"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drawer Header */}
+            <div className="mobile-drawer-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    backgroundColor: 'rgba(220, 38, 38, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Plus size={18} color="var(--primary-red)" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                    {isBn ? 'উপাদান নির্বাচন করুন' : 'Add Element Block'}
+                  </h3>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {isBn ? 'পোস্টে যুক্ত করতে ক্লিক করুন' : 'Tap to insert block'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileLeftDrawerOpen(false)}
+                className="admin-btn-secondary"
+                style={{
+                  width: 32,
+                  height: 32,
+                  padding: 0,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title={isBn ? 'বন্ধ করুন' : 'Close'}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Drawer Body - Grid of Element Blocks */}
+            <div className="mobile-drawer-body">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                {[
+                  { type: 'heading', label: isBn ? 'শিরোনাম' : 'Heading', desc: isBn ? 'H1, H2, H3 হেডিং' : 'H1, H2, H3 headings', icon: Heading },
+                  { type: 'image', label: isBn ? 'ছবি ও ক্যাপশন' : 'Image & Caption', desc: isBn ? 'ফটো ও ক্যাপশন' : 'Photo & caption', icon: ImageIcon },
+                  { type: 'paragraph', label: isBn ? 'অনুচ্ছেদ' : 'Paragraph', desc: isBn ? 'বিস্তারিত টেক্সট' : 'Rich text content', icon: Type },
+                  { type: 'blockquote', label: isBn ? 'উদ্ধৃতি' : 'Blockquote', desc: isBn ? 'উদ্ধৃত বক্তব্য' : 'Quote highlight', icon: Quote },
+                  { type: 'list', label: isBn ? 'তালিকা' : 'List', desc: isBn ? 'বুলেট বা ক্রমিক' : 'Bullet or numbered', icon: List },
+                  { type: 'table', label: isBn ? 'তথ্য টেবিল' : 'Data Table', desc: isBn ? 'কলাম ও সারি' : 'Rows and columns', icon: TableIcon },
+                  { type: 'video', label: isBn ? 'ভিডিও এম্বেড' : 'Video Embed', desc: isBn ? 'ইউটিউব/ভিডিও' : 'YouTube or direct', icon: Video },
+                  { type: 'audio', label: isBn ? 'অডিও ক্লিপ' : 'Audio Clip', desc: isBn ? 'ভয়েস বা সাউন্ড' : 'Sound or podcast', icon: Music },
+                  { type: 'verse', label: isBn ? 'কবিতা ও ছন্দ' : 'Verse', desc: isBn ? 'ছন্দবদ্ধ চরণ' : 'Poetry or lyrics', icon: Feather },
+                  { type: 'code', label: isBn ? 'কোড ব্লক' : 'Code Block', desc: isBn ? 'প্রোগ্রামিং কোড' : 'Formatted code', icon: Code },
+                  { type: 'divider', label: isBn ? 'বিভাজক রেখা' : 'Divider', desc: isBn ? 'অনুচ্ছেদ বিভাজন' : 'Section separator', icon: Minus },
+                  { type: 'file', label: isBn ? 'ডাউনলোড ফাইল' : 'File Download', desc: isBn ? 'পিডিএফ বা ডকুমেন্ট' : 'PDF or document', icon: FileDown }
+                ].map((item) => {
+                  const IconComp = item.icon;
+                  return (
+                    <button
+                      key={item.type}
+                      type="button"
+                      onClick={() => {
+                        addBlock(item.type);
+                        setIsMobileLeftDrawerOpen(false);
+                      }}
+                      className="mobile-drawer-block-btn"
+                    >
+                      <div className="mobile-drawer-icon-wrap">
+                        <IconComp size={20} color="var(--primary-red)" />
+                      </div>
+                      <div className="mobile-drawer-text-wrap">
+                        <span className="mobile-drawer-block-title">{item.label}</span>
+                        <span className="mobile-drawer-block-desc">{item.desc}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>

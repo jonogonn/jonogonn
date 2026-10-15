@@ -51,7 +51,9 @@ import {
   Square,
   User,
   Users,
-  Camera
+  Camera,
+  Video,
+  Inbox
 } from 'lucide-react';
 import { uploadImageToStorage } from '../utils/imageUploader';
 import MainMenuManager from './MainMenuManager';
@@ -69,6 +71,9 @@ import NewsCardMakerManager from './NewsCardMakerManager';
 import AdminNotificationDropdown from './AdminNotificationDropdown';
 import AdminLoginScreen from './AdminLoginScreen';
 import AdsManager from './AdsManager';
+import VideoNewsManager from './VideoNewsManager';
+import ComplaintsManager from './ComplaintsManager';
+import CommentsManager from './CommentsManager';
 import ConfirmModal from '../components/Modals/ConfirmModal';
 import { getPodcastThumbnail } from '../components/News/PodcastSection';
 
@@ -153,6 +158,23 @@ export default function AdminDashboard() {
     }
   }, [isAuthenticated]);
 
+  // Mobile 3-dot menu state for overview table
+  const [dashboardTableMenuId, setDashboardTableMenuId] = useState(null);
+
+  useEffect(() => {
+    const handleDocumentClick = (e) => {
+      if (!e.target.closest('.admin-3dot-container')) {
+        setDashboardTableMenuId(null);
+      }
+    };
+    if (dashboardTableMenuId) {
+      document.addEventListener('click', handleDocumentClick);
+    }
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+    };
+  }, [dashboardTableMenuId]);
+
   // Tab permission helper based on Supabase role & allowed_tabs
   const isTabAllowed = (tabKey) => {
     if (!currentMember || !currentMember.allowed_tabs || currentMember.role === 'Super Admin') return true;
@@ -171,6 +193,7 @@ export default function AdminDashboard() {
 
   // 2. Collapsible Sidebar State (Open/Close with Icon-Only Mode)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   // 3. Top Search State
   const [topSearchQuery, setTopSearchQuery] = useState('');
@@ -646,9 +669,17 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* Mobile Backdrop Overlay */}
+      {isMobileNavOpen && (
+        <div
+          className="admin-mobile-backdrop"
+          onClick={() => setIsMobileNavOpen(false)}
+        />
+      )}
+
       {/* --- SIDEBAR (Collapsible, Scrollable Middle Nav, Fixed Top & Bottom Profile) --- */}
       <aside
-        className={`admin-sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isLight ? 'light' : 'dark'}`}
+        className={`admin-sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isMobileNavOpen ? 'mobile-open' : ''} ${isLight ? 'light' : 'dark'}`}
         style={{
           width: isSidebarCollapsed ? 74 : 260,
           minWidth: isSidebarCollapsed ? 74 : 260,
@@ -697,6 +728,11 @@ export default function AdminDashboard() {
         {/* 2. Scrollable Middle Navigation Menu (between Top Logo & Bottom Profile) */}
         <nav
           className="admin-nav"
+          onClick={(e) => {
+            if (e.target.closest('button') && typeof window !== 'undefined' && window.innerWidth <= 768) {
+              setIsMobileNavOpen(false);
+            }
+          }}
           style={{
             flex: 1,
             overflowY: 'auto',
@@ -917,6 +953,23 @@ export default function AdminDashboard() {
             </button>
           )}
 
+          {/* 7b. Video News (Homepage Video News Section) */}
+          {isTabAllowed('video-news') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'video-news' ? 'active' : ''}`}
+              onClick={() => setActiveTab('video-news')}
+              title={isBn ? 'ভিডিও সংবাদ' : 'Video News'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <Video size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'ভিডিও সংবাদ' : 'Video News'}</span>}
+            </button>
+          )}
+
           {/* 8. Main Menu & Categories */}
           {isTabAllowed('main-menu') && (
             <button
@@ -998,6 +1051,40 @@ export default function AdminDashboard() {
             >
               <DollarSign size={18} />
               {!isSidebarCollapsed && <span>{isBn ? 'বিজ্ঞাপন ও মনিটাইজেশন' : 'AdSense & Ads'}</span>}
+            </button>
+          )}
+
+          {/* 11b. Citizen Complaints Box */}
+          {isTabAllowed('complaints') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'complaints' ? 'active' : ''}`}
+              onClick={() => setActiveTab('complaints')}
+              title={isBn ? 'নাগরিক অভিযোগ বক্স' : 'Citizen Complaints'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <Inbox size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'অভিযোগ বক্স' : 'Complaints'}</span>}
+            </button>
+          )}
+
+          {/* 11c. Reader Comments Management */}
+          {isTabAllowed('comments') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'comments' ? 'active' : ''}`}
+              onClick={() => setActiveTab('comments')}
+              title={isBn ? 'পাঠক মন্তব্য' : 'Reader Comments'}
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <MessageSquare size={18} />
+              {!isSidebarCollapsed && <span>{isBn ? 'পাঠক মন্তব্য' : 'Comments'}</span>}
             </button>
           )}
 
@@ -1166,9 +1253,10 @@ export default function AdminDashboard() {
       </aside>
 
       {/* --- MAIN CONTENT AREA --- */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflowY: 'auto' }}>
+      <main className="admin-main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflowY: 'auto' }}>
         {/* --- 6. TOP HEADER BAR (ONLY: Search, Live Site, BN/EN, Dark/Light, Notification) --- */}
         <header
+          className="admin-top-header"
           style={{
             height: 64,
             padding: '0 24px',
@@ -1184,11 +1272,18 @@ export default function AdminDashboard() {
           }}
         >
           {/* Left: Hamburger Toggle & Search Input */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, maxWidth: 540 }}>
+          <div className="admin-header-left" style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, maxWidth: 540 }}>
             {/* Hamburger Button (Opens / Closes Sidebar) */}
             <button
               type="button"
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="admin-hamburger-btn"
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+                  setIsMobileNavOpen((prev) => !prev);
+                } else {
+                  setIsSidebarCollapsed((prev) => !prev);
+                }
+              }}
               style={{
                 width: 38,
                 height: 38,
@@ -1254,7 +1349,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Right: Live Site, BN/EN, Dark/Light, Notification */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="admin-header-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {/* View Live News Site Link */}
             <button
               type="button"
@@ -1386,7 +1481,7 @@ export default function AdminDashboard() {
         </header>
 
         {/* --- TAB CONTENT BODY --- */}
-        <div style={{ padding: '24px 28px', flex: 1 }}>
+        <div className="admin-content-body" style={{ padding: '24px 28px', flex: 1 }}>
           {/* TAB 1: OVERVIEW (Matching Screenshot UI) */}
           {activeTab === 'overview' && (
             <div className="admin-overview-container">
@@ -1422,7 +1517,9 @@ export default function AdminDashboard() {
                       letterSpacing: -0.3
                     }}
                   >
-                    {isBn ? 'স্বাগতম, মোঃ বিপ্লব হোসেন!' : 'Welcome, Md. Biplob Hossain!'}
+                    {isBn
+                      ? `স্বাগতম, ${currentMember?.name || 'এডমিন'}!`
+                      : `Welcome, ${currentMember?.name || 'Admin'}!`}
                   </h1>
                   <p style={{ color: isLight ? '#475569' : '#D1D5DB', fontSize: '0.88rem', lineHeight: 1.45 }}>
                     {isBn
@@ -1665,13 +1762,12 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Table */}
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.86rem' }}>
-                    <thead>
+                <div className="publish-posts-table-wrap" style={{ overflowX: 'auto' }}>
+                  <table className="admin-responsive-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.86rem' }}>
+                    <thead className="desktop-only-header">
                       <tr style={{ borderBottom: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.08)', color: isLight ? '#64748B' : '#9CA3AF', fontSize: '0.8rem', textTransform: 'uppercase' }}>
                         <th style={{ padding: '12px 10px', width: 40 }}><input type="checkbox" /></th>
-                        <th style={{ padding: '12px 10px' }}>{isBn ? 'ছবি' : 'Image'}</th>
-                        <th style={{ padding: '12px 10px' }}>{isBn ? 'শিরোনাম' : 'Headline'}</th>
+                        <th style={{ padding: '12px 10px' }}>{isBn ? 'ছবি ও শিরোনাম' : 'Image & Headline'}</th>
                         <th style={{ padding: '12px 10px' }}>{isBn ? 'ক্যাটাগরি' : 'Category'}</th>
                         <th style={{ padding: '12px 10px' }}>{isBn ? 'প্রকাশের তারিখ' : 'Publish Date'}</th>
                         <th style={{ padding: '12px 10px' }}>{isBn ? 'ভিউ' : 'Views'}</th>
@@ -1682,14 +1778,54 @@ export default function AdminDashboard() {
                     <tbody>
                       {articles.slice(0, 8).map((art) => (
                         <tr key={art.id} style={{ borderBottom: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.08)', transition: 'background 0.15s' }}>
-                          <td style={{ padding: '12px 10px' }}><input type="checkbox" /></td>
-                          <td style={{ padding: '12px 10px' }}>
-                            <img src={art.imageUrl} alt="" style={{ width: 56, height: 38, objectFit: 'cover', borderRadius: 4 }} />
+                          <td className="col-desktop-only" style={{ padding: '12px 10px' }}><input type="checkbox" /></td>
+                          <td className="col-article-main" style={{ padding: '12px 10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                              <img src={art.imageUrl} alt="" style={{ width: 56, height: 40, objectFit: 'cover', borderRadius: 4, flexShrink: 0, marginTop: 2 }} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF', lineHeight: 1.35, fontSize: '0.92rem' }}>
+                                  {isBn ? art.titleBn : (art.titleEn || art.titleBn)}
+                                </div>
+                                {/* Mobile details under headline */}
+                                <div className="mobile-meta-under-headline">
+                                  <span
+                                    style={{
+                                      backgroundColor: 'rgba(230,0,18,0.12)',
+                                      color: 'var(--primary-red)',
+                                      border: '1px solid rgba(230,0,18,0.25)',
+                                      padding: '2px 6px',
+                                      borderRadius: 4,
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700
+                                    }}
+                                  >
+                                    {isBn ? (art.categoryBn || art.category) : (art.categoryEn || art.categoryBn || art.category)}
+                                  </span>
+                                  <span style={{ color: isLight ? '#64748B' : '#9CA3AF', fontSize: '0.72rem' }}>
+                                    {isBn ? art.dateBn : (art.dateEn || art.dateBn)}
+                                  </span>
+                                  <span style={{ color: '#EF4444', fontWeight: 800, fontSize: '0.74rem', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                    <Eye size={12} />
+                                    <span>{(art.views || 0).toLocaleString()}</span>
+                                  </span>
+                                  <span
+                                    style={{
+                                      backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                      color: '#10B981',
+                                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                                      padding: '2px 6px',
+                                      borderRadius: 4,
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700
+                                    }}
+                                  >
+                                    {isBn ? 'প্রকাশিত' : 'Published'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
                           </td>
-                          <td style={{ padding: '12px 10px', fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF', maxWidth: 320 }}>
-                            {isBn ? art.titleBn : (art.titleEn || art.titleBn)}
-                          </td>
-                          <td style={{ padding: '12px 10px' }}>
+                          <td className="col-desktop-only" style={{ padding: '12px 10px' }}>
                             <span
                               style={{
                                 backgroundColor: 'rgba(230,0,18,0.12)',
@@ -1704,16 +1840,16 @@ export default function AdminDashboard() {
                               {isBn ? (art.categoryBn || art.category) : (art.categoryEn || art.categoryBn || art.category)}
                             </span>
                           </td>
-                          <td style={{ padding: '12px 10px', color: isLight ? '#64748B' : '#9CA3AF', fontSize: '0.8rem' }}>
+                          <td className="col-desktop-only" style={{ padding: '12px 10px', color: isLight ? '#64748B' : '#9CA3AF', fontSize: '0.8rem' }}>
                             {isBn ? art.dateBn : (art.dateEn || art.dateBn)}
                           </td>
-                          <td style={{ padding: '12px 10px', color: '#EF4444', fontWeight: 800 }}>
+                          <td className="col-desktop-only" style={{ padding: '12px 10px', color: '#EF4444', fontWeight: 800 }}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                               <Eye size={13} />
                               <span>{(art.views || 0).toLocaleString()}</span>
                             </span>
                           </td>
-                          <td style={{ padding: '12px 10px' }}>
+                          <td className="col-desktop-only" style={{ padding: '12px 10px' }}>
                             <span
                               style={{
                                 backgroundColor: 'rgba(16, 185, 129, 0.15)',
@@ -1728,8 +1864,8 @@ export default function AdminDashboard() {
                               {isBn ? 'প্রকাশিত' : 'Published'}
                             </span>
                           </td>
-                          <td style={{ padding: '12px 10px', textAlign: 'center' }}>
-                            <div style={{ display: 'inline-flex', gap: 6 }}>
+                          <td className="col-actions" style={{ padding: '12px 10px', textAlign: 'center' }}>
+                            <div className="desktop-actions-wrap" style={{ display: 'inline-flex', gap: 6 }}>
                               <button
                                 type="button"
                                 onClick={() => setActiveTab('edit-post')}
@@ -1748,6 +1884,47 @@ export default function AdminDashboard() {
                               >
                                 <ExternalLink size={13} />
                               </button>
+                            </div>
+
+                            {/* Mobile 3-dot action button */}
+                            <div className="mobile-actions-wrap admin-3dot-container" style={{ position: 'relative' }}>
+                              <button
+                                type="button"
+                                className={`admin-btn-action admin-3dot-trigger ${dashboardTableMenuId === art.id ? 'active' : ''}`}
+                                style={{ width: 32, height: 32, padding: 0, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDashboardTableMenuId((prev) => (prev === art.id ? null : art.id));
+                                }}
+                              >
+                                <MoreVertical size={18} />
+                              </button>
+                              {dashboardTableMenuId === art.id && (
+                                <div className="admin-3dot-dropdown-menu" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    className="admin-menu-item-btn"
+                                    onClick={() => {
+                                      setDashboardTableMenuId(null);
+                                      setActiveTab('edit-post');
+                                    }}
+                                  >
+                                    <Edit size={14} color="#3B82F6" />
+                                    <span>{isBn ? 'সম্পাদনা করুন' : 'Edit'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="admin-menu-item-btn"
+                                    onClick={() => {
+                                      setDashboardTableMenuId(null);
+                                      setActiveTab('approve-post');
+                                    }}
+                                  >
+                                    <ExternalLink size={14} color="#10B981" />
+                                    <span>{isBn ? 'প্রিভিউ দেখুন' : 'Preview'}</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -2367,6 +2544,21 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* TAB: VIDEO NEWS (HOMEPAGE VIDEO NEWS SECTION) */}
+          {activeTab === 'video-news' && (
+            <VideoNewsManager triggerSaveToast={triggerSaveToast} />
+          )}
+
+          {/* TAB: CITIZEN COMPLAINTS BOX */}
+          {activeTab === 'complaints' && (
+            <ComplaintsManager triggerSaveToast={triggerSaveToast} />
+          )}
+
+          {/* TAB: READER COMMENTS */}
+          {activeTab === 'comments' && (
+            <CommentsManager triggerSaveToast={triggerSaveToast} />
           )}
 
           {/* TAB 8: EMERGENCY SERVICES */}

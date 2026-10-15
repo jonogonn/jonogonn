@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Minus, Plus, RotateCcw, ShieldAlert, Lock, Eye, Type, Palette, Lightbulb, Crosshair } from 'lucide-react';
+import { Minus, Plus, RotateCcw, ShieldAlert, Lock, Eye, Type, Palette, Lightbulb, Crosshair, Download, Loader2 } from 'lucide-react';
+import { generateSocialCardJpg } from '../utils/generateSocialCardJpg';
 
 const GRID_POSITIONS = [
   { id: 'top left', label: 'Top Left', bn: 'উপর-বাম', arrow: '↖' },
@@ -23,7 +24,18 @@ export default function SocialNewsCardPreview({
   imagePosition = 'center center',
   onPositionChange = null,
   isBn = true,
-  language = 'bn'
+  language = 'bn',
+  slug = '',
+  titleFontSize: propTitleFontSize,
+  onTitleFontSizeChange = null,
+  kickerFontSize: propKickerFontSize,
+  onKickerFontSizeChange = null,
+  colorMode: propColorMode,
+  onColorModeChange = null,
+  manualLineBreak: propManualLineBreak,
+  onManualLineBreakChange = null,
+  onCardSettingsChange = null,
+  allowDownload = true
 }) {
   const isBangla = isBn !== false && language !== 'en';
 
@@ -33,12 +45,61 @@ export default function SocialNewsCardPreview({
   const [screenshotAttemptCount, setScreenshotAttemptCount] = useState(0);
 
   // States for text customization & font size controls (+ / -)
-  const [titleFontSize, setTitleFontSize] = useState(24); // in px (scaled)
-  const [kickerFontSize, setKickerFontSize] = useState(15);
+  const [internalTitleFontSize, setInternalTitleFontSize] = useState(propTitleFontSize || 24);
+  const [internalKickerFontSize, setInternalKickerFontSize] = useState(propKickerFontSize || 15);
   const [lineHeightRatio, setLineHeightRatio] = useState(1.18);
-  const [colorMode, setColorMode] = useState('dual'); // 'dual' | 'red' | 'blue' | 'dark'
-  const [manualLineBreak, setManualLineBreak] = useState(''); // optional custom split
+  const [internalColorMode, setInternalColorMode] = useState(propColorMode || 'dual');
+  const [internalManualLineBreak, setInternalManualLineBreak] = useState(propManualLineBreak || '');
   const [internalImagePosition, setInternalImagePosition] = useState(imagePosition || 'center center');
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [templateImgSrc, setTemplateImgSrc] = useState('/news-card-template.png');
+
+  useEffect(() => {
+    if (propTitleFontSize !== undefined) setInternalTitleFontSize(propTitleFontSize);
+  }, [propTitleFontSize]);
+
+  useEffect(() => {
+    if (propKickerFontSize !== undefined) setInternalKickerFontSize(propKickerFontSize);
+  }, [propKickerFontSize]);
+
+  useEffect(() => {
+    if (propColorMode !== undefined) setInternalColorMode(propColorMode);
+  }, [propColorMode]);
+
+  useEffect(() => {
+    if (propManualLineBreak !== undefined) setInternalManualLineBreak(propManualLineBreak);
+  }, [propManualLineBreak]);
+
+  const titleFontSize = propTitleFontSize !== undefined ? propTitleFontSize : internalTitleFontSize;
+  const kickerFontSize = propKickerFontSize !== undefined ? propKickerFontSize : internalKickerFontSize;
+  const colorMode = propColorMode !== undefined ? propColorMode : internalColorMode;
+  const manualLineBreak = propManualLineBreak !== undefined ? propManualLineBreak : internalManualLineBreak;
+
+  const updateTitleFontSize = (updater) => {
+    const nextVal = typeof updater === 'function' ? updater(titleFontSize) : updater;
+    setInternalTitleFontSize(nextVal);
+    if (onTitleFontSizeChange) onTitleFontSizeChange(nextVal);
+    if (onCardSettingsChange) onCardSettingsChange({ titleFontSize: nextVal });
+  };
+
+  const updateKickerFontSize = (updater) => {
+    const nextVal = typeof updater === 'function' ? updater(kickerFontSize) : updater;
+    setInternalKickerFontSize(nextVal);
+    if (onKickerFontSizeChange) onKickerFontSizeChange(nextVal);
+    if (onCardSettingsChange) onCardSettingsChange({ kickerFontSize: nextVal });
+  };
+
+  const updateColorMode = (mode) => {
+    setInternalColorMode(mode);
+    if (onColorModeChange) onColorModeChange(mode);
+    if (onCardSettingsChange) onCardSettingsChange({ colorMode: mode });
+  };
+
+  const updateManualLineBreak = (text) => {
+    setInternalManualLineBreak(text);
+    if (onManualLineBreakChange) onManualLineBreakChange(text);
+    if (onCardSettingsChange) onCardSettingsChange({ manualLineBreak: text });
+  };
 
   const currentImagePosition = onPositionChange ? (imagePosition || 'center center') : internalImagePosition;
 
@@ -47,6 +108,35 @@ export default function SocialNewsCardPreview({
       onPositionChange(pos);
     } else {
       setInternalImagePosition(pos);
+    }
+    if (onCardSettingsChange) {
+      onCardSettingsChange({ imagePosition: pos });
+    }
+  };
+
+  const handleDownloadCard = async () => {
+    if (isDownloading) return;
+    try {
+      setIsDownloading(true);
+      await generateSocialCardJpg({
+        title: rawTitle,
+        kicker: kicker || '',
+        imageUrl: displayImage,
+        caption: displayCaption,
+        category: category || 'সারাদেশ । বাংলাদেশ',
+        dateBn: displayDate,
+        imagePosition: currentImagePosition,
+        titleFontSize: titleFontSize,
+        kickerFontSize: kickerFontSize,
+        colorMode: colorMode,
+        manualLineBreak: manualLineBreak,
+        slug: slug || 'social-card',
+        fileName: `${slug || 'news-card'}.jpg`
+      });
+    } catch (err) {
+      console.error('Failed to generate social card:', err);
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -185,11 +275,11 @@ export default function SocialNewsCardPreview({
   };
 
   const handleResetControls = () => {
-    setTitleFontSize(24);
-    setKickerFontSize(15);
+    updateTitleFontSize(24);
+    updateKickerFontSize(15);
     setLineHeightRatio(1.18);
-    setColorMode('dual');
-    setManualLineBreak('');
+    updateColorMode('dual');
+    updateManualLineBreak('');
     handlePositionSelect('center center');
   };
 
@@ -314,7 +404,14 @@ export default function SocialNewsCardPreview({
 
         {/* Layer 2: Official Template Frame (Header logo, QR code, red frame, golden pill, ribbon & footer) */}
         <img
-          src="/news-card-template.png"
+          src={templateImgSrc}
+          onError={() => {
+            if (templateImgSrc === '/news-card-template.png') {
+              setTemplateImgSrc('/janogon/news-card-template.png');
+            } else if (templateImgSrc === '/janogon/news-card-template.png') {
+              setTemplateImgSrc('./news-card-template.png');
+            }
+          }}
           alt="Card Template Frame"
           style={{
             position: 'absolute',
@@ -664,7 +761,7 @@ export default function SocialNewsCardPreview({
             <button
               type="button"
               className="admin-btn-action"
-              onClick={() => setTitleFontSize((s) => Math.max(16, s - 2))}
+              onClick={() => updateTitleFontSize((s) => Math.max(16, s - 2))}
               style={{ width: 28, height: 28, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               title={isBangla ? 'সাইজ ছোট করুন' : 'Decrease size'}
             >
@@ -676,7 +773,7 @@ export default function SocialNewsCardPreview({
             <button
               type="button"
               className="admin-btn-action"
-              onClick={() => setTitleFontSize((s) => Math.min(42, s + 2))}
+              onClick={() => updateTitleFontSize((s) => Math.min(42, s + 2))}
               style={{ width: 28, height: 28, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               title={isBangla ? 'সাইজ বড় করুন' : 'Increase size'}
             >
@@ -695,7 +792,7 @@ export default function SocialNewsCardPreview({
               <button
                 type="button"
                 className="admin-btn-action"
-                onClick={() => setKickerFontSize((s) => Math.max(11, s - 1))}
+                onClick={() => updateKickerFontSize((s) => Math.max(11, s - 1))}
                 style={{ width: 28, height: 28, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 <Minus size={13} />
@@ -706,7 +803,7 @@ export default function SocialNewsCardPreview({
               <button
                 type="button"
                 className="admin-btn-action"
-                onClick={() => setKickerFontSize((s) => Math.min(24, s + 1))}
+                onClick={() => updateKickerFontSize((s) => Math.min(24, s + 1))}
                 style={{ width: 28, height: 28, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 <Plus size={13} />
@@ -724,7 +821,7 @@ export default function SocialNewsCardPreview({
           <div style={{ display: 'inline-flex', gap: 4 }}>
             <button
               type="button"
-              onClick={() => setColorMode('dual')}
+              onClick={() => updateColorMode('dual')}
               style={{
                 fontSize: '0.72rem',
                 padding: '3px 8px',
@@ -740,7 +837,7 @@ export default function SocialNewsCardPreview({
             </button>
             <button
               type="button"
-              onClick={() => setColorMode('red')}
+              onClick={() => updateColorMode('red')}
               style={{
                 fontSize: '0.72rem',
                 padding: '3px 8px',
@@ -756,7 +853,7 @@ export default function SocialNewsCardPreview({
             </button>
             <button
               type="button"
-              onClick={() => setColorMode('blue')}
+              onClick={() => updateColorMode('blue')}
               style={{
                 fontSize: '0.72rem',
                 padding: '3px 8px',
@@ -841,9 +938,50 @@ export default function SocialNewsCardPreview({
                 : 'Optional custom split (e.g.: Headline Part 1 | Headline Part 2)'
             }
             value={manualLineBreak}
-            onChange={(e) => setManualLineBreak(e.target.value)}
+            onChange={(e) => updateManualLineBreak(e.target.value)}
           />
         </div>
+
+        {/* 6. Direct Card Download (.JPG) Button */}
+        {allowDownload && (
+          <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border-color)' }}>
+            <button
+              type="button"
+              onClick={handleDownloadCard}
+              disabled={isDownloading}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '9px 16px',
+                backgroundColor: 'var(--primary-red, #E50914)',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: 6,
+                fontWeight: 700,
+                fontSize: '0.84rem',
+                cursor: isDownloading ? 'wait' : 'pointer',
+                boxShadow: '0 4px 14px rgba(229, 9, 20, 0.35)',
+                transition: 'all 0.2s ease',
+                opacity: isDownloading ? 0.75 : 1
+              }}
+            >
+              {isDownloading ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" />
+                  <span>{isBangla ? 'কার্ড তৈরি হচ্ছে...' : 'Generating card...'}</span>
+                </>
+              ) : (
+                <>
+                  <Download size={15} />
+                  <span>{isBangla ? 'কার্ড ডাউনলোড করুন (.JPG)' : 'Download Card (.JPG)'}</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

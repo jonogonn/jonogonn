@@ -78,13 +78,12 @@ export default function PodcastSection() {
 
   const isBn = language === 'bn';
 
+  const scrollContainerRef = useRef(null);
+  const [activeVideoModal, setActiveVideoModal] = useState(null);
+
   // Section visibility check from homepageSections
   const secConfig = (homepageSections || []).find((s) => s.id === 'podcastSection');
   if (secConfig && secConfig.isVisible === false) return null;
-
-  const scrollContainerRef = useRef(null);
-
-  const [activeVideoModal, setActiveVideoModal] = useState(null);
 
   // Filter podcasts based on selected subject/topic
   const filteredPodcasts = (!selectedPodcastSubject || selectedPodcastSubject === 'all')

@@ -21,14 +21,16 @@ export default function CategoryGrids() {
     openArticle(art);
   };
 
+  const publishedArticles = (articles || []).filter((a) => a.status === 'published' || !a.status);
+
   return (
     <section className="category-blocks-grid">
       {categoryConfigs.map((cat) => {
         // Find matching article for this category
         const article =
-          articles.find((a) => a.category === cat.id) ||
-          articles.find((a) => a.id.includes(cat.id)) ||
-          articles[0];
+          publishedArticles.find((a) => a.category === cat.id) ||
+          publishedArticles.find((a) => a.id.includes(cat.id)) ||
+          publishedArticles[0];
 
         const isOpinion = cat.id === 'opinion';
 

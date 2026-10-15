@@ -38,7 +38,11 @@ import {
   Lock,
   UserCheck,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Video,
+  Inbox,
+  MessageSquare,
+  MoreVertical
 } from 'lucide-react';
 
 // Master list of all admin panel sidebar tabs with professional, meaningful names & descriptions
@@ -108,6 +112,14 @@ export const ADMIN_AVAILABLE_TABS = [
     descBn: 'অডিও/ভিডিও পডকাস্ট পর্ব, অতিথি ও ইউটিউব লিংক'
   },
   {
+    id: 'video-news',
+    group: 'media',
+    nameBn: 'ভিডিও সংবাদ',
+    nameEn: 'Video News',
+    icon: Video,
+    descBn: 'হোমপেজের ভিডিও সংবাদ সেকশন ও ইউটিউব ভিডিও প্রতিবেদন ব্যবস্থাপনা'
+  },
+  {
     id: 'main-menu',
     group: 'layout',
     nameBn: 'মেনু ও ক্যাটাগরি',
@@ -130,6 +142,22 @@ export const ADMIN_AVAILABLE_TABS = [
     nameEn: 'Emergency Helplines',
     icon: LifeBuoy,
     descBn: 'জরুরি সরকারি হটলাইন, হাসপাতাল ও অ্যাম্বুলেন্স নম্বর'
+  },
+  {
+    id: 'complaints',
+    group: 'services',
+    nameBn: 'অভিযোগ বক্স',
+    nameEn: 'Citizen Complaints',
+    icon: Inbox,
+    descBn: 'নাগরিকদের দাখিলকৃত সকল উন্মুক্ত ও গোপন অভিযোগ ব্যবস্থাপনা'
+  },
+  {
+    id: 'comments',
+    group: 'services',
+    nameBn: 'পাঠক মন্তব্য',
+    nameEn: 'Reader Comments',
+    icon: MessageSquare,
+    descBn: 'নিউজ আর্টিকেলে পাঠকদের জমাকৃত মন্তব্য ও অনুমোদন নিয়ন্ত্রণ'
   },
   {
     id: 'setup-access',
@@ -241,10 +269,46 @@ export default function SetupAccessManager({ triggerSaveToast }) {
   const [permissionModalMember, setPermissionModalMember] = useState(null);
   const [selectedPermissions, setSelectedPermissions] = useState([]);
 
+  // Edit Member Modal State
+  const [editingMember, setEditingMember] = useState(null);
+  const [editMemberForm, setEditMemberForm] = useState({
+    id: '',
+    user_code: '',
+    username: '',
+    name: '',
+    designation: '',
+    role: 'Staff Reporter',
+    phone: '',
+    email: '',
+    avatar: '',
+    status: 'active',
+    password: '',
+    allowed_tabs: []
+  });
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
   // Add Member Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [showAddPassword, setShowAddPassword] = useState(true);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+
+  // Mobile 3-dot action menu state
+  const [activeMenuMemberId, setActiveMenuMemberId] = useState(null);
+
+  useEffect(() => {
+    const handleDocumentClick = (e) => {
+      if (!e.target.closest('.admin-3dot-container')) {
+        setActiveMenuMemberId(null);
+      }
+    };
+    if (activeMenuMemberId) {
+      document.addEventListener('click', handleDocumentClick);
+    }
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+    };
+  }, [activeMenuMemberId]);
 
   // New Member Form Data
   const [newMemberForm, setNewMemberForm] = useState({
@@ -422,6 +486,167 @@ export default function SetupAccessManager({ triggerSaveToast }) {
 
     if (triggerSaveToast) triggerSaveToast(isBn ? 'পারমিশন আপডেট সফল!' : 'Permissions updated!');
     setPermissionModalMember(null);
+  };
+
+  // Open Edit Profile Modal
+  const handleOpenEditModal = (member) => {
+    setEditingMember(member);
+    setEditMemberForm({
+      id: member.id,
+      user_code: member.user_code || '',
+      username: member.username || '',
+      name: member.name || '',
+      designation: member.designation || '',
+      role: member.role || 'Staff Reporter',
+      phone: member.phone || '',
+      email: member.email || '',
+      avatar: member.avatar || '',
+      status: member.status || 'active',
+      password: member.temp_password || '',
+      allowed_tabs: Array.isArray(member.allowed_tabs)
+        ? [...member.allowed_tabs]
+        : Array.isArray(member.allowedTabs)
+        ? [...member.allowedTabs]
+        : ['overview', 'create-post', 'edit-post', 'gallery']
+    });
+    setShowEditPassword(false);
+  };
+
+  // Avatar file upload handler for Edit Modal
+  const handleEditAvatarFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showError(isBn ? 'ছবির সাইজ সর্বোচ্চ ২ মেগাবাইট হতে পারে।' : 'Image size cannot exceed 2MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setEditMemberForm((prev) => ({ ...prev, avatar: reader.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Toggle Tab Permission in Edit Modal
+  const handleToggleEditTab = (tabId) => {
+    setEditMemberForm((prev) => {
+      const current = prev.allowed_tabs || [];
+      if (current.includes(tabId)) {
+        return { ...prev, allowed_tabs: current.filter((id) => id !== tabId) };
+      } else {
+        return { ...prev, allowed_tabs: [...current, tabId] };
+      }
+    });
+  };
+
+  // Select all / deselect all in Edit Modal
+  const handleSelectAllEditTabs = () => {
+    setEditMemberForm((prev) => ({
+      ...prev,
+      allowed_tabs: ADMIN_AVAILABLE_TABS.map((t) => t.id)
+    }));
+  };
+  const handleDeselectAllEditTabs = () => {
+    setEditMemberForm((prev) => ({
+      ...prev,
+      allowed_tabs: ['overview']
+    }));
+  };
+
+  // Update Member Profile in State, LocalStorage & Supabase
+  const handleUpdateMember = async (e) => {
+    e.preventDefault();
+    if (!editingMember) return;
+
+    if (!editMemberForm.name.trim() || !editMemberForm.email.trim() || !editMemberForm.phone.trim()) {
+      showError(isBn ? 'নাম, ইমেইল এবং ফোন নম্বর আবশ্যক।' : 'Name, email and phone are required.');
+      return;
+    }
+
+    setIsSavingEdit(true);
+
+    const cleanPhone = editMemberForm.phone.replace(/[^\d+]/g, '');
+    const updatedName = editMemberForm.name.trim();
+    const updatedUsername = editMemberForm.username.trim() || suggestUsername(updatedName);
+    const updatedUserCode = editMemberForm.user_code.trim() || editingMember.user_code || generateUserCode();
+    const updatedPassword = editMemberForm.password.trim() || editingMember.temp_password || '********';
+
+    const updatedData = {
+      id: editingMember.id,
+      user_code: updatedUserCode,
+      username: updatedUsername,
+      name: updatedName,
+      designation: editMemberForm.designation.trim() || 'টিম সদস্য',
+      role: editMemberForm.role || 'Staff Reporter',
+      phone: cleanPhone,
+      email: editMemberForm.email.trim(),
+      avatar:
+        editMemberForm.avatar.trim() ||
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(updatedName)}&background=E50914&color=fff&size=160`,
+      status: editMemberForm.status || 'active',
+      temp_password: updatedPassword,
+      allowed_tabs: editMemberForm.allowed_tabs
+    };
+
+    // 1. Update in local state
+    setMembers((prev) => {
+      const updated = prev.map((m) => (m.id === editingMember.id ? { ...m, ...updatedData } : m));
+      try {
+        localStorage.setItem('jonogon_access_members', JSON.stringify(updated));
+      } catch (err) {}
+      return updated;
+    });
+
+    // 2. Also update in jonogon_admin_user / jonogon_current_member if this is currently logged in user
+    try {
+      const curMemberStr = sessionStorage.getItem('jonogon_current_member');
+      if (curMemberStr) {
+        const curMember = JSON.parse(curMemberStr);
+        if (
+          curMember.id === editingMember.id ||
+          curMember.email === editingMember.email ||
+          curMember.username === editingMember.username
+        ) {
+          sessionStorage.setItem('jonogon_current_member', JSON.stringify({ ...curMember, ...updatedData }));
+        }
+      }
+    } catch (err) {}
+
+    // 3. Update in Supabase admin_users table
+    try {
+      const sbPayload = {
+        name: updatedData.name,
+        designation: updatedData.designation,
+        role: updatedData.role,
+        phone: updatedData.phone,
+        email: updatedData.email,
+        username: updatedData.username,
+        user_code: updatedData.user_code,
+        avatar: updatedData.avatar,
+        status: updatedData.status,
+        temp_password: updatedData.temp_password,
+        allowed_tabs: updatedData.allowed_tabs,
+        updated_at: new Date().toISOString()
+      };
+
+      await supabase
+        .from('admin_users')
+        .update(sbPayload)
+        .or(`id.eq.${editingMember.id},email.eq.${editingMember.email},username.eq.${editingMember.username}`);
+    } catch (sbErr) {
+      console.warn('Supabase member profile update error:', sbErr);
+    }
+
+    setIsSavingEdit(false);
+    setEditingMember(null);
+
+    showSuccess(
+      isBn
+        ? `"${updatedData.name}" এর প্রোফাইল ও অ্যাক্সেস তথ্য সফলভাবে হালনাগাদ করা হয়েছে!`
+        : `Profile details for ${updatedData.name} updated successfully!`
+    );
+
+    if (triggerSaveToast) triggerSaveToast(isBn ? 'সদস্যের প্রোফাইল আপডেট সম্পন্ন!' : 'Member profile updated!');
   };
 
   // Open Add Member Modal and refresh code/pass
@@ -745,7 +970,7 @@ export default function SetupAccessManager({ triggerSaveToast }) {
       </div>
 
       {/* 2. STATS CARDS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+      <div className="setup-access-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
         <div className="admin-card" style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
           <div
             style={{
@@ -849,7 +1074,7 @@ export default function SetupAccessManager({ triggerSaveToast }) {
 
       {/* 3. TABLE FILTER & SEARCH */}
       <div
-        className="admin-card"
+        className="admin-card setup-access-filter-bar"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -880,9 +1105,9 @@ export default function SetupAccessManager({ triggerSaveToast }) {
 
       {/* 4. TEAM MEMBERS TABLE (With WhatsApp & Permission Buttons) */}
       <div className="admin-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
+        <div className="publish-posts-table-wrap setup-access-table-wrap" style={{ overflowX: 'auto' }}>
+          <table className="admin-responsive-table setup-access-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead className="desktop-only-header">
               <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
                 <th style={{ padding: '14px 18px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 800 }}>
                   {isBn ? 'সদস্য ও ইউজার আইডি' : 'Member & User ID'}
@@ -925,24 +1150,26 @@ export default function SetupAccessManager({ triggerSaveToast }) {
                       }}
                     >
                       {/* Member Info */}
-                      <td style={{ padding: '14px 18px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <td className="col-article-main" style={{ padding: '14px 18px' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, width: '100%' }}>
                           <img
                             src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=E50914&color=fff`}
                             alt={member.name}
                             style={{
-                              width: 42,
-                              height: 42,
+                              width: 44,
+                              height: 44,
                               borderRadius: '50%',
                               objectFit: 'cover',
-                              border: '2px solid var(--border-color)'
+                              border: '2px solid var(--border-color)',
+                              flexShrink: 0,
+                              marginTop: 2
                             }}
                           />
-                          <div>
-                            <div style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 800, fontSize: '0.94rem', color: 'var(--text-primary)' }}>
                               {member.name}
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
                               <span
                                 style={{
                                   fontSize: '0.72rem',
@@ -960,12 +1187,89 @@ export default function SetupAccessManager({ triggerSaveToast }) {
                                 @{member.username}
                               </span>
                             </div>
+
+                            {/* Mobile Meta Details shown under headline */}
+                            <div className="mobile-meta-under-headline">
+                              <span
+                                style={{
+                                  padding: '2px 7px',
+                                  borderRadius: 12,
+                                  fontSize: '0.72rem',
+                                  fontWeight: 800,
+                                  backgroundColor: isSuper
+                                    ? 'rgba(229, 9, 20, 0.15)'
+                                    : (member.role || '').toLowerCase().includes('editor')
+                                    ? 'rgba(59, 130, 246, 0.15)'
+                                    : 'rgba(100, 116, 139, 0.15)',
+                                  color: isSuper
+                                    ? '#E50914'
+                                    : (member.role || '').toLowerCase().includes('editor')
+                                    ? '#3B82F6'
+                                    : 'var(--text-secondary)'
+                                }}
+                              >
+                                {member.role}
+                              </span>
+                              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                {member.designation}
+                              </span>
+                              <span
+                                style={{
+                                  padding: '2px 7px',
+                                  borderRadius: 10,
+                                  fontSize: '0.7rem',
+                                  fontWeight: 700,
+                                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                  color: '#3B82F6'
+                                }}
+                              >
+                                {allowedList.length} / {ADMIN_AVAILABLE_TABS.length} {isBn ? 'ট্যাব' : 'Tabs'}
+                              </span>
+                              {member.phone && (
+                                <a
+                                  href={`tel:${member.phone}`}
+                                  style={{
+                                    fontSize: '0.72rem',
+                                    color: 'var(--text-secondary)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 3,
+                                    textDecoration: 'none'
+                                  }}
+                                >
+                                  <Phone size={10} />
+                                  <span>{member.phone}</span>
+                                </a>
+                              )}
+                              {member.phone && (
+                                <a
+                                  href={getWhatsAppLink(member.phone)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 3,
+                                    backgroundColor: '#25D366',
+                                    color: '#FFFFFF',
+                                    padding: '1px 6px',
+                                    borderRadius: 10,
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    textDecoration: 'none'
+                                  }}
+                                >
+                                  <MessageCircle size={10} />
+                                  <span>WA</span>
+                                </a>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
 
-                      {/* Designation & Role */}
-                      <td style={{ padding: '14px 18px' }}>
+                      {/* Designation & Role (Desktop Only) */}
+                      <td className="col-desktop-only" style={{ padding: '14px 18px' }}>
                         <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
                           {member.designation}
                         </div>
@@ -993,8 +1297,8 @@ export default function SetupAccessManager({ triggerSaveToast }) {
                         </span>
                       </td>
 
-                      {/* Phone & Direct WhatsApp Chat Link */}
-                      <td style={{ padding: '14px 18px' }}>
+                      {/* Phone & Direct WhatsApp Chat Link (Desktop Only) */}
+                      <td className="col-desktop-only" style={{ padding: '14px 18px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <a
                             href={`tel:${member.phone}`}
@@ -1036,16 +1340,16 @@ export default function SetupAccessManager({ triggerSaveToast }) {
                         </div>
                       </td>
 
-                      {/* Email Address */}
-                      <td style={{ padding: '14px 18px' }}>
+                      {/* Email Address (Desktop Only) */}
+                      <td className="col-desktop-only" style={{ padding: '14px 18px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
                           <Mail size={14} color="var(--text-muted)" />
                           <span>{member.email}</span>
                         </div>
                       </td>
 
-                      {/* Allowed Tabs Counter */}
-                      <td style={{ padding: '14px 18px', textAlign: 'center' }}>
+                      {/* Allowed Tabs Counter (Desktop Only) */}
+                      <td className="col-desktop-only" style={{ padding: '14px 18px', textAlign: 'center' }}>
                         <span
                           style={{
                             display: 'inline-block',
@@ -1067,9 +1371,34 @@ export default function SetupAccessManager({ triggerSaveToast }) {
                         </span>
                       </td>
 
-                      {/* Action: Permission Button & Delete */}
-                      <td style={{ padding: '14px 18px', textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      {/* Action: Edit Profile, Permission & Delete */}
+                      <td className="col-actions" style={{ padding: '14px 18px', textAlign: 'center' }}>
+                        {/* Desktop Actions */}
+                        <div className="desktop-actions-wrap" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                          {/* Edit Profile Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(member)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              backgroundColor: 'var(--bg-secondary)',
+                              color: 'var(--text-primary)',
+                              border: '1px solid var(--border-color)',
+                              padding: '7px 12px',
+                              borderRadius: 6,
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                            title={isBn ? 'সদস্যের সকল প্রোফাইল তথ্য ও রোল সম্পাদনা করুন' : 'Edit Member Profile Info'}
+                          >
+                            <Edit size={14} color="#3B82F6" />
+                            <span>{isBn ? 'এডিট' : 'Edit'}</span>
+                          </button>
+
                           {/* Main Permission Button */}
                           <button
                             type="button"
@@ -1118,6 +1447,102 @@ export default function SetupAccessManager({ triggerSaveToast }) {
                             </button>
                           )}
                         </div>
+
+                        {/* Mobile 3-Dot Action Menu */}
+                        <div className="mobile-actions-wrap admin-3dot-container" style={{ position: 'relative' }}>
+                          <button
+                            type="button"
+                            className={`admin-btn-action admin-3dot-trigger ${activeMenuMemberId === member.id ? 'active' : ''}`}
+                            style={{
+                              width: 32,
+                              height: 32,
+                              padding: 0,
+                              borderRadius: 6,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: activeMenuMemberId === member.id ? 'var(--bg-subtle)' : 'transparent'
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveMenuMemberId((prev) => (prev === member.id ? null : member.id));
+                            }}
+                          >
+                            <MoreVertical size={18} />
+                          </button>
+
+                          {activeMenuMemberId === member.id && (
+                            <div className="admin-3dot-dropdown-menu" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                className="admin-menu-item-btn"
+                                onClick={() => {
+                                  setActiveMenuMemberId(null);
+                                  handleOpenEditModal(member);
+                                }}
+                              >
+                                <Edit size={14} color="#3B82F6" />
+                                <span>{isBn ? 'প্রোফাইল তথ্য সম্পাদনা' : 'Edit Profile Info'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                className="admin-menu-item-btn"
+                                onClick={() => {
+                                  setActiveMenuMemberId(null);
+                                  handleOpenPermissionModal(member);
+                                }}
+                              >
+                                <KeyRound size={14} color="var(--primary-red)" />
+                                <span>{isBn ? 'পারমিশন পরিবর্তন করুন' : 'Edit Permissions'}</span>
+                              </button>
+
+                              {member.phone && (
+                                <a
+                                  href={getWhatsAppLink(member.phone)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="admin-menu-item-btn"
+                                  onClick={() => setActiveMenuMemberId(null)}
+                                  style={{ textDecoration: 'none' }}
+                                >
+                                  <MessageCircle size={14} color="#25D366" />
+                                  <span>{isBn ? 'WhatsApp মেসেজ' : 'WhatsApp Chat'}</span>
+                                </a>
+                              )}
+
+                              {member.phone && (
+                                <a
+                                  href={`tel:${member.phone}`}
+                                  className="admin-menu-item-btn"
+                                  onClick={() => setActiveMenuMemberId(null)}
+                                  style={{ textDecoration: 'none' }}
+                                >
+                                  <Phone size={14} color="#3B82F6" />
+                                  <span>{isBn ? 'সরাসরি কল করুন' : 'Call Phone'}</span>
+                                </a>
+                              )}
+
+                              {!isSuper && (
+                                <>
+                                  <div style={{ height: 1, backgroundColor: 'var(--border-color)', margin: '4px 0' }} />
+                                  <button
+                                    type="button"
+                                    className="admin-menu-item-btn"
+                                    style={{ color: '#EF4444' }}
+                                    onClick={() => {
+                                      setActiveMenuMemberId(null);
+                                      handleDeleteMember(member);
+                                    }}
+                                  >
+                                    <Trash2 size={14} color="#EF4444" />
+                                    <span>{isBn ? 'সদস্য মুছে ফেলুন' : 'Delete Member'}</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1127,6 +1552,591 @@ export default function SetupAccessManager({ triggerSaveToast }) {
           </table>
         </div>
       </div>
+
+      {/* ==================================================================== */}
+      {/* 4.5. EDIT MEMBER PROFILE MODAL (Admin can edit any profile info)      */}
+      {/* ==================================================================== */}
+      {editingMember && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(5px)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isSavingEdit) setEditingMember(null);
+          }}
+        >
+          <div
+            className="admin-card"
+            style={{
+              width: '100%',
+              maxWidth: 760,
+              maxHeight: '94vh',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: 0,
+              borderRadius: 14,
+              overflow: 'hidden',
+              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)',
+              border: '1px solid var(--border-color)'
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '16px 22px',
+                borderBottom: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexShrink: 0
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                    color: '#3B82F6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Edit size={20} />
+                </div>
+                <div>
+                  <h3
+                    style={{
+                      fontFamily: 'var(--font-headline)',
+                      fontSize: '1.2rem',
+                      fontWeight: 800,
+                      margin: 0,
+                      color: 'var(--text-primary)'
+                    }}
+                  >
+                    {isBn ? 'সদস্যের প্রোফাইল ও অ্যাক্সেস সম্পাদনা' : 'Edit Member Profile & Access'}
+                  </h3>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                    {isBn
+                      ? `অ্যাডমিন হিসেবে "${editingMember.name}" (@${editingMember.username}) এর যেকোনো তথ্য পরিবর্তন করুন`
+                      : `Modify any profile attribute, role or access for ${editingMember.name}`}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isSavingEdit}
+                onClick={() => setEditingMember(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: 4
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Form Body */}
+            <form onSubmit={handleUpdateMember} style={{ overflowY: 'auto', padding: '20px 22px', flex: 1 }}>
+              {/* Profile Top Banner with Avatar Preview & File Input */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 16,
+                  padding: '14px 18px',
+                  borderRadius: 10,
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  marginBottom: 18,
+                  flexWrap: 'wrap'
+                }}
+              >
+                <div style={{ position: 'relative', width: 64, height: 64, flexShrink: 0 }}>
+                  <img
+                    src={
+                      editMemberForm.avatar ||
+                      `https://ui-avatars.com/api/?name=${encodeURIComponent(editMemberForm.name || 'User')}&background=E50914&color=fff&size=160`
+                    }
+                    alt={editMemberForm.name}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '2px solid var(--primary-red)'
+                    }}
+                  />
+                  <label
+                    htmlFor="edit-member-avatar-file"
+                    style={{
+                      position: 'absolute',
+                      right: -2,
+                      bottom: -2,
+                      width: 24,
+                      height: 24,
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--primary-red)',
+                      color: '#FFFFFF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                    }}
+                    title={isBn ? 'কম্পিউটার থেকে ছবি আপলোড করুন' : 'Upload photo'}
+                  >
+                    <Camera size={12} />
+                  </label>
+                  <input
+                    id="edit-member-avatar-file"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleEditAvatarFileUpload}
+                    style={{ display: 'none' }}
+                  />
+                </div>
+
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                    {editMemberForm.name || (isBn ? 'নামবিহীন সদস্য' : 'Unnamed Member')}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                    <span
+                      style={{
+                        fontSize: '0.74rem',
+                        fontFamily: 'monospace',
+                        fontWeight: 800,
+                        backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                        color: 'var(--primary-red)',
+                        padding: '1px 6px',
+                        borderRadius: 4
+                      }}
+                    >
+                      {editMemberForm.user_code || editingMember.user_code}
+                    </span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      @{editMemberForm.username || editingMember.username}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: 10,
+                        backgroundColor:
+                          editMemberForm.status === 'active'
+                            ? 'rgba(16, 185, 129, 0.15)'
+                            : editMemberForm.status === 'suspended'
+                            ? 'rgba(239, 68, 68, 0.15)'
+                            : 'rgba(245, 158, 11, 0.15)',
+                        color:
+                          editMemberForm.status === 'active'
+                            ? '#10B981'
+                            : editMemberForm.status === 'suspended'
+                            ? '#EF4444'
+                            : '#F59E0B'
+                      }}
+                    >
+                      {editMemberForm.status === 'active'
+                        ? (isBn ? 'সক্রিয় (Active)' : 'Active')
+                        : editMemberForm.status === 'suspended'
+                        ? (isBn ? 'স্থগিত (Suspended)' : 'Suspended')
+                        : editMemberForm.status === 'pending'
+                        ? (isBn ? 'অপেক্ষমান (Pending)' : 'Pending')
+                        : (isBn ? 'নিষ্ক্রিয় (Inactive)' : 'Inactive')}
+                    </span>
+                  </div>
+                </div>
+
+                <label
+                  htmlFor="edit-member-avatar-file"
+                  className="admin-btn-secondary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    padding: '6px 12px'
+                  }}
+                >
+                  <Camera size={14} />
+                  <span>{isBn ? 'ছবি পরিবর্তন' : 'Change Photo'}</span>
+                </label>
+              </div>
+
+              {/* Form Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+                {/* Full Name */}
+                <div className="admin-form-group">
+                  <label className="admin-label">{isBn ? 'পুরো নাম *' : 'Full Name *'}</label>
+                  <input
+                    type="text"
+                    required
+                    className="admin-input"
+                    value={editMemberForm.name}
+                    onChange={(e) => setEditMemberForm({ ...editMemberForm, name: e.target.value })}
+                  />
+                </div>
+
+                {/* Designation */}
+                <div className="admin-form-group">
+                  <label className="admin-label">{isBn ? 'পদবী *' : 'Designation *'}</label>
+                  <input
+                    type="text"
+                    required
+                    className="admin-input"
+                    placeholder="উদাঃ সিনিয়র রিপোর্টার / বার্তা সম্পাদক"
+                    value={editMemberForm.designation}
+                    onChange={(e) => setEditMemberForm({ ...editMemberForm, designation: e.target.value })}
+                  />
+                </div>
+
+                {/* System Role */}
+                <div className="admin-form-group">
+                  <label className="admin-label">{isBn ? 'সিস্টেম রোল' : 'System Role'}</label>
+                  <select
+                    className="admin-input"
+                    value={editMemberForm.role}
+                    onChange={(e) => setEditMemberForm({ ...editMemberForm, role: e.target.value })}
+                  >
+                    <option value="Super Admin">{isBn ? 'সুপার অ্যাডমিন (Super Admin)' : 'Super Admin'}</option>
+                    <option value="Executive Admin">{isBn ? 'নির্বাহী অ্যাডমিন (Executive Admin)' : 'Executive Admin'}</option>
+                    <option value="News Editor">{isBn ? 'বার্তা সম্পাদক (News Editor)' : 'News Editor'}</option>
+                    <option value="Sub Editor">{isBn ? 'সহ-সম্পাদক (Sub Editor)' : 'Sub Editor'}</option>
+                    <option value="Staff Reporter">{isBn ? 'স্টাফ রিপোর্টার (Staff Reporter)' : 'Staff Reporter'}</option>
+                    <option value="Special Correspondent">{isBn ? 'বিশেষ প্রতিনিধি (Special Correspondent)' : 'Special Correspondent'}</option>
+                    <option value="District Correspondent">{isBn ? 'জেলা প্রতিনিধি (District Correspondent)' : 'District Correspondent'}</option>
+                    <option value="Multimedia Lead">{isBn ? 'মাল্টিমিডিয়া প্রযোজক (Multimedia Lead)' : 'Multimedia Lead'}</option>
+                    <option value="Ads Manager">{isBn ? 'বিজ্ঞাপন ও গ্রোথ ম্যানেজার (Ads Manager)' : 'Ads Manager'}</option>
+                    <option value="Columnist">{isBn ? 'কলামিস্ট / লেখক (Columnist)' : 'Columnist'}</option>
+                  </select>
+                </div>
+
+                {/* Account Status */}
+                <div className="admin-form-group">
+                  <label className="admin-label">{isBn ? 'অ্যাকাউন্ট স্ট্যাটাস' : 'Account Status'}</label>
+                  <select
+                    className="admin-input"
+                    value={editMemberForm.status}
+                    onChange={(e) => setEditMemberForm({ ...editMemberForm, status: e.target.value })}
+                  >
+                    <option value="active">{isBn ? 'সক্রিয় (Active - স্বাভাবিক এক্সেস)' : 'Active'}</option>
+                    <option value="pending">{isBn ? 'অপেক্ষমান (Pending Verification)' : 'Pending'}</option>
+                    <option value="suspended">{isBn ? 'স্থগিত (Suspended - সাময়িক বন্ধ)' : 'Suspended'}</option>
+                    <option value="inactive">{isBn ? 'নিষ্ক্রিয় (Inactive - এক্সেস রহিত)' : 'Inactive'}</option>
+                  </select>
+                </div>
+
+                {/* Phone */}
+                <div className="admin-form-group">
+                  <label className="admin-label">{isBn ? 'ফোন নম্বর (WhatsApp) *' : 'Phone (WhatsApp) *'}</label>
+                  <input
+                    type="tel"
+                    required
+                    className="admin-input"
+                    value={editMemberForm.phone}
+                    onChange={(e) => setEditMemberForm({ ...editMemberForm, phone: e.target.value })}
+                  />
+                </div>
+
+                {/* Email Address */}
+                <div className="admin-form-group">
+                  <label className="admin-label">{isBn ? 'ইমেইল এড্রেস *' : 'Email Address *'}</label>
+                  <input
+                    type="email"
+                    required
+                    className="admin-input"
+                    value={editMemberForm.email}
+                    onChange={(e) => setEditMemberForm({ ...editMemberForm, email: e.target.value })}
+                  />
+                </div>
+
+                {/* User ID / Code */}
+                <div className="admin-form-group">
+                  <label className="admin-label">{isBn ? 'সদস্য ইউজার কোড (User ID)' : 'User Code (ID)'}</label>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      style={{ fontFamily: 'monospace', fontWeight: 800 }}
+                      value={editMemberForm.user_code}
+                      onChange={(e) => setEditMemberForm({ ...editMemberForm, user_code: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      className="admin-btn-secondary"
+                      onClick={() => setEditMemberForm({ ...editMemberForm, user_code: generateUserCode() })}
+                      title="নতুন কোড জেনারেট"
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Username */}
+                <div className="admin-form-group">
+                  <label className="admin-label">{isBn ? 'ইউজারনেম (Login Username) *' : 'Username *'}</label>
+                  <input
+                    type="text"
+                    required
+                    className="admin-input"
+                    style={{ fontFamily: 'monospace' }}
+                    value={editMemberForm.username}
+                    onChange={(e) => setEditMemberForm({ ...editMemberForm, username: e.target.value })}
+                  />
+                </div>
+
+                {/* Password Reset */}
+                <div className="admin-form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="admin-label">
+                    {isBn ? 'পাসওয়ার্ড পরিবর্তন / রিসেট (Password)' : 'Password Reset / Update'}
+                  </label>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <input
+                        type={showEditPassword ? 'text' : 'password'}
+                        className="admin-input"
+                        style={{ fontFamily: 'monospace', paddingRight: 36, letterSpacing: '0.5px' }}
+                        placeholder={isBn ? 'নতুন পাসওয়ার্ড লিখুন বা পাশে বাটনে ক্লিক করে জেনারেট করুন' : 'Enter new password'}
+                        value={editMemberForm.password}
+                        onChange={(e) => setEditMemberForm({ ...editMemberForm, password: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowEditPassword(!showEditPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: 8,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {showEditPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="admin-btn-secondary"
+                      onClick={() => {
+                        const generated = generateSecurePassword();
+                        setEditMemberForm({ ...editMemberForm, password: generated });
+                        setShowEditPassword(true);
+                      }}
+                      title="নতুন স্ট্রং পাসওয়ার্ড তৈরি করুন"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <KeyRound size={14} color="var(--primary-red)" />
+                      <span style={{ fontSize: '0.8rem' }}>{isBn ? 'নতুন পাসওয়ার্ড' : 'Generate'}</span>
+                    </button>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                    {isBn
+                      ? 'অ্যাডমিন হিসেবে সরাসরি সদস্যের পাসওয়ার্ড পরিবর্তন করে দিতে পারেন।'
+                      : 'You can directly change or reset the password for this team member.'}
+                  </span>
+                </div>
+
+                {/* Avatar URL direct input */}
+                <div className="admin-form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="admin-label">{isBn ? 'প্রোফাইল ছবির লিংক (Avatar Image URL)' : 'Avatar URL'}</label>
+                  <input
+                    type="url"
+                    className="admin-input"
+                    placeholder="https://images.unsplash.com/... বা কম্পিউটার থেকে আপলোড করুন"
+                    value={editMemberForm.avatar}
+                    onChange={(e) => setEditMemberForm({ ...editMemberForm, avatar: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Tab Permissions Section inside Edit Modal */}
+              <div style={{ marginTop: 22, borderTop: '1px solid var(--border-color)', paddingTop: 18 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 12,
+                    flexWrap: 'wrap',
+                    gap: 8
+                  }}
+                >
+                  <div>
+                    <label className="admin-label" style={{ margin: 0, fontSize: '0.92rem' }}>
+                      {isBn ? 'অনুমোদিত সাইডবার ফিচার ট্যাবসমূহ:' : 'Allowed Sidebar Feature Tabs:'}
+                    </label>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: 2 }}>
+                      {isBn
+                        ? 'এই সদস্য অ্যাডমিন প্যানেলে লগইন করার পর কোন কোন ট্যাব দেখতে ও ব্যবহার করতে পারবেন'
+                        : 'Select which admin tabs this member can access'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span
+                      style={{
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                        color: 'var(--primary-red)',
+                        padding: '3px 8px',
+                        borderRadius: 6
+                      }}
+                    >
+                      {(editMemberForm.allowed_tabs || []).length} / {ADMIN_AVAILABLE_TABS.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleSelectAllEditTabs}
+                      style={{
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        color: '#10B981',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        padding: '3px 8px',
+                        borderRadius: 6,
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {isBn ? 'সব নির্বাচন' : 'All'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeselectAllEditTabs}
+                      style={{
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        color: '#EF4444',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        padding: '3px 8px',
+                        borderRadius: 6,
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {isBn ? 'সব বাতিল' : 'None'}
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gap: 8,
+                    maxHeight: 200,
+                    overflowY: 'auto',
+                    padding: 8,
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 8,
+                    backgroundColor: 'var(--bg-secondary)'
+                  }}
+                >
+                  {ADMIN_AVAILABLE_TABS.map((t) => {
+                    const isChecked = (editMemberForm.allowed_tabs || []).includes(t.id);
+                    const IconComp = t.icon;
+                    return (
+                      <label
+                        key={t.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: '6px 10px',
+                          borderRadius: 6,
+                          backgroundColor: isChecked ? 'rgba(229, 9, 20, 0.08)' : 'var(--bg-card)',
+                          border: isChecked ? '1px solid rgba(229, 9, 20, 0.3)' : '1px solid transparent',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleToggleEditTab(t.id)}
+                        />
+                        <IconComp size={15} color={isChecked ? 'var(--primary-red)' : 'var(--text-muted)'} />
+                        <span style={{ color: isChecked ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                          {isBn ? t.nameBn : t.nameEn}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Action Buttons in Modal Footer */}
+              <div
+                style={{
+                  marginTop: 24,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  gap: 12
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={isSavingEdit}
+                  className="admin-btn-secondary"
+                  onClick={() => setEditingMember(null)}
+                >
+                  {isBn ? 'বাতিল' : 'Cancel'}
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="admin-btn-primary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '10px 24px',
+                    fontWeight: 800
+                  }}
+                >
+                  {isSavingEdit ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>{isBn ? 'সংরক্ষণ করা হচ্ছে...' : 'Saving...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      <span>{isBn ? 'হালনাগাদ সংরক্ষণ করুন' : 'Save Changes'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ==================================================================== */}
       {/* 5. PERMISSION MODAL (Lists all 14 sidebar tabs with checkboxes)       */}

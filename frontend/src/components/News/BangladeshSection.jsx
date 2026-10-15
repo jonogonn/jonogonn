@@ -9,18 +9,15 @@ export default function BangladeshSection() {
   const { language, articles, openArticle, setActiveCategory, homepageSections, sectionColumnsOrder } = useNews();
   const isBn = language === 'bn';
 
-  // Section visibility check from homepageSections
-  const secConfig = (homepageSections || []).find((s) => s.id === 'bangladeshSection');
-  if (secConfig && secConfig.isVisible === false) return null;
-
-  // Bangladesh Section Articles Pool
-  const bdArticles = articles.filter(
-    (a) => a.category === 'bangladesh' || a.category === 'politics' || a.id.startsWith('bd')
-  );
-  const bdPool = bdArticles.length >= 5 ? bdArticles : articles;
-
   const [bdSlideIndex, setBdSlideIndex] = useState(0);
   const [bdPaused, setBdPaused] = useState(false);
+
+  // Bangladesh Section Articles Pool (strictly published articles)
+  const publishedArticles = (articles || []).filter((a) => a && (a.status === 'published' || !a.status));
+  const bdArticles = publishedArticles.filter(
+    (a) => a && (a.category === 'bangladesh' || a.category === 'politics' || (a.id && String(a.id).startsWith('bd')))
+  );
+  const bdPool = bdArticles.length >= 5 ? bdArticles : publishedArticles;
 
   // Auto-slide for Featured Lead Card (6 seconds)
   useEffect(() => {
@@ -31,6 +28,12 @@ export default function BangladeshSection() {
     return () => clearInterval(timer);
   }, [bdPaused, bdPool.length]);
 
+  // Section visibility check from homepageSections
+  const secConfig = (homepageSections || []).find((s) => s.id === 'bangladeshSection');
+  if (secConfig && secConfig.isVisible === false) return null;
+
+  if (bdPool.length === 0) return null;
+
   const currentBdSlide = bdPool[bdSlideIndex] || bdPool[0];
   const bdSubArticles = bdPool.filter((_, idx) => idx !== bdSlideIndex).slice(0, 4);
 
@@ -38,30 +41,32 @@ export default function BangladeshSection() {
   const defaultColOrder = ['featuredLead', 'subLeads', 'weatherFollow'];
   const colOrder = sectionColumnsOrder?.bangladeshSection || defaultColOrder;
 
-  const renderFeaturedLead = () => (
-    <div
-      key="featuredLead"
-      className="foxiz-featured-col"
-      onMouseEnter={() => setBdPaused(true)}
-      onMouseLeave={() => setBdPaused(false)}
-    >
-      <article
-        key={currentBdSlide.id}
-        className="foxiz-featured-card"
-        onClick={() => openArticle(currentBdSlide)}
-        title={isBn ? currentBdSlide.titleBn : currentBdSlide.titleEn}
+  const renderFeaturedLead = () => {
+    if (!currentBdSlide) return null;
+    return (
+      <div
+        key="featuredLead"
+        className="foxiz-featured-col"
+        onMouseEnter={() => setBdPaused(true)}
+        onMouseLeave={() => setBdPaused(false)}
       >
-        <div className="foxiz-featured-img-wrap">
-          <img
-            src={currentBdSlide.imageUrl || FALLBACK_NEWS_IMG}
-            alt={isBn ? currentBdSlide.titleBn : currentBdSlide.titleEn}
-            className="foxiz-featured-img hero-unique-slide-anim"
-            loading="lazy"
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = FALLBACK_NEWS_IMG;
-            }}
-          />
+        <article
+          key={currentBdSlide.id || 'bd-lead'}
+          className="foxiz-featured-card"
+          onClick={() => openArticle(currentBdSlide)}
+          title={isBn ? (currentBdSlide.titleBn || currentBdSlide.title || '') : (currentBdSlide.titleEn || currentBdSlide.titleBn || '')}
+        >
+          <div className="foxiz-featured-img-wrap">
+            <img
+              src={currentBdSlide.imageUrl || FALLBACK_NEWS_IMG}
+              alt={isBn ? (currentBdSlide.titleBn || currentBdSlide.title || '') : (currentBdSlide.titleEn || currentBdSlide.titleBn || '')}
+              className="foxiz-featured-img hero-unique-slide-anim"
+              loading="lazy"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = FALLBACK_NEWS_IMG;
+              }}
+            />
           <div className="hero-image-scrim" />
 
           {/* Category Badge Overlay */}
@@ -135,6 +140,7 @@ export default function BangladeshSection() {
       </article>
     </div>
   );
+};
 
   const renderSubLeads = () => (
     <div key="subLeads" className="foxiz-subleads-col">

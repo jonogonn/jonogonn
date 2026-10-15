@@ -9,27 +9,24 @@ function isLocalEnvironment() {
   return h === 'localhost' || h === '127.0.0.1' || h.startsWith('192.168.');
 }
 
-function getNewsEndpoints() {
+function getNewsEndpoints(query = '') {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
   const isJanogon = pathname.includes('/janogon');
   const isLocal = isLocalEnvironment();
+  const q = query ? (query.startsWith('?') ? query : `?${query}`) : '';
 
   const list = [];
-  if (origin) {
-    if (isJanogon) {
-      list.push(`${origin}/janogon/api/news.php`);
-    }
-    list.push(`${origin}/api/news.php`);
-  }
-  list.push(isJanogon ? '/janogon/api/news.php' : '/api/news.php');
-  list.push('/api/news.php');
-
-  if (isLocal) {
-    list.push('http://localhost/janogon/api/news.php');
-    list.push('http://127.0.0.1/janogon/api/news.php');
+  if (isJanogon || isLocal) {
+    list.push(`/janogon/api/news.php${q}`);
+    if (origin) list.push(`${origin}/janogon/api/news.php${q}`);
+    list.push(`http://127.0.0.1/janogon/api/news.php${q}`);
+    list.push(`http://localhost/janogon/api/news.php${q}`);
+    list.push(`/api/news.php${q}`);
   } else {
-    list.push('https://jonogon.news/api/news.php');
+    list.push(`/api/news.php${q}`);
+    if (origin) list.push(`${origin}/api/news.php${q}`);
+    list.push(`https://jonogon.news/api/news.php${q}`);
   }
   return [...new Set(list)];
 }
@@ -41,19 +38,15 @@ function getSyncEndpoints() {
   const isLocal = isLocalEnvironment();
 
   const list = [];
-  if (origin) {
-    if (isJanogon) {
-      list.push(`${origin}/janogon/api/admin_sync.php`);
-    }
-    list.push(`${origin}/api/admin_sync.php`);
-  }
-  list.push(isJanogon ? '/janogon/api/admin_sync.php' : '/api/admin_sync.php');
-  list.push('/api/admin_sync.php');
-
-  if (isLocal) {
-    list.push('http://localhost/janogon/api/admin_sync.php');
+  if (isJanogon || isLocal) {
+    list.push('/janogon/api/admin_sync.php');
+    if (origin) list.push(`${origin}/janogon/api/admin_sync.php`);
     list.push('http://127.0.0.1/janogon/api/admin_sync.php');
+    list.push('http://localhost/janogon/api/admin_sync.php');
+    list.push('/api/admin_sync.php');
   } else {
+    list.push('/api/admin_sync.php');
+    if (origin) list.push(`${origin}/api/admin_sync.php`);
     list.push('https://jonogon.news/api/admin_sync.php');
   }
   return [...new Set(list)];
@@ -116,8 +109,19 @@ export async function deleteArticleFromMariaDb(postIdOrId) {
   return false;
 }
 
-export async function fetchArticlesFromMariaDb() {
-  const endpoints = getNewsEndpoints();
+export async function fetchArticlesFromMariaDb(options = {}) {
+  let queryString = '';
+  if (typeof options === 'string') {
+    queryString = options;
+  } else if (options && typeof options === 'object') {
+    const params = new URLSearchParams();
+    if (options.status) params.set('status', options.status);
+    if (options.category) params.set('category', options.category);
+    if (options.limit) params.set('limit', options.limit);
+    if (options.admin) params.set('admin', '1');
+    queryString = params.toString();
+  }
+  const endpoints = getNewsEndpoints(queryString);
   for (const endpoint of endpoints) {
     try {
       const response = await fetch(endpoint, {
@@ -191,19 +195,15 @@ export function getPodcastEndpoints() {
   const isLocal = isLocalEnvironment();
 
   const list = [];
-  if (origin) {
-    if (isJanogon) {
-      list.push(`${origin}/janogon/api/podcasts.php`);
-    }
-    list.push(`${origin}/api/podcasts.php`);
-  }
-  list.push(isJanogon ? '/janogon/api/podcasts.php' : '/api/podcasts.php');
-  list.push('/api/podcasts.php');
-
-  if (isLocal) {
-    list.push('http://localhost/janogon/api/podcasts.php');
+  if (isJanogon || isLocal) {
+    list.push('/janogon/api/podcasts.php');
+    if (origin) list.push(`${origin}/janogon/api/podcasts.php`);
     list.push('http://127.0.0.1/janogon/api/podcasts.php');
+    list.push('http://localhost/janogon/api/podcasts.php');
+    list.push('/api/podcasts.php');
   } else {
+    list.push('/api/podcasts.php');
+    if (origin) list.push(`${origin}/api/podcasts.php`);
     list.push('https://jonogon.news/api/podcasts.php');
   }
   return [...new Set(list)];
@@ -364,7 +364,14 @@ export async function saveCommentToMariaDb(commentPayload) {
       if (response.ok && result?.success) {
         return { success: true, comment: result.comment, result };
       } else {
-        const errorMsg = result?.message || `HTTP ${response.status} from ${endpoint}`;
+        let errorMsg = result?.message;
+        if (!errorMsg) {
+          if (response.ok && !result) {
+            errorMsg = 'মন্তব্য সংরক্ষণ সার্ভার স্ক্রিপ্ট সাড়া দেয়নি। অনুগ্রহ করে অ্যাডমিনকে জানান।';
+          } else {
+            errorMsg = `মন্তব্য জমা দিতে ব্যর্থ হয়েছে (Status: ${response.status})`;
+          }
+        }
         lastError = new Error(errorMsg);
       }
     } catch (err) {

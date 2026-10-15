@@ -94,6 +94,17 @@ export default function TopBar() {
             </a>
             <span className="topbar-divider">|</span>
             <a
+              href="/team"
+              className="topbar-policy-link"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateTo('/team');
+              }}
+            >
+              {isBn ? 'আমাদের টিম' : 'Our Team'}
+            </a>
+            <span className="topbar-divider">|</span>
+            <a
               href="/advertisement"
               className="topbar-policy-link"
               onClick={(e) => {

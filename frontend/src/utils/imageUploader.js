@@ -5,18 +5,116 @@
  * 3. Returns permanent CDN URL (https://cdn.jonogon.news/uploads/YYYY/MM/filename.webp).
  */
 
+let cachedWatermarkImage = null;
+
 /**
- * Convert any image file to a compressed .webp Blob using HTML5 Canvas
+ * Load official logo watermark image (with multi-candidate fallback)
+ * @returns {Promise<HTMLImageElement|null>}
+ */
+export function loadWatermarkImage() {
+  if (cachedWatermarkImage && cachedWatermarkImage.complete && cachedWatermarkImage.naturalWidth > 0) {
+    return Promise.resolve(cachedWatermarkImage);
+  }
+
+  return new Promise((resolve) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const candidates = [
+      `${origin}/logo-watermark.png`,
+      `${origin}/janogon/logo-watermark.png`,
+      '/logo-watermark.png',
+      '/janogon/logo-watermark.png',
+      'logo-watermark.png',
+      './logo-watermark.png'
+    ];
+    let candidateIndex = 0;
+
+    const tryNext = () => {
+      if (candidateIndex >= candidates.length) {
+        resolve(null);
+        return;
+      }
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        if (img.naturalWidth > 0) {
+          cachedWatermarkImage = img;
+          resolve(img);
+        } else {
+          candidateIndex++;
+          tryNext();
+        }
+      };
+      img.onerror = () => {
+        candidateIndex++;
+        tryNext();
+      };
+      img.src = candidates[candidateIndex];
+    };
+
+    tryNext();
+  });
+}
+
+/**
+ * Draw logo watermark onto an HTML5 Canvas context
+ * @param {CanvasRenderingContext2D} ctx 
+ * @param {number} width Canvas width
+ * @param {number} height Canvas height
+ * @param {HTMLImageElement} watermarkImg Loaded logo-watermark image
+ * @param {number} opacity Opacity (default 0.38, matching official sample)
+ */
+export function drawLogoWatermark(ctx, width, height, watermarkImg, opacity = 0.38) {
+  if (!ctx || !watermarkImg) return;
+
+  const wmNaturalW = watermarkImg.naturalWidth || watermarkImg.width || 400;
+  const wmNaturalH = watermarkImg.naturalHeight || watermarkImg.height || 349;
+  const wmAspect = wmNaturalH / wmNaturalW;
+
+  // Proportional width: ~24% to 28% of the image width
+  let wmWidth = Math.round(width * 0.25);
+  if (width > 600) {
+    wmWidth = Math.max(160, Math.min(wmWidth, 420));
+  } else {
+    wmWidth = Math.max(100, Math.min(wmWidth, Math.round(width * 0.45)));
+  }
+  const wmHeight = Math.round(wmWidth * wmAspect);
+
+  // Position: Center-Center of the image (exactly where the red arrow in user screenshot points)
+  const wmX = Math.round((width - wmWidth) / 2);
+  const wmY = Math.round((height - wmHeight) / 2);
+
+  ctx.save();
+  // Matching user's screenshot watermark opacity: translucent (~0.38)
+  ctx.globalAlpha = opacity;
+  ctx.drawImage(watermarkImg, wmX, wmY, wmWidth, wmHeight);
+  ctx.restore();
+}
+
+/**
+ * Convert any image file to a compressed .webp Blob using HTML5 Canvas with embedded logo watermark
  * @param {File|Blob} file 
  * @param {number} quality 0 to 1 (default 0.85)
  * @param {number} maxDimension Max width/height in px (default 1920)
+ * @param {string} customSlug
+ * @param {boolean} applyWatermark (default true)
+ * @param {number} watermarkOpacity (default 0.38)
  * @returns {Promise<File>}
  */
-export async function convertImageToWebp(file, quality = 0.85, maxDimension = 1920, customSlug = '') {
+export async function convertImageToWebp(file, quality = 0.85, maxDimension = 1920, customSlug = '', applyWatermark = true, watermarkOpacity = 0.38) {
   if (!file) return file;
 
-  // If already WebP and small enough, keep as is
-  if (file.type === 'image/webp' && file.size < 1024 * 1024 && !customSlug) {
+  // Pre-load watermark if requested
+  let watermarkImg = null;
+  if (applyWatermark) {
+    try {
+      watermarkImg = await loadWatermarkImage();
+    } catch (e) {
+      console.warn('Could not load watermark:', e);
+    }
+  }
+
+  // If already WebP and no watermark is required, keep as is
+  if (!applyWatermark && file.type === 'image/webp' && file.size < 1024 * 1024 && !customSlug) {
     return file;
   }
 
@@ -49,7 +147,13 @@ export async function convertImageToWebp(file, quality = 0.85, maxDimension = 19
             return;
           }
 
+          // Draw original image
           ctx.drawImage(img, 0, 0, width, height);
+
+          // Apply logo watermark
+          if (watermarkImg && applyWatermark) {
+            drawLogoWatermark(ctx, width, height, watermarkImg, watermarkOpacity);
+          }
 
           canvas.toBlob(
             (blob) => {
@@ -115,11 +219,13 @@ export async function uploadImageToStorage(rawFile, options = {}) {
     );
   }
 
-  // 1. Client-Side WebP Conversion
+  // 1. Client-Side WebP Conversion & Watermark Embedding
   let fileToUpload = rawFile;
+  const applyWatermark = options.skipWatermark !== true;
+  const watermarkOpacity = typeof options.watermarkOpacity === 'number' ? options.watermarkOpacity : 0.38;
   try {
-    emitProgress(25, 'WebP অপ্টিমাইজেশন সম্পন্ন...');
-    fileToUpload = await convertImageToWebp(rawFile, 0.85, 1920, targetSlug);
+    emitProgress(25, applyWatermark ? 'ছবিতে অফিসিয়াল ওয়াটারমার্ক ও WebP অপ্টিমাইজ হচ্ছে...' : 'WebP অপ্টিমাইজেশন সম্পন্ন...');
+    fileToUpload = await convertImageToWebp(rawFile, 0.85, 1920, targetSlug, applyWatermark, watermarkOpacity);
     emitProgress(40, 'ক্লাউড ও সার্ভার আপলোড শুরু হচ্ছে...');
   } catch (err) {
     console.warn('WebP conversion note:', err);
@@ -156,6 +262,9 @@ export async function uploadImageToStorage(rawFile, options = {}) {
   if (options.caption) formData.append('caption', options.caption);
   if (options.associatedNews) formData.append('associated_news', options.associatedNews);
   if (options.title) formData.append('title', options.title);
+  if (options.skipWatermark === true || (applyWatermark && fileToUpload !== rawFile)) {
+    formData.append('skip_watermark', '1');
+  }
 
   let lastError = null;
 

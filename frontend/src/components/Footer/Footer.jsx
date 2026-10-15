@@ -56,6 +56,15 @@ export default function Footer() {
                 {isBn ? 'আমাদের সম্পর্কে' : 'About Us'}
               </a>
               <a
+                href="/team"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateTo('/team');
+                }}
+              >
+                {isBn ? 'আমাদের টিম ও সাংবাদিক' : 'Our Team & Journalists'}
+              </a>
+              <a
                 href="/advertisement"
                 onClick={(e) => {
                   e.preventDefault();

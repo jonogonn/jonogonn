@@ -1,21 +1,29 @@
 import React, { useRef } from 'react';
 import { useNews } from '../../context/NewsContext';
 import { Clock, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LatestNewsSkeleton } from '../UI/NewsSkeletonLoader';
 
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
 
 export default function LatestNewsGrid() {
-  const { language, articles, openArticle, setActiveCategory, homepageSections } = useNews();
+  const { language, articles, isArticlesLoading, openArticle, setActiveCategory, homepageSections } = useNews();
   const isBn = language === 'bn';
+
+  const scrollContainerRef = useRef(null);
 
   // Section visibility check from homepageSections
   const secConfig = (homepageSections || []).find((s) => s.id === 'latestNewsGrid');
   if (secConfig && secConfig.isVisible === false) return null;
 
-  const scrollContainerRef = useRef(null);
-
   // Ensure at least 12 cards per half for consistent track width and velocity
-  const baseCards = articles && articles.length > 0 ? articles : [];
+  const publishedArticles = (articles || []).filter((a) => a.status === 'published' || !a.status);
+  const baseCards = publishedArticles.length > 0 ? publishedArticles : [];
+
+  if (baseCards.length === 0) {
+    if (isArticlesLoading) return <LatestNewsSkeleton />;
+    return null;
+  }
+
   let displayCards = [];
   if (baseCards.length > 0) {
     while (displayCards.length < 12) {

@@ -2,26 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useNews } from '../../context/NewsContext';
 import { Clock, BookOpen, ChevronLeft, ChevronRight, Flame } from 'lucide-react';
 import AdSenseSlot from '../Ads/AdSenseSlot';
+import { HeroLeadSkeleton } from '../UI/NewsSkeletonLoader';
 
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
 
 export default function HeroLeadGrid() {
-  const { language, articles, openArticle, homepageSections, sectionColumnsOrder } = useNews();
+  const { language, articles, isArticlesLoading, openArticle, homepageSections, sectionColumnsOrder } = useNews();
   const isBn = language === 'bn';
-
-  // Section visibility check from homepageSections
-  const secConfig = (homepageSections || []).find((s) => s.id === 'heroLeadGrid');
-  if (secConfig && secConfig.isVisible === false) return null;
 
   const [slideIndex, setSlideIndex] = useState(0);
   const [isSliderPaused, setIsSliderPaused] = useState(false);
   const [slideProgress, setSlideProgress] = useState(0);
 
-  if (!articles || articles.length === 0) return null;
-
   // Filter only published articles for public homepage
-  const publishedArticles = articles.filter((a) => a.status === 'published' || !a.status);
-  const activeArticleList = publishedArticles.length > 0 ? publishedArticles : articles;
+  const publishedArticles = (articles || []).filter((a) => a && (a.status === 'published' || !a.status));
+  const activeArticleList = publishedArticles;
 
   // 1. Highlighted News Pool (Admin marked or fallback to lead/recent)
   const highlightedNews = activeArticleList.filter((a) => a.isHighlighted);
@@ -47,6 +42,18 @@ export default function HeroLeadGrid() {
     };
   }, [slideIndex, isSliderPaused, sliderItems.length]);
 
+  // Section visibility check from homepageSections
+  const secConfig = (homepageSections || []).find((s) => s.id === 'heroLeadGrid');
+  if (secConfig && secConfig.isVisible === false) return null;
+
+  // If DB articles are loading and no cache exists, render modern Skeleton Shimmer
+  if (!articles || articles.length === 0) {
+    if (isArticlesLoading) return <HeroLeadSkeleton />;
+    return null;
+  }
+
+  if (activeArticleList.length === 0) return null;
+
   const currentSlide = sliderItems[slideIndex] || sliderItems[0];
 
   const handlePrevSlide = (e) => {
@@ -71,78 +78,80 @@ export default function HeroLeadGrid() {
   const defaultColOrder = ['leadSlider', 'newlyPosted', 'mostRead'];
   const colOrder = sectionColumnsOrder?.heroLeadGrid || defaultColOrder;
 
-  const renderLeadSlider = () => (
-    <div
-      key="leadSlider"
-      className="hero-slider-container"
-      onMouseEnter={() => setIsSliderPaused(true)}
-      onMouseLeave={() => setIsSliderPaused(false)}
-    >
-      <article
-        key={currentSlide.id}
-        className="hero-main-card hero-slide-card"
-        onClick={() => openArticle(currentSlide)}
-        title={isBn ? currentSlide.titleBn || currentSlide.titleEn : currentSlide.titleEn || currentSlide.titleBn}
+  const renderLeadSlider = () => {
+    if (!currentSlide) return null;
+    return (
+      <div
+        key="leadSlider"
+        className="hero-slider-container"
+        onMouseEnter={() => setIsSliderPaused(true)}
+        onMouseLeave={() => setIsSliderPaused(false)}
       >
-        <div className="hero-main-image-wrap">
-          <img
-            src={currentSlide.imageUrl && !currentSlide.imageUrl.startsWith('blob:') ? currentSlide.imageUrl : FALLBACK_NEWS_IMG}
-            alt=""
-            className="hero-main-image hero-unique-slide-anim"
-            loading="eager"
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = FALLBACK_NEWS_IMG;
-            }}
-          />
+        <article
+          key={currentSlide.id || 'hero-slide'}
+          className="hero-main-card hero-slide-card"
+          onClick={() => openArticle(currentSlide)}
+          title={isBn ? (currentSlide.titleBn || currentSlide.title || '') : (currentSlide.titleEn || currentSlide.titleBn || '')}
+        >
+          <div className="hero-main-image-wrap">
+            <img
+              src={currentSlide.imageUrl && !currentSlide.imageUrl.startsWith('blob:') ? currentSlide.imageUrl : FALLBACK_NEWS_IMG}
+              alt=""
+              className="hero-main-image hero-unique-slide-anim"
+              loading="eager"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = FALLBACK_NEWS_IMG;
+              }}
+            />
 
-          {/* Subtle Gradient & Texture Vignette for cinematic look */}
-          <div className="hero-image-scrim" />
+            {/* Subtle Gradient & Texture Vignette for cinematic look */}
+            <div className="hero-image-scrim" />
 
-          {/* Top Badges Overlay: Highlights Ribbon & Category */}
-          <div className="hero-main-badge-overlay">
-            <span className="badge-highlight">
-              {isBn ? 'হাইলাইটস' : 'Highlights'}
-            </span>
-            <span className="badge-category">
-              {isBn ? currentSlide.categoryBn || 'বাংলাদেশ' : currentSlide.category || 'Bangladesh'}
-            </span>
+            {/* Top Badges Overlay: Highlights Ribbon & Category */}
+            <div className="hero-main-badge-overlay">
+              <span className="badge-highlight">
+                {isBn ? 'হাইলাইটস' : 'Highlights'}
+              </span>
+              <span className="badge-category">
+                {isBn ? currentSlide.categoryBn || 'বাংলাদেশ' : currentSlide.category || 'Bangladesh'}
+              </span>
+            </div>
+
+            {/* Slider Navigation Arrows (Glassmorphic) */}
+            {sliderItems.length > 1 && (
+              <div className="hero-slider-arrows">
+                <button
+                  className="hero-slider-nav-btn"
+                  onClick={handlePrevSlide}
+                  aria-label="Previous story"
+                  title={isBn ? 'আগের খবর' : 'Previous'}
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  className="hero-slider-nav-btn"
+                  onClick={handleNextSlide}
+                  aria-label="Next story"
+                  title={isBn ? 'পরের খবর' : 'Next'}
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Slider Navigation Arrows (Glassmorphic) */}
-          {sliderItems.length > 1 && (
-            <div className="hero-slider-arrows">
-              <button
-                className="hero-slider-nav-btn"
-                onClick={handlePrevSlide}
-                aria-label="Previous story"
-                title={isBn ? 'আগের খবর' : 'Previous'}
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                className="hero-slider-nav-btn"
-                onClick={handleNextSlide}
-                aria-label="Next story"
-                title={isBn ? 'পরের খবর' : 'Next'}
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          )}
-        </div>
+          <div className="hero-main-info hero-content-slide-up">
+            <div>
+              <h1 className="hero-main-title">
+                {isBn ? (currentSlide.titleBn || currentSlide.title || '') : (currentSlide.titleEn || currentSlide.titleBn || '')}
+              </h1>
 
-        <div className="hero-main-info hero-content-slide-up">
-          <div>
-            <h1 className="hero-main-title">
-              {isBn ? currentSlide.titleBn || currentSlide.titleEn : currentSlide.titleEn || currentSlide.titleBn}
-            </h1>
-
-            {(currentSlide.excerptBn || currentSlide.excerptEn) && (
-              <p className="hero-main-excerpt">
-                {isBn ? currentSlide.excerptBn || currentSlide.excerptEn : currentSlide.excerptEn || currentSlide.excerptBn}
-              </p>
-            )}
+              {(currentSlide.excerptBn || currentSlide.excerptEn) && (
+                <p className="hero-main-excerpt">
+                  {isBn ? currentSlide.excerptBn || currentSlide.excerptEn : currentSlide.excerptEn || currentSlide.excerptBn}
+                </p>
+              )}
           </div>
 
           <div className="hero-main-bottom-row">
@@ -187,6 +196,7 @@ export default function HeroLeadGrid() {
       </article>
     </div>
   );
+};
 
   const renderNewlyPosted = () => (
     <div key="newlyPosted" className="hero-sub-list-container">

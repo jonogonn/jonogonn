@@ -9,10 +9,6 @@ export default function DistrictNewsSection() {
   const { language, articles, openArticle, setActiveCategory, userDistrict, setUserDistrict, homepageSections } = useNews();
   const isBn = language === 'bn';
 
-  // Section visibility check from homepageSections
-  const secConfig = (homepageSections || []).find((s) => s.id === 'districtNewsSection');
-  if (secConfig && secConfig.isVisible === false) return null;
-
   // Flat list of all 64 districts
   const allDistrictsFlat = bangladeshDistricts.flatMap((div) => div.districts);
 
@@ -104,6 +100,10 @@ export default function DistrictNewsSection() {
     detectUserLocation(false);
   }, []);
 
+  // Section visibility check from homepageSections
+  const secConfig = (homepageSections || []).find((s) => s.id === 'districtNewsSection');
+  if (secConfig && secConfig.isVisible === false) return null;
+
   // Handle manual dropdown selection
   const handleDistrictChange = (e) => {
     const newDistrict = e.target.value;
@@ -120,7 +120,9 @@ export default function DistrictNewsSection() {
   const districtNameBn = selectedDistrictObj.nameBn;
   const districtNameEn = selectedDistrictObj.nameEn.toLowerCase();
 
-  const matchingArticles = articles.filter((a) => {
+  const publishedArticles = (articles || []).filter((a) => a.status === 'published' || !a.status);
+
+  const matchingArticles = publishedArticles.filter((a) => {
     if (a.district === selectedDistrictId) return true;
     if (a.titleBn && a.titleBn.includes(districtNameBn)) return true;
     if (a.contentBn && a.contentBn.includes(districtNameBn)) return true;
@@ -129,7 +131,7 @@ export default function DistrictNewsSection() {
   });
 
   // If specific district articles are fewer than 4, fill with regional / district / saradesh news
-  const fallbackPool = articles.filter(
+  const fallbackPool = publishedArticles.filter(
     (a) => a.category === 'district' || a.category === 'saradesh' || a.category === 'bangladesh'
   );
 

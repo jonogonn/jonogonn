@@ -188,6 +188,7 @@ export default function UserProfileManager({ triggerSaveToast, currentMember: pr
       const uploadedUrl = await uploadImageToStorage(file, {
         slug: `avatar-${profileForm.username}`,
         caption: `Avatar - ${profileForm.name}`,
+        skipWatermark: true,
         onProgress: (p, text) => setAvatarUploadStatus(text)
       });
 

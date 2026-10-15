@@ -17,7 +17,8 @@ import {
   AlertCircle,
   HelpCircle,
   Database,
-  RefreshCw
+  RefreshCw,
+  ArrowLeft
 } from 'lucide-react';
 
 export const MASTER_AD_SLOTS = [
@@ -168,13 +169,15 @@ export default function AdsManager({ triggerSaveToast }) {
 
   // Active slot tab filter
   const [activeSlotId, setActiveSlotId] = useState(MASTER_AD_SLOTS[0].id);
+  // Mobile responsive active tab: 'list' (all slots list) | 'editor' (slot detail editor)
+  const [mobileActiveTab, setMobileActiveTab] = useState('list');
 
   // Handle direct file upload for a slot with MariaDB auto-sync
   const handleFileUpload = async (slotId, file) => {
     if (!file) return;
     try {
       setUploadingSlot(slotId);
-      const cdnUrl = await uploadImageToStorage(file, 'advertisements');
+      const cdnUrl = await uploadImageToStorage(file, { slug: 'advertisements', skipWatermark: true });
       setAdSlots((prev) => {
         const next = {
           ...prev,
@@ -329,7 +332,7 @@ export default function AdsManager({ triggerSaveToast }) {
       </div>
 
       {/* Summary KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 24 }}>
+      <div className="ads-manager-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 24 }}>
         <div style={{ padding: 14, borderRadius: 10, backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)' }}>
           <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase' }}>
             {isBn ? 'মোট বিজ্ঞাপন স্লট' : 'Total Ad Slots'}
@@ -358,10 +361,33 @@ export default function AdsManager({ triggerSaveToast }) {
         </div>
       </div>
 
+      {/* Mobile Tab Switcher */}
+      <div className="ads-mobile-tab-switch">
+        <button
+          type="button"
+          className={`ads-mobile-tab-btn ${mobileActiveTab === 'list' ? 'active' : ''}`}
+          onClick={() => setMobileActiveTab('list')}
+        >
+          <Sliders size={16} />
+          <span>{isBn ? `স্লট তালিকা (${MASTER_AD_SLOTS.length})` : `All Slots (${MASTER_AD_SLOTS.length})`}</span>
+        </button>
+        <button
+          type="button"
+          className={`ads-mobile-tab-btn ${mobileActiveTab === 'editor' ? 'active' : ''}`}
+          onClick={() => setMobileActiveTab('editor')}
+        >
+          <ImageIcon size={16} />
+          <span>{isBn ? 'স্লট এডিটর' : 'Slot Editor'}</span>
+        </button>
+      </div>
+
       {/* Main Two-Column Layout: Slot Selector (Left) & Active Slot Editor (Right) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 320px) 1fr', gap: 20 }}>
+      <div className="ads-manager-main-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 320px) 1fr', gap: 20 }}>
         {/* Left Column: All Slots List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 620, overflowY: 'auto', paddingRight: 4 }}>
+        <div
+          className={`ads-manager-slots-col ${mobileActiveTab !== 'list' ? 'mobile-hide' : ''}`}
+          style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 620, overflowY: 'auto', paddingRight: 4 }}
+        >
           <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.5px' }}>
             {isBn ? 'বিজ্ঞাপন স্লটসমূহ নির্বাচন করুন' : 'Select Ad Placement'}
           </div>
@@ -375,7 +401,10 @@ export default function AdsManager({ triggerSaveToast }) {
               <button
                 key={slot.id}
                 type="button"
-                onClick={() => setActiveSlotId(slot.id)}
+                onClick={() => {
+                  setActiveSlotId(slot.id);
+                  setMobileActiveTab('editor');
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -416,11 +445,51 @@ export default function AdsManager({ triggerSaveToast }) {
         </div>
 
         {/* Right Column: Slot Detail Editor */}
-        <div style={{ padding: 22, borderRadius: 12, border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-surface)' }}>
+        <div
+          className={`ads-manager-editor-col ${mobileActiveTab !== 'editor' ? 'mobile-hide' : ''}`}
+          style={{ padding: 22, borderRadius: 12, border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-surface)' }}
+        >
+          {/* Mobile Back to List & Quick Slot Switcher */}
+          <div className="ads-mobile-slot-picker">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <button
+                type="button"
+                onClick={() => setMobileActiveTab('list')}
+                className="admin-btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 6, borderRadius: 6 }}
+              >
+                <ArrowLeft size={14} />
+                <span>{isBn ? '← স্লট তালিকায় ফিরুন' : '← Back to Slots'}</span>
+              </button>
+              <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                {isBn ? 'সরাসরি স্লট বদলান:' : 'Quick Switch:'}
+              </span>
+            </div>
+            <select
+              value={activeSlotId}
+              onChange={(e) => setActiveSlotId(e.target.value)}
+              className="admin-select"
+              style={{ width: '100%', padding: '9px 12px', fontSize: '0.86rem', fontWeight: 700 }}
+            >
+              {MASTER_AD_SLOTS.map((slot) => {
+                const cfg = adSlots[slot.id] || {};
+                const hasActive = cfg.enabled && (cfg.imageUrl || cfg.code);
+                return (
+                  <option key={slot.id} value={slot.id}>
+                    {hasActive ? '🟢' : '⚪'} {isBn ? slot.nameBn : slot.nameEn} ({slot.dimension})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
           {/* Slot Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingBottom: 16, borderBottom: '1px solid var(--border-color)', marginBottom: 20 }}>
+          <div
+            className="ads-slot-header-wrap"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingBottom: 16, borderBottom: '1px solid var(--border-color)', marginBottom: 20 }}
+          >
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <h3 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
                   {isBn ? currentSlot.nameBn : currentSlot.nameEn}
                 </h3>
@@ -461,7 +530,7 @@ export default function AdsManager({ triggerSaveToast }) {
             <label className="admin-label" style={{ marginBottom: 8, display: 'block' }}>
               {isBn ? 'বিজ্ঞাপনের ফরম্যাট নির্বাচন করুন:' : 'Select Ad Format:'}
             </label>
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div className="ads-format-selector-row" style={{ display: 'flex', gap: 12 }}>
               <button
                 type="button"
                 onClick={() => {
@@ -519,6 +588,7 @@ export default function AdsManager({ triggerSaveToast }) {
               </button>
             </div>
           </div>
+
 
           {/* Form Content 1: Custom Image Banner Mode */}
           {currentConfig.mode === 'image' && (

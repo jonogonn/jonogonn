@@ -117,8 +117,6 @@ export default function ArticleDetailPage() {
     };
   }, [currentArticle?.id, currentArticle?.post_id]);
 
-  if (!currentArticle) return null;
-
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
     setCopied(true);
@@ -175,17 +173,41 @@ export default function ArticleDetailPage() {
     }
   };
 
-  // Category matching
-  const catObj = categories.find((c) => c.id === currentArticle.category);
+  if (!currentArticle) {
+    return (
+      <div className="container" style={{ padding: '80px 20px', textAlign: 'center' }}>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 12 }}>
+          {isBn ? 'সংবাদটি পাওয়া যায়নি বা মুছে ফেলা হয়েছে' : 'Article Not Found'}
+        </h2>
+        <button
+          onClick={goToHome}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: 'var(--primary-red)',
+            color: '#FFF',
+            border: 'none',
+            borderRadius: 6,
+            fontWeight: 700,
+            cursor: 'pointer'
+          }}
+        >
+          {isBn ? 'প্রচ্ছদে ফিরে যান' : 'Back to Home'}
+        </button>
+      </div>
+    );
+  }
 
-  // Most Read and Related
+  // Category matching
+  const catObj = categories.find((c) => c.id === currentArticle?.category);
+
+  // Most Read and Related (strictly published articles)
   const mostReadList = [...articles]
-    .filter((a) => a.id !== currentArticle.id)
+    .filter((a) => a.id !== currentArticle.id && (a.status === 'published' || !a.status))
     .sort((a, b) => (b.views || 0) - (a.views || 0))
     .slice(0, 5);
 
   const relatedArticles = articles
-    .filter((a) => a.id !== currentArticle.id && (a.category === currentArticle.category || !currentArticle.category))
+    .filter((a) => a.id !== currentArticle.id && (a.status === 'published' || !a.status) && (a.category === currentArticle.category || !currentArticle.category))
     .slice(0, 3);
 
   return (

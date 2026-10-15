@@ -22,6 +22,7 @@ import {
   ChevronRight,
   TrendingUp,
   SlidersHorizontal,
+  MoreVertical,
   X
 } from 'lucide-react';
 import { generateSocialCardJpg } from '../utils/generateSocialCardJpg';
@@ -70,6 +71,24 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
   const [editingArticleId, setEditingArticleId] = useState(null);
   const [editingArticle, setEditingArticle] = useState(null);
 
+  // Mobile 3-dot action menu active row state
+  const [activeMenuPostId, setActiveMenuPostId] = useState(null);
+
+  // Close 3-dot menu on outside click
+  useEffect(() => {
+    const handleDocumentClick = (e) => {
+      if (!e.target.closest('.admin-3dot-container')) {
+        setActiveMenuPostId(null);
+      }
+    };
+    if (activeMenuPostId) {
+      document.addEventListener('click', handleDocumentClick);
+    }
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+    };
+  }, [activeMenuPostId]);
+
   const handleStartEdit = (art) => {
     if (!art) return;
     if (typeof setArticles === 'function') {
@@ -97,7 +116,7 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
     let isMounted = true;
     const loadDbArticles = async () => {
       try {
-        const dbPosts = await fetchArticlesFromMariaDb();
+        const dbPosts = await fetchArticlesFromMariaDb({ status: 'all', admin: '1' });
         if (isMounted && Array.isArray(dbPosts)) {
           const normalized = dbPosts.map((p) => ({
             ...p,
@@ -119,9 +138,10 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
           }));
           setDbArticles(normalized);
           setHasLoadedDb(true);
-          if (typeof setArticles === 'function' && normalized.length > 0) {
-            setArticles(normalized);
-            safeSetLocalStorage('jonogon_articles', normalized);
+          const publishedOnly = normalized.filter((p) => p.status === 'published' || !p.status);
+          if (typeof setArticles === 'function' && publishedOnly.length > 0) {
+            setArticles(publishedOnly);
+            safeSetLocalStorage('jonogon_articles', publishedOnly);
           }
         }
       } catch (err) {
@@ -138,7 +158,7 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
   const handleRefreshDb = async () => {
     setIsRefreshing(true);
     try {
-      const dbPosts = await fetchArticlesFromMariaDb();
+      const dbPosts = await fetchArticlesFromMariaDb({ status: 'all', admin: '1' });
       if (dbPosts && Array.isArray(dbPosts) && dbPosts.length > 0) {
         const normalized = dbPosts.map((p) => ({
           ...p,
@@ -162,9 +182,10 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
         setDbArticles(normalized);
         setHasLoadedDb(true);
 
+        const publishedOnly = normalized.filter((p) => p.status === 'published' || !p.status);
         if (typeof setArticles === 'function') {
-          setArticles(normalized);
-          safeSetLocalStorage('jonogon_articles', normalized);
+          setArticles(publishedOnly);
+          safeSetLocalStorage('jonogon_articles', publishedOnly);
         }
 
         showSuccess(
@@ -350,10 +371,11 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
         caption: article.cardCaption || 'ছবি: সংগৃহীত',
         category: cardCat,
         dateBn: article.dateBn,
-        titleFontSize: 48,
-        kickerFontSize: 26,
+        titleFontSize: article.cardTitleFontSize ? Number(article.cardTitleFontSize) : 24,
+        kickerFontSize: article.cardKickerFontSize ? Number(article.cardKickerFontSize) : 15,
         lineHeight: 1.18,
-        colorMode: 'dual',
+        colorMode: article.cardColorMode || 'dual',
+        manualLineBreak: article.cardManualLineBreak || '',
         imagePosition: article.cardImagePosition || article.imagePosition || 'center center',
         fileName: `jonogon-card-${cleanSlug}.jpg`
       });
@@ -630,9 +652,9 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
             </div>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
-              <thead>
+          <div className="publish-posts-table-wrap" style={{ overflowX: 'auto' }}>
+            <table className="publish-posts-table admin-responsive-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+              <thead className="desktop-only-header">
                 <tr style={{ backgroundColor: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-color)' }}>
                   <th style={{ padding: '12px 16px', fontWeight: 800 }}>{isBn ? 'সংবাদ বিবরণ ও শিরোনাম' : 'Article & Headline'}</th>
                   <th style={{ padding: '12px 14px', fontWeight: 800 }}>{isBn ? 'ক্যাটাগরি' : 'Category'}</th>
@@ -660,8 +682,8 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
                       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                     >
                       {/* 1. Article Info */}
-                      <td style={{ padding: '14px 16px', minWidth: 320 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <td className="col-article-main" style={{ padding: '14px 16px', minWidth: 280 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, width: '100%' }}>
                           <img
                             src={art.imageUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=160&q=80'}
                             alt="thumb"
@@ -671,10 +693,11 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
                               borderRadius: 6,
                               objectFit: 'cover',
                               backgroundColor: '#2A2D34',
-                              flexShrink: 0
+                              flexShrink: 0,
+                              marginTop: 2
                             }}
                           />
-                          <div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
                             {art.kicker && (
                               <div style={{ fontSize: '0.72rem', color: 'var(--primary-red)', fontWeight: 800, marginBottom: 2 }}>
                                 {art.kicker}
@@ -693,15 +716,79 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
                             >
                               {art.titleBn || art.titleEn}
                             </div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 3 }}>
+                            <div className="desktop-only-id" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 3 }}>
                               ID: <span style={{ fontFamily: 'monospace' }}>{art.id}</span>
+                            </div>
+
+                            {/* MOBILE ONLY: Other Column Details Shown Under Headline */}
+                            <div className="mobile-meta-under-headline">
+                              {/* Category Badge */}
+                              <span
+                                style={{
+                                  backgroundColor: 'rgba(230,0,18,0.1)',
+                                  color: 'var(--primary-red)',
+                                  padding: '2px 7px',
+                                  borderRadius: 4,
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center'
+                                }}
+                              >
+                                {art.categoryBn || art.category || 'বাংলাদেশ'}
+                              </span>
+
+                              {/* Status Badge */}
+                              {isPublished && (
+                                <span style={{ backgroundColor: 'rgba(16,185,129,0.15)', color: '#10B981', border: '1px solid rgba(16,185,129,0.3)', padding: '2px 7px', borderRadius: 4, fontSize: '0.72rem', fontWeight: 700 }}>
+                                  {isBn ? 'লাইভ পাবলিশড' : 'Published'}
+                                </span>
+                              )}
+                              {isPending && (
+                                <span style={{ backgroundColor: 'rgba(234,179,8,0.15)', color: '#EAB308', border: '1px solid rgba(234,179,8,0.3)', padding: '2px 7px', borderRadius: 4, fontSize: '0.72rem', fontWeight: 700 }}>
+                                  {isBn ? 'অনুমোদনাধীন' : 'Pending'}
+                                </span>
+                              )}
+                              {isDraft && (
+                                <span style={{ backgroundColor: 'rgba(59,130,246,0.15)', color: '#60A5FA', border: '1px solid rgba(59,130,246,0.3)', padding: '2px 7px', borderRadius: 4, fontSize: '0.72rem', fontWeight: 700 }}>
+                                  {isBn ? 'খসড়া' : 'Draft'}
+                                </span>
+                              )}
+                              {isRevision && (
+                                <span style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)', padding: '2px 7px', borderRadius: 4, fontSize: '0.72rem', fontWeight: 700 }}>
+                                  {isBn ? 'রিভিশন প্রয়োজন' : 'Revision'}
+                                </span>
+                              )}
+
+                              {/* Views */}
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#3B82F6', fontWeight: 700, fontSize: '0.74rem' }}>
+                                <Eye size={12} />
+                                <span>{(art.views || 0).toLocaleString()}</span>
+                              </span>
+
+                              {/* Author */}
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                                <User size={11} />
+                                <span>{art.author || 'জনগণ ডেস্ক'}</span>
+                              </span>
+
+                              {/* Date */}
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                                <Calendar size={11} />
+                                <span>{art.dateBn || 'আজ'}</span>
+                              </span>
+
+                              {/* ID */}
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', opacity: 0.75 }}>
+                                ID: {art.id}
+                              </span>
                             </div>
                           </div>
                         </div>
                       </td>
 
-                      {/* 2. Category */}
-                      <td style={{ padding: '14px 14px', whiteSpace: 'nowrap' }}>
+                      {/* 2. Category (Desktop Only) */}
+                      <td className="col-desktop-only" style={{ padding: '14px 14px', whiteSpace: 'nowrap' }}>
                         <span
                           style={{
                             backgroundColor: 'rgba(230,0,18,0.1)',
@@ -716,8 +803,8 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
                         </span>
                       </td>
 
-                      {/* 3. Author & Date */}
-                      <td style={{ padding: '14px 14px', whiteSpace: 'nowrap' }}>
+                      {/* 3. Author & Date (Desktop Only) */}
+                      <td className="col-desktop-only" style={{ padding: '14px 14px', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-primary)', fontWeight: 600 }}>
                             <User size={12} />
@@ -730,16 +817,16 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
                         </div>
                       </td>
 
-                      {/* 4. Views */}
-                      <td style={{ padding: '14px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      {/* 4. Views (Desktop Only) */}
+                      <td className="col-desktop-only" style={{ padding: '14px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <span style={{ fontWeight: 800, color: '#3B82F6', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                           <Eye size={13} />
                           <span>{(art.views || 0).toLocaleString()}</span>
                         </span>
                       </td>
 
-                      {/* 5. Status Badge */}
-                      <td style={{ padding: '14px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      {/* 5. Status Badge (Desktop Only) */}
+                      <td className="col-desktop-only" style={{ padding: '14px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         {isPublished && (
                           <span style={{ backgroundColor: 'rgba(16,185,129,0.15)', color: '#10B981', border: '1px solid rgba(16,185,129,0.3)', padding: '3px 8px', borderRadius: 4, fontSize: '0.76rem', fontWeight: 700 }}>
                             {isBn ? 'লাইভ পাবলিশড' : 'Published'}
@@ -762,9 +849,10 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
                         )}
                       </td>
 
-                      {/* 6. Action Buttons */}
-                      <td style={{ padding: '14px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      {/* 6. Action Buttons (Desktop Row vs Mobile 3-dot Menu) */}
+                      <td className="col-actions" style={{ padding: '14px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {/* Desktop Action Buttons Row */}
+                        <div className="desktop-actions-wrap" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           {/* Live Site View Button */}
                           <button
                             type="button"
@@ -839,6 +927,119 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
                           >
                             <Trash2 size={14} />
                           </button>
+                        </div>
+
+                        {/* Mobile 3-Dot Action Menu */}
+                        <div className="mobile-actions-wrap admin-3dot-container" style={{ position: 'relative' }}>
+                          <button
+                            type="button"
+                            className={`admin-btn-action admin-3dot-trigger ${activeMenuPostId === art.id ? 'active' : ''}`}
+                            style={{
+                              width: 32,
+                              height: 32,
+                              padding: 0,
+                              borderRadius: 6,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: activeMenuPostId === art.id ? 'var(--bg-subtle)' : 'transparent'
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveMenuPostId((prev) => (prev === art.id ? null : art.id));
+                            }}
+                            title={isBn ? 'অ্যাকশন অপশন সমূহ' : 'Action Options'}
+                          >
+                            <MoreVertical size={18} />
+                          </button>
+
+                          {/* 3-Dot Dropdown Menu Popover */}
+                          {activeMenuPostId === art.id && (
+                            <div
+                              className="admin-3dot-dropdown-menu"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                className="admin-menu-item-btn"
+                                onClick={() => {
+                                  setActiveMenuPostId(null);
+                                  handleViewLive(art);
+                                }}
+                              >
+                                <ExternalLink size={14} color="#10B981" />
+                                <span>{isBn ? 'ওয়েবসাইটে সরাসরি দেখুন' : 'View Live on Site'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                className="admin-menu-item-btn"
+                                onClick={() => {
+                                  setActiveMenuPostId(null);
+                                  handleStartEdit(art);
+                                }}
+                              >
+                                <Edit size={14} color="#3B82F6" />
+                                <span>{isBn ? 'সংবাদ সম্পাদনা করুন' : 'Edit Post'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                className="admin-menu-item-btn"
+                                onClick={() => {
+                                  setActiveMenuPostId(null);
+                                  setPreviewArticle(art);
+                                }}
+                              >
+                                <Eye size={14} color="var(--primary-red)" />
+                                <span>{isBn ? 'প্রিভিউ পড়ুন' : 'Read & Preview'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                className="admin-menu-item-btn"
+                                disabled={downloadingId === art.id}
+                                onClick={() => {
+                                  setActiveMenuPostId(null);
+                                  handleDownloadCard(art);
+                                }}
+                              >
+                                <Download size={14} color="#3B82F6" />
+                                <span>{downloadingId === art.id ? (isBn ? 'ডাউনলোড হচ্ছে...' : 'Downloading...') : (isBn ? 'সোশ্যাল কার্ড ডাউনলোড' : 'Download Card')}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                className="admin-menu-item-btn"
+                                onClick={() => {
+                                  setActiveMenuPostId(null);
+                                  handleTogglePublishStatus(art);
+                                }}
+                              >
+                                <CheckCircle size={14} color={isPublished ? '#EAB308' : '#10B981'} />
+                                <span>
+                                  {isPublished
+                                    ? (isBn ? 'ড্রাফট করুন (Unpublish)' : 'Unpublish to Draft')
+                                    : (isBn ? 'সরাসরি পাবলিশ করুন' : 'Publish Live')}
+                                </span>
+                              </button>
+
+                              <div style={{ height: 1, backgroundColor: 'var(--border-color)', margin: '4px 0' }} />
+
+                              <button
+                                type="button"
+                                className="admin-menu-item-btn"
+                                style={{ color: '#EF4444' }}
+                                onClick={() => {
+                                  setActiveMenuPostId(null);
+                                  handleDelete(art);
+                                }}
+                              >
+                                <Trash2 size={14} color="#EF4444" />
+                                <span>{isBn ? 'পোস্টটি মুছে ফেলুন' : 'Delete Post'}</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>

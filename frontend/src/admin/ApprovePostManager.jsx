@@ -226,10 +226,11 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
         caption: article.cardCaption || 'ছবি: সংগৃহীত',
         category: cardCat,
         dateBn: article.dateBn,
-        titleFontSize: 48,
-        kickerFontSize: 26,
+        titleFontSize: article.cardTitleFontSize ? Number(article.cardTitleFontSize) : 24,
+        kickerFontSize: article.cardKickerFontSize ? Number(article.cardKickerFontSize) : 15,
         lineHeight: 1.18,
-        colorMode: 'dual',
+        colorMode: article.cardColorMode || 'dual',
+        manualLineBreak: article.cardManualLineBreak || '',
         imagePosition: article.cardImagePosition || article.imagePosition || 'center center',
         fileName: `jonogon-card-${cleanSlug}.jpg`
       });
@@ -269,10 +270,11 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
         caption: article.cardCaption || 'ছবি: সংগৃহীত',
         category: cardCat,
         dateBn: article.dateBn,
-        titleFontSize: 48,
-        kickerFontSize: 26,
+        titleFontSize: article.cardTitleFontSize ? Number(article.cardTitleFontSize) : 24,
+        kickerFontSize: article.cardKickerFontSize ? Number(article.cardKickerFontSize) : 15,
         lineHeight: 1.18,
-        colorMode: 'dual',
+        colorMode: article.cardColorMode || 'dual',
+        manualLineBreak: article.cardManualLineBreak || '',
         imagePosition: article.cardImagePosition || article.imagePosition || 'center center',
         fileName: `jonogon-card-${cleanSlug}.jpg`,
         returnBlob: true
@@ -1029,6 +1031,12 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
                     category={previewArticle.cardCategory || getCardCategoryLabel(previewArticle.category || (previewArticle.categories && previewArticle.categories[0]), categoryMasterGroups, categories)}
                     dateBn={previewArticle.dateBn}
                     imagePosition={previewArticle.cardImagePosition || previewArticle.imagePosition || 'center center'}
+                    titleFontSize={previewArticle.cardTitleFontSize ? Number(previewArticle.cardTitleFontSize) : 24}
+                    kickerFontSize={previewArticle.cardKickerFontSize ? Number(previewArticle.cardKickerFontSize) : 15}
+                    colorMode={previewArticle.cardColorMode || 'dual'}
+                    manualLineBreak={previewArticle.cardManualLineBreak || ''}
+                    slug={previewArticle.slug || 'news-card'}
+                    allowDownload={true}
                   />
 
                   {/* Direct Download Button Below Card */}

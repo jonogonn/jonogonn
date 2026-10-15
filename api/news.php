@@ -22,78 +22,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // -------------------------------------------------------------
-// HELPER: Auto-detect active table and ensure required columns
+// HELPER: Auto-detect active table (Fast, cached, no DDL overhead)
 // -------------------------------------------------------------
 function getAndEnsureNewsTable($pdo) {
-    static $activeTable = null;
-    if ($activeTable !== null) return $activeTable;
-
-    $targetTable = 'news_posts';
-    try {
-        $check = $pdo->query("SHOW TABLES LIKE 'news_posts'");
-        if (!$check || $check->rowCount() === 0) {
-            $checkLegacy = $pdo->query("SHOW TABLES LIKE 'news'");
-            if ($checkLegacy && $checkLegacy->rowCount() > 0) {
-                $targetTable = 'news';
-            }
-        }
-    } catch (Exception $e) {
-        $targetTable = 'news_posts';
-    }
-
-    // Auto-migrate missing columns so MySQL never fails with "Unknown column"
-    try {
-        $existingCols = [];
-        $colStmt = $pdo->query("SHOW COLUMNS FROM `{$targetTable}`");
-        while ($c = $colStmt->fetch(PDO::FETCH_ASSOC)) {
-            $existingCols[strtolower($c['Field'])] = true;
-        }
-
-        $requiredCols = [
-            'blocks' => "LONGTEXT NULL COMMENT 'JSON array of editor blocks'",
-            'tags' => "LONGTEXT NULL COMMENT 'JSON array or comma separated tags'",
-            'categories' => "LONGTEXT NULL COMMENT 'JSON array of subcategories'",
-            'gallery_images' => "LONGTEXT NULL COMMENT 'JSON array of gallery image URLs'",
-            'is_highlighted' => "TINYINT(1) DEFAULT 0",
-            'is_featured' => "TINYINT(1) DEFAULT 0",
-            'is_lead_hero' => "TINYINT(1) DEFAULT 0",
-            'is_breaking' => "TINYINT(1) DEFAULT 0",
-            'is_video' => "TINYINT(1) DEFAULT 0",
-            'youtube_url' => "TEXT NULL",
-            'video_duration' => "VARCHAR(50) DEFAULT NULL",
-            'card_category' => "VARCHAR(200) DEFAULT NULL",
-            'card_image_position' => "VARCHAR(64) DEFAULT 'center center'",
-            'image_caption' => "VARCHAR(500) DEFAULT 'ছবি: সংগৃহীত'",
-            'featured_image' => "TEXT DEFAULT NULL",
-            'author' => "VARCHAR(150) NOT NULL DEFAULT 'জনগণ নিউজ ডেস্ক'",
-            'author_id' => "VARCHAR(64) DEFAULT 'user-1'",
-            'author_avatar' => "TEXT DEFAULT NULL",
-            'reporter_name' => "VARCHAR(150) DEFAULT NULL",
-            'read_time' => "VARCHAR(50) DEFAULT '৪ মিনিট পড়তে'",
-            'status' => "VARCHAR(50) NOT NULL DEFAULT 'published'",
-            'status_note' => "TEXT DEFAULT NULL",
-            'views' => "BIGINT(20) UNSIGNED NOT NULL DEFAULT 0",
-            'shares_count' => "INT(11) UNSIGNED NOT NULL DEFAULT 0",
-            'seo_title' => "VARCHAR(300) DEFAULT NULL",
-            'seo_description' => "TEXT DEFAULT NULL",
-            'seo_keywords' => "VARCHAR(500) DEFAULT NULL"
-        ];
-
-        foreach ($requiredCols as $colName => $colDef) {
-            if (!isset($existingCols[strtolower($colName)])) {
-                try {
-                    $pdo->exec("ALTER TABLE `{$targetTable}` ADD COLUMN `{$colName}` {$colDef}");
-                } catch (Exception $alterEx) {}
-            }
-        }
-    } catch (Exception $e) {}
-
-    $activeTable = $targetTable;
-    return $activeTable;
+    return 'news_posts';
 }
 
 // -------------------------------------------------------------
-// 1. GET: Fetch News Articles
+// 1. GET: Fetch News Articles (Optimized Query & Caching)
 // -------------------------------------------------------------
 if ($method === 'GET') {
     try {
@@ -101,14 +37,27 @@ if ($method === 'GET') {
             throw new Exception('MariaDB ডাটাবেজ সংযোগ সক্রিয় নেই: ' . ($dbError ?? 'Unknown error'));
         }
 
+        // Fast caching header for public queries
+        header('Cache-Control: public, max-age=15, stale-while-revalidate=60');
+
         $tableName = getAndEnsureNewsTable($pdo);
         $status = isset($_GET['status']) ? $_GET['status'] : null;
         $category = isset($_GET['category']) ? $_GET['category'] : null;
         $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
         $slug = isset($_GET['slug']) ? trim($_GET['slug']) : null;
         $postId = isset($_GET['id']) ? trim($_GET['id']) : null;
+        $full = isset($_GET['full']) && $_GET['full'] === '1';
 
-        $query = "SELECT * FROM `{$tableName}` WHERE 1=1";
+        // Select full content only for single post or when explicitly requested
+        $isSingle = !empty($postId) || !empty($slug);
+        if ($isSingle || $full) {
+            $cols = "*";
+        } else {
+            // Optimized lightweight card fields (omits huge content_bn, content_en, and blocks JSON)
+            $cols = "`id`, `post_id`, `slug`, `title_bn`, `title_en`, `kicker`, `subtitle`, `excerpt_bn`, `excerpt_en`, `category_id`, `category_bn`, `category_en`, `categories`, `card_category`, `card_image_position`, `image_caption`, `featured_image`, `gallery_images`, `author`, `author_id`, `author_avatar`, `reporter_name`, `read_time`, `is_lead_hero`, `is_highlighted`, `is_breaking`, `is_featured`, `is_video`, `youtube_url`, `video_duration`, `status`, `status_note`, `views`, `shares_count`, `tags`, `seo_title`, `seo_description`, `seo_keywords`, `created_at`, `updated_at`, `published_at`";
+        }
+
+        $query = "SELECT {$cols} FROM `{$tableName}` WHERE 1=1";
         $params = [];
 
         if ($postId) {
@@ -175,6 +124,10 @@ if ($method === 'GET') {
                 'categories' => !empty($row['categories']) ? (is_array($row['categories']) ? $row['categories'] : json_decode($row['categories'], true)) : [$row['category_id'] ?? 'bangladesh'],
                 'cardCategory' => $row['card_category'] ?? ($row['category_bn'] ?? 'সারাদেশ । বাংলাদেশ'),
                 'cardImagePosition' => $row['card_image_position'] ?? 'center center',
+                'cardTitleFontSize' => isset($row['card_title_font_size']) && $row['card_title_font_size'] ? (int)$row['card_title_font_size'] : 24,
+                'cardKickerFontSize' => isset($row['card_kicker_font_size']) && $row['card_kicker_font_size'] ? (int)$row['card_kicker_font_size'] : 15,
+                'cardColorMode' => $row['card_color_mode'] ?? 'dual',
+                'cardManualLineBreak' => $row['card_manual_line_break'] ?? '',
                 'cardCaption' => $row['card_caption'] ?? ($row['image_caption'] ?? 'ছবি: সংগৃহীত'),
                 'imageUrl' => $featuredImg,
                 'featuredImage' => $featuredImg,
@@ -376,6 +329,10 @@ if ($method === 'POST') {
             'categories' => $categories,
             'card_category' => $cardCategory,
             'card_image_position' => $data['cardImagePosition'] ?? ($data['card_image_position'] ?? ($data['imagePosition'] ?? 'center center')),
+            'card_title_font_size' => isset($data['cardTitleFontSize']) ? (int)$data['cardTitleFontSize'] : (isset($data['card_title_font_size']) ? (int)$data['card_title_font_size'] : 24),
+            'card_kicker_font_size' => isset($data['cardKickerFontSize']) ? (int)$data['cardKickerFontSize'] : (isset($data['card_kicker_font_size']) ? (int)$data['card_kicker_font_size'] : 15),
+            'card_color_mode' => $data['cardColorMode'] ?? ($data['card_color_mode'] ?? 'dual'),
+            'card_manual_line_break' => $data['cardManualLineBreak'] ?? ($data['card_manual_line_break'] ?? ''),
             'image_caption' => $cardCaption,
             'card_caption' => $cardCaption,
             'featured_image' => $featuredImage,

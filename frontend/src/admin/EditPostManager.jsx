@@ -951,6 +951,13 @@ export default function EditPostManager({ triggerSaveToast, onNavigateToApprove,
                     caption={previewArticle.cardCaption || (isBn ? 'ছবি: সংগৃহীত' : 'Photo: Collected')}
                     category={previewArticle.cardCategory || getCardCategoryLabel(previewArticle.category || (previewArticle.categories && previewArticle.categories[0]), categoryMasterGroups, categories)}
                     dateBn={previewArticle.dateBn}
+                    imagePosition={previewArticle.cardImagePosition || previewArticle.imagePosition || 'center center'}
+                    titleFontSize={previewArticle.cardTitleFontSize ? Number(previewArticle.cardTitleFontSize) : 24}
+                    kickerFontSize={previewArticle.cardKickerFontSize ? Number(previewArticle.cardKickerFontSize) : 15}
+                    colorMode={previewArticle.cardColorMode || 'dual'}
+                    manualLineBreak={previewArticle.cardManualLineBreak || ''}
+                    slug={previewArticle.slug || 'news-card'}
+                    allowDownload={true}
                   />
                 </div>
               ) : (

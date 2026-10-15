@@ -99,6 +99,15 @@ export default function ComplaintBoxSection() {
       localStorage.setItem('jonogon_complaints', JSON.stringify([newComplaint, ...existing]));
     } catch (e) {}
 
+    // Also sync to MariaDB backend
+    try {
+      fetch('/api/complaints.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newComplaint)
+      }).catch(() => {});
+    } catch (err) {}
+
     setIsSubmitted(true);
   };
 

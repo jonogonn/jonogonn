@@ -19,18 +19,15 @@ export default function RemittanceFighter() {
   const { language, articles, openArticle, setActiveCategory, homepageSections, sectionColumnsOrder } = useNews();
   const isBn = language === 'bn';
 
-  // Section visibility check from homepageSections
-  const secConfig = (homepageSections || []).find((s) => s.id === 'remittanceFighter');
-  if (secConfig && secConfig.isVisible === false) return null;
-
-  // Expatriates & Remittance Articles Pool
-  const probashiArticles = articles.filter(
-    (a) => a.category === 'probashi' || a.id.startsWith('probashi')
-  );
-  const pool = probashiArticles.length >= 5 ? probashiArticles : articles;
-
   const [slideIndex, setSlideIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+
+  // Expatriates & Remittance Articles Pool (strictly published articles)
+  const publishedArticles = (articles || []).filter((a) => a && (a.status === 'published' || !a.status));
+  const probashiArticles = publishedArticles.filter(
+    (a) => a && (a.category === 'probashi' || (a.id && String(a.id).startsWith('probashi')))
+  );
+  const pool = probashiArticles.length >= 5 ? probashiArticles : publishedArticles;
 
   // Auto-slide for Featured Lead Card (6 seconds)
   useEffect(() => {
@@ -40,6 +37,12 @@ export default function RemittanceFighter() {
     }, 6000);
     return () => clearInterval(timer);
   }, [isPaused, pool.length]);
+
+  // Section visibility check from homepageSections
+  const secConfig = (homepageSections || []).find((s) => s.id === 'remittanceFighter');
+  if (secConfig && secConfig.isVisible === false) return null;
+
+  if (pool.length === 0) return null;
 
   const currentSlide = pool[slideIndex] || pool[0];
   const subArticles = pool.filter((_, idx) => idx !== slideIndex).slice(0, 4);
@@ -59,30 +62,32 @@ export default function RemittanceFighter() {
     { code: 'KWD', nameBn: 'কুয়েতি দিনার', flag: '🇰🇼', rate: '৩৯৮.৪০' }
   ];
 
-  const renderFeaturedLead = () => (
-    <div
-      key="featuredLead"
-      className="foxiz-featured-col"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-    >
-      <article
-        key={currentSlide.id}
-        className="foxiz-featured-card"
-        onClick={() => openArticle(currentSlide)}
-        title={isBn ? currentSlide.titleBn : currentSlide.titleEn}
+  const renderFeaturedLead = () => {
+    if (!currentSlide) return null;
+    return (
+      <div
+        key="featuredLead"
+        className="foxiz-featured-col"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
       >
-        <div className="foxiz-featured-img-wrap">
-          <img
-            src={currentSlide.imageUrl || FALLBACK_NEWS_IMG}
-            alt={isBn ? currentSlide.titleBn : currentSlide.titleEn}
-            className="foxiz-featured-img hero-unique-slide-anim"
-            loading="lazy"
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = FALLBACK_NEWS_IMG;
-            }}
-          />
+        <article
+          key={currentSlide.id || 'remit-lead'}
+          className="foxiz-featured-card"
+          onClick={() => openArticle(currentSlide)}
+          title={isBn ? (currentSlide.titleBn || currentSlide.title || '') : (currentSlide.titleEn || currentSlide.titleBn || '')}
+        >
+          <div className="foxiz-featured-img-wrap">
+            <img
+              src={currentSlide.imageUrl || FALLBACK_NEWS_IMG}
+              alt={isBn ? (currentSlide.titleBn || currentSlide.title || '') : (currentSlide.titleEn || currentSlide.titleBn || '')}
+              className="foxiz-featured-img hero-unique-slide-anim"
+              loading="lazy"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = FALLBACK_NEWS_IMG;
+              }}
+            />
           <div className="hero-image-scrim" />
 
           {/* Category Badge Overlay */}
@@ -156,6 +161,7 @@ export default function RemittanceFighter() {
       </article>
     </div>
   );
+};
 
   const renderSubLeads = () => (
     <div key="subLeads" className="foxiz-subleads-col">

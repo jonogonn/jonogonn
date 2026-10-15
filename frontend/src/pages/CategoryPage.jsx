@@ -56,9 +56,10 @@ export default function CategoryPage() {
     );
   }, [parentGroup, activeCategory]);
 
-  // Filter Articles for this Category & Search
+  // Filter Articles for this Category & Search (strictly published)
   const filteredArticles = useMemo(() => {
     return (articles || []).filter((art) => {
+      if (art.status && art.status !== 'published') return false;
       const matchesSearch =
         !searchQuery ||
         (art.titleBn && art.titleBn.toLowerCase().includes(searchQuery.toLowerCase())) ||

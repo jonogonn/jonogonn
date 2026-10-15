@@ -32,6 +32,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsPage from './pages/TermsPage';
 import CategoryPage from './pages/CategoryPage';
 import FounderPage from './pages/FounderPage';
+import TeamPage from './pages/TeamPage';
 import { defaultHomepageSections } from './data/initialData';
 import { updateSEO } from './services/seoService';
 
@@ -104,6 +105,9 @@ export default function App() {
     }
     if (activePage === 'founder' || activePage === 'editor') {
       return <FounderPage />;
+    }
+    if (activePage === 'team') {
+      return <TeamPage />;
     }
     if (activePage === 'article' || currentArticle) {
       return <ArticleDetailPage />;

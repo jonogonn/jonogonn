@@ -158,6 +158,40 @@ export default function AboutPage() {
                   </p>
                 </div>
               </div>
+
+              <div style={{ marginTop: 16 }}>
+                <button
+                  type="button"
+                  onClick={() => navigateTo('/team')}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '10px 18px',
+                    borderRadius: 8,
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontWeight: 800,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(229, 9, 20, 0.08)';
+                    e.currentTarget.style.borderColor = 'var(--primary-red)';
+                    e.currentTarget.style.color = 'var(--primary-red)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                  }}
+                >
+                  <Users size={16} color="var(--primary-red)" />
+                  <span>{isBn ? 'সম্পূর্ণ সম্পাদকীয় ও রিপোর্টিং টিম দেখুন →' : 'View Full Editorial & Reporting Team →'}</span>
+                </button>
+              </div>
             </section>
           </div>
 

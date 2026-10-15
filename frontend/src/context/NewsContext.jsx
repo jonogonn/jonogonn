@@ -8,6 +8,7 @@ import {
   initialBreakingNews,
   initialNewsArticles,
   initialPodcasts,
+  initialVideoNews,
   podcastSubjects,
   initialEmergencyServices,
   bangladeshDistricts
@@ -137,18 +138,13 @@ export function NewsProvider({ children }) {
     return initialSiteSettings;
   });
 
-  // 4. Articles Data (Strict DB Articles Priority)
+  // 4. Articles Data (Strict DB Articles Priority & SWR Strategy)
   const [articles, setArticles] = useState(() => {
     try {
       const saved = safeGetLocalStorage('jonogon_articles');
       if (saved && Array.isArray(saved) && saved.length > 0) {
-        const cleaned = saved.map((a) => {
-          if (a.imageUrl && a.imageUrl.includes('photo-1527018607619-a508a2be00be')) {
-            return { ...a, imageUrl: 'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=600&q=80' };
-          }
-          return a;
-        });
-        const dbItems = cleaned.filter(
+        // Strict DB filter: Never return dummy mock fallback items from initialData
+        const dbItems = saved.filter(
           (a) =>
             a.db_id ||
             a.postId ||
@@ -162,12 +158,22 @@ export function NewsProvider({ children }) {
               a.id !== 'bd-main')
         );
         if (dbItems.length > 0) return dbItems;
-        return cleaned;
       }
     } catch (e) {
-      console.warn('Error reading jonogon_articles', e);
+      console.warn('Error reading cached jonogon_articles', e);
     }
-    return initialNewsArticles;
+    // Return empty array initially so modern Skeleton Loader shows instead of dummy posts!
+    return [];
+  });
+
+  // Fast SWR Loading State: If cached DB items exist, loading is false instantly
+  const [isArticlesLoading, setIsArticlesLoading] = useState(() => {
+    try {
+      const saved = safeGetLocalStorage('jonogon_articles');
+      return !(Array.isArray(saved) && saved.length > 0);
+    } catch (e) {
+      return true;
+    }
   });
 
   // 5. Category Master Groups (10 Master Groups with Sub-Groups & Category Items)
@@ -207,8 +213,21 @@ export function NewsProvider({ children }) {
   const [categories, setCategories] = useState(() => {
     try {
       const saved = safeGetLocalStorage('jonogon_categories');
-      if (saved && Array.isArray(saved) && saved.length >= 100) {
-        return saved;
+      if (saved && Array.isArray(saved) && saved.length > 0) {
+        const map = new Map();
+        for (const c of saved) {
+          const key = c.slug || c.id;
+          if (key && !map.has(key)) {
+            map.set(key, c);
+          }
+        }
+        const uniqueList = Array.from(map.values());
+        if (uniqueList.length > 0) {
+          if (uniqueList.length !== saved.length) {
+            safeSetLocalStorage('jonogon_categories', uniqueList);
+          }
+          return uniqueList;
+        }
       }
     } catch (e) { }
     return initialCategories;
@@ -317,12 +336,16 @@ export function NewsProvider({ children }) {
 
   const refreshArticles = async () => {
     try {
-      const dbPosts = await fetchArticlesFromMariaDb();
+      const dbPosts = await fetchArticlesFromMariaDb({ status: 'published' });
       if (Array.isArray(dbPosts) && dbPosts.length > 0) {
         setArticles(dbPosts);
         safeSetLocalStorage('jonogon_articles', dbPosts);
       }
-    } catch (e) { }
+    } catch (e) {
+      console.warn('Error refreshing articles:', e);
+    } finally {
+      setIsArticlesLoading(false);
+    }
   };
 
   const refreshPodcasts = async () => {
@@ -495,6 +518,15 @@ export function NewsProvider({ children }) {
     return initialPodcasts;
   });
 
+  // 7-VN. Video News State (Shown in Homepage Video News Section)
+  const [videoNews, setVideoNews] = useState(() => {
+    try {
+      const saved = safeGetLocalStorage('jonogon_video_news');
+      if (saved && Array.isArray(saved) && saved.length > 0) return saved;
+    } catch (e) { }
+    return initialVideoNews || [];
+  });
+
   // 7a. Podcast Subjects / Categories State
   const [podcastSubjectsState, setPodcastSubjectsState] = useState(() => {
     try {
@@ -553,11 +585,24 @@ export function NewsProvider({ children }) {
     try {
       const saved = safeGetLocalStorage('jonogon_emergency_services');
       if (saved && Array.isArray(saved) && saved.length > 0) {
-        return saved.map((srv) => ({
-          ...srv,
-          nameBn: srv.nameBn ? String(srv.nameBn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() : '',
-          nameEn: srv.nameEn ? String(srv.nameEn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() : ''
-        }));
+        const map = new Map();
+        for (const srv of saved) {
+          const key = srv.service_id || srv.id;
+          if (key && !map.has(key)) {
+            map.set(key, {
+              ...srv,
+              nameBn: srv.nameBn ? String(srv.nameBn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() : '',
+              nameEn: srv.nameEn ? String(srv.nameEn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() : ''
+            });
+          }
+        }
+        const uniqueList = Array.from(map.values());
+        if (uniqueList.length > 0) {
+          if (uniqueList.length !== saved.length) {
+            safeSetLocalStorage('jonogon_emergency_services', uniqueList);
+          }
+          return uniqueList;
+        }
       }
     } catch (e) { }
     return initialEmergencyServices;
@@ -653,6 +698,9 @@ export function NewsProvider({ children }) {
     if (path === '/privacy' || path === '/privacy/') return { page: 'privacy', isAdmin: false, category: 'latest', articleSlug: null };
     if (path === '/terms' || path === '/terms/') return { page: 'terms', isAdmin: false, category: 'latest', articleSlug: null };
     if (path === '/founder' || path === '/editor') return { page: 'founder', isAdmin: false, category: 'latest', articleSlug: null };
+    if (path === '/team' || path === '/team/' || path === '/our-team' || path === '/editorial-team' || path === '/editorial-board') {
+      return { page: 'team', isAdmin: false, category: 'latest', articleSlug: null };
+    }
 
     return { page: 'home', isAdmin: false, category: 'latest', articleSlug: null };
   };
@@ -731,6 +779,11 @@ export function NewsProvider({ children }) {
       const slug = decodeURIComponent(path.replace('/news/', '').trim());
       const found = articles.find((a) => a.slug === slug || a.id === slug || a.titleBn === slug || a.titleEn === slug);
       if (found) {
+        if (!isAdminOpen && found.status && found.status !== 'published') {
+          setCurrentArticle(null);
+          setActivePage('home');
+          return;
+        }
         setCurrentArticle(found);
         setActivePage('article');
         return;
@@ -738,6 +791,11 @@ export function NewsProvider({ children }) {
     } else if (newsParam) {
       const found = articles.find((a) => a.id === newsParam || a.slug === newsParam);
       if (found) {
+        if (!isAdminOpen && found.status && found.status !== 'published') {
+          setCurrentArticle(null);
+          setActivePage('home');
+          return;
+        }
         setCurrentArticle(found);
         setActivePage('article');
         return;
@@ -792,6 +850,11 @@ export function NewsProvider({ children }) {
       setCurrentArticle(null);
       return;
     }
+    if (path === '/team' || path === '/team/' || path === '/our-team' || path === '/editorial-team' || path === '/editorial-board') {
+      setActivePage('team');
+      setCurrentArticle(null);
+      return;
+    }
 
     // Default Home
     setActivePage('home');
@@ -812,6 +875,10 @@ export function NewsProvider({ children }) {
   // Navigate to Dedicated Full Article Page with SEO Friendly URL (/news/:slug)
   const openArticle = (art) => {
     if (!art) return;
+    if (!isAdminOpen && art.status && art.status !== 'published') {
+      console.warn('Cannot open draft/unpublished article publicly');
+      return;
+    }
     incrementViews(art.id);
     setCurrentArticle(art);
     setActivePage('article');
@@ -885,6 +952,9 @@ export function NewsProvider({ children }) {
     } else if (cleanPath === '/founder' || cleanPath === '/found' || cleanPath === '/editor' || cleanPath === '/biplob-hossain') {
       setActivePage('founder');
       setCurrentArticle(null);
+    } else if (cleanPath === '/team' || cleanPath === '/our-team' || cleanPath === '/editorial-team' || cleanPath === '/editorial-board') {
+      setActivePage('team');
+      setCurrentArticle(null);
     } else if (cleanPath.startsWith('/category/')) {
       const slug = path.replace('/category/', '').trim();
       setActiveCategoryState(slug);
@@ -894,8 +964,13 @@ export function NewsProvider({ children }) {
       const slug = path.replace('/news/', '').trim();
       const found = articles.find((a) => a.slug === slug || a.id === slug);
       if (found) {
-        setCurrentArticle(found);
-        setActivePage('article');
+        if (!isAdminOpen && found.status && found.status !== 'published') {
+          setCurrentArticle(null);
+          setActivePage('home');
+        } else {
+          setCurrentArticle(found);
+          setActivePage('article');
+        }
       }
     }
 
@@ -1680,6 +1755,80 @@ export function NewsProvider({ children }) {
     }
   };
 
+  // Video News Actions
+  const addVideoNews = async (item) => {
+    const vId = item.id || `vnews-${Date.now()}`;
+    let thumb = item.imageUrl || item.thumbnail || '';
+    let ytId = item.youtubeId || item.youtube_id;
+    const ytUrl = item.youtubeUrl || item.youtube_url || item.videoUrl || '';
+    if (!ytId && ytUrl) {
+      const match = ytUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+      if (match) ytId = match[1];
+    }
+    if (ytId && (!thumb || thumb.includes('unsplash.com'))) {
+      thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+    }
+
+    const newItem = {
+      ...item,
+      id: vId,
+      youtubeId: ytId || item.youtubeId || '',
+      youtubeUrl: ytUrl,
+      imageUrl: thumb || item.imageUrl || 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=800&q=80',
+      thumbnail: thumb || item.thumbnail,
+      videoDuration: item.videoDuration || item.duration || '২:৩০',
+      dateBn: item.dateBn || new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }),
+      dateEn: item.dateEn || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    };
+
+    setVideoNews((prev) => {
+      const updated = [newItem, ...(Array.isArray(prev) ? prev : [])];
+      safeSetLocalStorage('jonogon_video_news', updated);
+      syncModuleToMariaDb('videoNews', updated).catch(() => {});
+      return updated;
+    });
+    return newItem;
+  };
+
+  const updateVideoNews = async (id, updatedData) => {
+    let thumb = updatedData.imageUrl || updatedData.thumbnail;
+    let ytId = updatedData.youtubeId || updatedData.youtube_id;
+    const ytUrl = updatedData.youtubeUrl || updatedData.youtube_url || updatedData.videoUrl;
+    if (!ytId && ytUrl) {
+      const match = ytUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+      if (match) ytId = match[1];
+    }
+    if (ytId && (!thumb || thumb.includes('unsplash.com'))) {
+      thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+    }
+
+    const cleanUpdated = {
+      ...updatedData,
+      ...(ytId ? { youtubeId: ytId } : {}),
+      ...(thumb ? { imageUrl: thumb, thumbnail: thumb } : {}),
+      ...(updatedData.duration ? { videoDuration: updatedData.duration } : {})
+    };
+
+    setVideoNews((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
+      const updated = list.map((item) => (item.id === id ? { ...item, ...cleanUpdated } : item));
+      safeSetLocalStorage('jonogon_video_news', updated);
+      syncModuleToMariaDb('videoNews', updated).catch(() => {});
+      return updated;
+    });
+    return { success: true };
+  };
+
+  const deleteVideoNews = async (id) => {
+    setVideoNews((prev) => {
+      const remaining = (Array.isArray(prev) ? prev : []).filter((item) => item.id !== id);
+      safeSetLocalStorage('jonogon_video_news', remaining);
+      syncModuleToMariaDb('videoNews', remaining).catch(() => {});
+      return remaining;
+    });
+    return { success: true };
+  };
+
   // Emergency Services Actions
   const addEmergencyService = (service) => {
     const itemWithId = {
@@ -1876,6 +2025,7 @@ export function NewsProvider({ children }) {
         updateSiteSettings,
         articles,
         setArticles,
+        isArticlesLoading,
         addArticle,
         updateArticle,
         deleteArticle,
@@ -1918,6 +2068,10 @@ export function NewsProvider({ children }) {
         addPodcast,
         updatePodcast,
         deletePodcast,
+        videoNews,
+        addVideoNews,
+        updateVideoNews,
+        deleteVideoNews,
         podcastSubjects: dynamicPodcastSubjects,
         addPodcastSubject,
         selectedPodcastSubject,

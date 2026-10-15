@@ -17,9 +17,10 @@ export default function BreakingTicker() {
         category: 'Latest'
       }));
 
-  // 2. Highlighted Headlines (Top Push-Slide Bar)
-  const highlightedArticles = articles.filter((a) => a.isHighlighted);
-  const highlightItems = highlightedArticles.length > 0 ? highlightedArticles : articles.slice(0, 10);
+  // 2. Highlighted Headlines (Top Push-Slide Bar - strictly published articles)
+  const publishedPool = (articles || []).filter((a) => a.status === 'published' || !a.status);
+  const highlightedArticles = publishedPool.filter((a) => a.isHighlighted);
+  const highlightItems = highlightedArticles.length > 0 ? highlightedArticles : publishedPool.slice(0, 10);
 
   const [currentHighlightIdx, setCurrentHighlightIdx] = useState(0);
   const [slideDirection, setSlideDirection] = useState('up');

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNews } from '../context/NewsContext';
-import { uploadImageToStorage } from '../utils/imageUploader';
+import { uploadImageToStorage, convertImageToWebp } from '../utils/imageUploader';
 import { generateSocialCardJpg } from '../utils/generateSocialCardJpg';
 import html2canvas from 'html2canvas';
 import {
@@ -57,6 +57,7 @@ export default function NewsCardMakerManager({ triggerSaveToast }) {
   const [colorMode, setColorMode] = useState('dual'); // 'dual' | 'red' | 'blue'
   const [displayImage, setDisplayImage] = useState('https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80');
   const [cardImagePosition, setCardImagePosition] = useState('center center');
+  const [templateImgSrc, setTemplateImgSrc] = useState('/news-card-template.png');
 
   // Export & Upload State
   const [isExporting, setIsExporting] = useState(false);
@@ -149,13 +150,15 @@ export default function NewsCardMakerManager({ triggerSaveToast }) {
     }
 
     try {
-      const tempUrl = URL.createObjectURL(file);
+      const watermarkedFile = await convertImageToWebp(file, 0.85, 1920, `card-img-${Date.now()}`, true);
+      const tempUrl = URL.createObjectURL(watermarkedFile);
       setDisplayImage(tempUrl);
 
-      const uploadedUrl = await uploadImageToStorage(file, {
+      const uploadedUrl = await uploadImageToStorage(watermarkedFile, {
         slug: `card-img-${Date.now()}`,
         caption: 'News Card Subject',
-        silent: true
+        silent: true,
+        skipWatermark: true
       });
       if (uploadedUrl) {
         setDisplayImage(uploadedUrl);
@@ -522,7 +525,14 @@ export default function NewsCardMakerManager({ triggerSaveToast }) {
 
           {/* Layer 2: Official Template Frame (Header logo, QR code, red frame, ribbon & footer) */}
           <img
-            src="/news-card-template.png"
+            src={templateImgSrc}
+            onError={() => {
+              if (templateImgSrc === '/news-card-template.png') {
+                setTemplateImgSrc('/janogon/news-card-template.png');
+              } else if (templateImgSrc === '/janogon/news-card-template.png') {
+                setTemplateImgSrc('./news-card-template.png');
+              }
+            }}
             alt="Card Template Frame"
             style={{
               position: 'absolute',
