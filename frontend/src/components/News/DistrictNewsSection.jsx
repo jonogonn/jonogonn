@@ -120,7 +120,7 @@ export default function DistrictNewsSection() {
   const districtNameBn = selectedDistrictObj.nameBn;
   const districtNameEn = selectedDistrictObj.nameEn.toLowerCase();
 
-  const publishedArticles = (articles || []).filter((a) => a.status === 'published' || !a.status);
+  const publishedArticles = (articles || []).filter((a) => a.status === 'approved' || a.status === 'published' || !a.status);
 
   const matchingArticles = publishedArticles.filter((a) => {
     if (a.district === selectedDistrictId) return true;

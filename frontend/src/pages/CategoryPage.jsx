@@ -59,7 +59,7 @@ export default function CategoryPage() {
   // Filter Articles for this Category & Search (strictly published)
   const filteredArticles = useMemo(() => {
     return (articles || []).filter((art) => {
-      if (art.status && art.status !== 'published') return false;
+      if (art.status && art.status !== 'published' && art.status !== 'approved') return false;
       const matchesSearch =
         !searchQuery ||
         (art.titleBn && art.titleBn.toLowerCase().includes(searchQuery.toLowerCase())) ||

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNews } from '../context/NewsContext';
 import {
   FileText,
@@ -34,6 +34,7 @@ import { getCardCategoryLabel } from '../utils/cardCategoryHelper';
 export default function EditPostManager({ triggerSaveToast, onNavigateToApprove, onNavigateToCreate }) {
   const {
     articles,
+    refreshArticles,
     updateArticle,
     deleteArticle,
     adminLanguage,
@@ -44,6 +45,12 @@ export default function EditPostManager({ triggerSaveToast, onNavigateToApprove,
     categories,
     categoryMasterGroups
   } = useNews();
+
+  useEffect(() => {
+    if (typeof refreshArticles === 'function') {
+      refreshArticles();
+    }
+  }, []);
 
   const isBn = (adminLanguage || language) === 'bn';
 
@@ -67,10 +74,11 @@ export default function EditPostManager({ triggerSaveToast, onNavigateToApprove,
   // Filtered Articles List: ONLY articles that have NOT been requested for approval yet (draft, review, revision_needed)
   const filteredArticles = useMemo(() => {
     return articles.filter((art) => {
-      const artStatus = art.status || 'review';
+      const artStatus = art.status || 'pannding';
 
-      // 1. Strictly exclude posts that are pending approval or published
-      if (artStatus === 'pending_approval' || artStatus === 'published') {
+      // 1. Strictly exclude posts that are approved by editor or published/approved by admin
+      const isEditorApproved = art.editor_approved == 1 || art.status_note === 'approved_by_editor' || artStatus === 'pending_approval';
+      if (isEditorApproved || artStatus === 'approved' || artStatus === 'published') {
         return false;
       }
 
@@ -92,7 +100,7 @@ export default function EditPostManager({ triggerSaveToast, onNavigateToApprove,
 
       // 4. Status Filter
       if (statusFilter === 'draft_review') {
-        return artStatus === 'review' || artStatus === 'draft' || artStatus === 'submitted';
+        return artStatus === 'pannding' || artStatus === 'pending' || artStatus === 'review' || artStatus === 'draft' || artStatus === 'submitted';
       }
       if (statusFilter === 'revision_needed') {
         return artStatus === 'revision_needed';
@@ -108,45 +116,53 @@ export default function EditPostManager({ triggerSaveToast, onNavigateToApprove,
     let revisionNeeded = 0;
 
     articles.forEach((a) => {
-      const s = a.status || 'review';
-      if (s === 'review' || s === 'draft' || s === 'submitted') draftReview++;
-      else if (s === 'revision_needed') revisionNeeded++;
+      const s = a.status || 'pannding';
+      const isEditorApproved = a.editor_approved == 1 || a.status_note === 'approved_by_editor' || s === 'pending_approval';
+      if (!isEditorApproved && s !== 'approved' && s !== 'published') {
+        if (s === 'revision_needed') revisionNeeded++;
+        else draftReview++;
+      }
     });
 
     return { all: draftReview + revisionNeeded, draftReview, revisionNeeded };
   }, [articles]);
 
-  // Request For Approval Handler (Moves to Approve Post Tab & disappears from Edit Post)
+  // Request For Approval Handler (Editor approves, status stays pannding in DB, moves to Approve Post tab)
   const handleRequestApproval = async (article) => {
     const confirmed = await showConfirm({
-      title: isBn ? 'অনুমোদনের জন্য প্রেরণ' : 'Submit for Editorial Review',
+      title: isBn ? 'অনুমোদনের জন্য প্রেরণ' : 'Approve & Send to Admin',
       message: isBn
-        ? `"${article.titleBn || article.titleEn}" সংবাদটি কি পর্যালোচনার জন্য জমা দিতে চান?`
-        : `Are you sure you want to submit "${article.titleBn || article.titleEn}" for editorial review?`,
+        ? `"${article.titleBn || article.titleEn}" সংবাদটি কি সম্পাদক হিসেবে অনুমোদন করে প্রধান অ্যাডমিন পর্যালোচনার জন্য জমা দিতে চান?`
+        : `Approve and submit "${article.titleBn || article.titleEn}" for final Admin approval?`,
       subMessage: isBn
-        ? 'অনুমোদন সম্পন্ন হলে সংবাদটি মূল ওয়েবসাইটে সরাসরি প্রকাশিত হবে।'
-        : 'Once approved by the editorial team, this post will be published live.',
-      confirmText: isBn ? 'হ্যাঁ, অনুমোদনের জন্য পাঠান' : 'Yes, Submit for Review',
+        ? 'এডমিন অনুমোদন সম্পন্ন করলে সংবাদটি ওয়েবসাইটে সরাসরি সর্বসাধারণের জন্য প্রকাশিত হবে।'
+        : 'Once approved by Admin, this post will be open to read on the live website.',
+      confirmText: isBn ? 'হ্যাঁ, অনুমোদন করে পাঠান' : 'Yes, Approve & Submit',
       cancelText: isBn ? 'বাতিল' : 'Cancel',
       type: 'warning'
     });
 
     if (confirmed) {
-      updateArticle(article.id, {
-        status: 'pending_approval',
+      await updateArticle(article.id, {
+        status: 'pannding',
+        editor_approved: 1,
         approvalRequestedAt: new Date().toISOString()
       });
 
       if (triggerSaveToast) {
-        triggerSaveToast(isBn ? 'সংবাদটি পর্যালোচনার জন্য পাঠানো হয়েছে!' : 'Submitted for review successfully!');
+        triggerSaveToast(isBn ? 'সংবাদটি সম্পাদক হিসেবে অনুমোদন করে প্রধান অ্যাডমিন অনুমোদনের জন্য পাঠানো হয়েছে!' : 'Approved by editor and sent for Admin approval!');
       }
 
       showSuccess(
         isBn
-          ? 'সংবাদটি সফলভাবে অনুমোদনের জন্য জমা দেওয়া হয়েছে। সম্পাদকীয় পর্যালোচনার পর এটি প্রকাশিত হবে।'
-          : 'Post successfully submitted for review. It will be published upon approval.',
-        isBn ? 'অনুমোদনের আবেদন সম্পন্ন' : 'Submitted for Approval'
+          ? 'সংবাদটি সম্পাদক হিসেবে অনুমোদন করে প্রধান অ্যাডমিনের "সংবাদ অনুমোদন" তালিকায় পাঠানো হয়েছে।'
+          : 'Post approved by editor and sent to Admin for final approval.',
+        isBn ? 'সম্পাদক অনুমোদন সম্পন্ন' : 'Editor Approved'
       );
+
+      if (typeof onNavigateToApprove === 'function') {
+        onNavigateToApprove();
+      }
     }
   };
 
@@ -636,16 +652,16 @@ export default function EditPostManager({ triggerSaveToast, onNavigateToApprove,
                     <span>{isBn ? 'এডিট করুন' : 'Edit'}</span>
                   </button>
 
-                  {/* 3. Request For Approval Button (Only for unsubmitted posts) */}
+                  {/* 3. Request For Approval Button (Editor approves & sends to Admin) */}
                   <button
                     type="button"
                     className="admin-btn-warning"
                     style={{ fontSize: '0.78rem', padding: '6px 12px' }}
                     onClick={() => handleRequestApproval(art)}
-                    title={isBn ? 'অনুমোদনের জন্য পাঠান' : 'Request For Approval'}
+                    title={isBn ? 'সম্পাদক অনুমোদন ও অ্যাডমিনকে প্রেরণ' : 'Approve & Send to Admin'}
                   >
                     <Send size={13} />
-                    <span>{isBn ? 'অনুমোদনের আবেদন' : 'Request Approval'}</span>
+                    <span>{isBn ? 'অনুমোদন ও প্রেরণ' : 'Approve & Send'}</span>
                   </button>
 
                   {/* 4. Delete Button */}

@@ -231,24 +231,24 @@ export default function AdminDashboard() {
   const [saveToast, setSaveToast] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
-  // Counter for pending approval posts (Strictly pending_approval)
+  // Counter for pending approval posts (Strictly editor-approved pending posts)
   const pendingApprovalCount = useMemo(() => {
     return (articles || []).filter(
-      (a) => a.status === 'pending_approval'
+      (a) => (a.status === 'pannding' || a.status === 'pending' || a.status === 'pending_approval') && (a.editor_approved == 1 || a.status_note === 'approved_by_editor' || a.status === 'pending_approval')
     ).length;
   }, [articles]);
 
-  // Counter for editable posts & drafts
+  // Counter for editable posts & drafts (unapproved pending posts for "খসড়া ও সম্পাদনা")
   const editPostsCount = useMemo(() => {
     return (articles || []).filter(
-      (a) => a.status === 'draft' || a.status === 'review' || a.status === 'revision_needed' || a.status === 'submitted'
+      (a) => !a.editor_approved && (a.status === 'pannding' || a.status === 'pending' || a.status === 'draft' || a.status === 'review' || a.status === 'revision_needed' || a.status === 'submitted')
     ).length;
   }, [articles]);
 
   // Real dynamic Metric KPI calculations
   const publishedCount = useMemo(() => {
     return (articles || []).filter(
-      (a) => a.status === 'published' || (!a.status && a.id)
+      (a) => a.status === 'approved' || a.status === 'published' || (!a.status && a.id)
     ).length;
   }, [articles]);
 

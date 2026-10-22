@@ -125,7 +125,7 @@ export function parseHtmlToBlocks(html, defaultTitle = '', defaultImage = '', de
   if (!html || typeof html !== 'string' || !html.trim()) {
     return [
       { id: `heading-${Date.now()}-1`, type: 'heading', level: 'h1', content: defaultTitle || '' },
-      { id: `image-${Date.now()}-2`, type: 'image', url: defaultImage || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80', caption: defaultCaption },
+      { id: `image-${Date.now()}-2`, type: 'image', url: defaultImage || '', caption: defaultCaption },
       { id: `paragraph-${Date.now()}-3`, type: 'paragraph', content: '' }
     ];
   }
@@ -311,8 +311,8 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
   // Post Meta State
   const [postId, setPostId] = useState(initialPost?.id || initialPostId || null);
   const existingArticle = initialPost || (postId ? articles.find((a) => String(a.id) === String(postId) || a.slug === postId) : null);
-  const isAlreadyPublished = existingArticle?.status === 'published';
-  const [postStatus, setPostStatus] = useState(existingArticle?.status || 'review');
+  const isAlreadyPublished = existingArticle?.status === 'published' || existingArticle?.status === 'approved';
+  const [postStatus, setPostStatus] = useState(existingArticle?.status || 'pannding');
   const [slug, setSlug] = useState('');
   const [publishDate, setPublishDate] = useState(new Date().toISOString().slice(0, 10));
   const [excerpt, setExcerpt] = useState('');
@@ -356,7 +356,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
     {
       id: 'block-image-1',
       type: 'image',
-      url: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80',
+      url: '',
       caption: 'ছবি: সংগৃহীত',
       isThumbnail: true
     },
@@ -369,12 +369,37 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
 
   // Load existing article if initialPost or initialPostId provided
   useEffect(() => {
-    const art = initialPost || (initialPostId ? articles.find((a) => String(a.id) === String(initialPostId) || a.slug === initialPostId) : null);
-    if (art) {
-      setPostId(art.id);
+    let isMounted = true;
+    const targetId = initialPostId || initialPost?.id || initialPost?.post_id;
+    let art = initialPost || (targetId ? articles.find((a) => String(a.id) === String(targetId) || a.slug === targetId || String(a.post_id) === String(targetId)) : null);
+
+    const initEditorWithArticle = async () => {
+      // If we have an article ID, but blocks or content are missing, fetch the full post from server
+      const hasBlocks = art?.blocks && (Array.isArray(art.blocks) ? art.blocks.length > 0 : Boolean(art.blocks));
+      const hasContent = Boolean(art?.contentBn || art?.content);
+
+      if (targetId && (!hasBlocks || !hasContent)) {
+        try {
+          const origin = typeof window !== 'undefined' ? window.location.origin : '';
+          const res = await fetch(`${origin}/api/news.php?id=${encodeURIComponent(targetId)}&full=1&admin=1`);
+          if (res.ok) {
+            const data = await res.json();
+            const single = Array.isArray(data) ? data[0] : (data?.data?.[0] || data);
+            if (single) {
+              art = { ...art, ...single };
+            }
+          }
+        } catch (err) {
+          console.warn('Could not fetch full article details:', err);
+        }
+      }
+
+      if (!isMounted || !art) return;
+
+      setPostId(art.id || art.post_id || targetId);
       setSlug(art.slug || '');
       setKicker(art.kicker || '');
-      setPostStatus(art.status || 'published');
+      setPostStatus(art.status || 'pannding');
       setExcerpt(art.excerptBn || art.excerptEn || art.excerpt || '');
       setSelectedCategories(
         Array.isArray(art.categories) && art.categories.length > 0
@@ -438,11 +463,19 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
       } else {
         setBlocks([
           { id: `heading-${Date.now()}-1`, type: 'heading', level: 'h1', content: postTitle },
-          { id: `image-${Date.now()}-2`, type: 'image', url: postImage || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80', caption: art.cardCaption || 'ছবি: সংগৃহীত', isThumbnail: true },
+          { id: `image-${Date.now()}-2`, type: 'image', url: postImage || '', caption: art.cardCaption || 'ছবি: সংগৃহীত', isThumbnail: true },
           { id: `paragraph-${Date.now()}-3`, type: 'paragraph', content: art.excerptBn || art.excerpt || '' }
         ]);
       }
+    };
+
+    if (art || targetId) {
+      initEditorWithArticle();
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [initialPostId, initialPost, articles]);
 
   // Tags State
@@ -485,7 +518,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
   const featuredImageUrl =
     featuredImageBlock?.url ||
     featuredImageBlock?.previewUrl ||
-    'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80';
+    '';
 
   // Helper: Primary category & Social Card Category label ({sub_group} । {category})
   const primaryCatId = selectedCategories[0] || 'bangladesh';
@@ -1109,9 +1142,8 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
           }
           case 'image': {
             const imgSrc = b.previewUrl || b.url || '';
-            const fallbackSrc = b.previewUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80';
             return imgSrc
-              ? `<figure class="post-figure" style="margin: 20px 0; text-align: center; width: 100%;"><img src="${imgSrc}" alt="${b.caption || 'Image'}" class="post-image" style="width: 100%; height: auto; max-width: 100%; object-fit: contain; border-radius: 8px; display: block; margin: 0 auto;" onerror="if(this.src!=='${fallbackSrc}'){this.src='${fallbackSrc}';}" />${
+              ? `<figure class="post-figure" style="margin: 20px 0; text-align: center; width: 100%;"><img src="${imgSrc}" alt="${b.caption || 'Image'}" class="post-image" style="width: 100%; height: auto; max-width: 100%; object-fit: contain; border-radius: 8px; display: block; margin: 0 auto;" />${
                   b.caption ? `<figcaption class="post-caption" style="font-size: 0.84rem; color: #888888; margin-top: 8px; font-style: italic; text-align: center;">${b.caption}</figcaption>` : ''
                 }</figure>`
               : '';
@@ -1193,7 +1225,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
       author: author || 'জনগণ নিউজ ডেস্ক',
       dateBn: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }),
       dateEn: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-      views: 1,
+      views: 0,
       isLeadHero: Boolean(isLeadHero),
       isHighlighted: Boolean(isHighlighted),
       isBreaking: Boolean(isBreaking),
@@ -1203,7 +1235,8 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
       metaTitle: metaTitle || mainTitle,
       metaDesc: metaDesc || excerpt,
       focusKeyword: focusKeyword || '',
-      status: postId ? (existingArticle?.status || postStatus || 'published') : (postStatus || 'published')
+      status: postId ? (existingArticle?.status || 'pannding') : 'pannding',
+      editor_approved: postId ? (existingArticle?.editor_approved ? 1 : 0) : 0
     };
 
     let syncRes = null;
@@ -1417,7 +1450,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
                 }}
               >
                 <Clock size={11} />
-                <span>{isBn ? 'পর্যালোচনায় (Under Review)' : 'Under Review'}</span>
+                <span>{isBn ? 'অপেক্ষমাণ (Pending)' : 'Pending'}</span>
               </span>
             )}
           </div>
@@ -2356,22 +2389,40 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
                   boxShadow: '0 4px 12px rgba(0,0,0,0.25)'
                 }}
               >
-                <img
-                  src={featuredImageUrl}
-                  alt="Post Thumbnail"
-                  crossOrigin="anonymous"
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    objectPosition: cardImagePosition || 'center center',
-                    display: 'block',
-                    transition: 'object-position 0.2s ease'
-                  }}
-                  onError={(e) => {
-                    e.target.src = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80';
-                  }}
-                />
+                {featuredImageUrl ? (
+                  <img
+                    src={featuredImageUrl}
+                    alt="Post Thumbnail"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      objectPosition: cardImagePosition || 'center center',
+                      display: 'block',
+                      transition: 'object-position 0.2s ease'
+                    }}
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      minHeight: 120,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--text-muted)',
+                      gap: 6
+                    }}
+                  >
+                    <ImageIcon size={28} opacity={0.35} />
+                    <span style={{ fontSize: '0.75rem' }}>{isBn ? 'থাম্বনেইল যুক্ত করুন' : 'Add Thumbnail'}</span>
+                  </div>
+                )}
                 <div
                   style={{
                     position: 'absolute',

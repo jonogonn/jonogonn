@@ -200,14 +200,14 @@ export default function ArticleDetailPage() {
   // Category matching
   const catObj = categories.find((c) => c.id === currentArticle?.category);
 
-  // Most Read and Related (strictly published articles)
+  // Most Read and Related (strictly published/approved articles)
   const mostReadList = [...articles]
-    .filter((a) => a.id !== currentArticle.id && (a.status === 'published' || !a.status))
+    .filter((a) => a.id !== currentArticle.id && (a.status === 'approved' || a.status === 'published' || !a.status))
     .sort((a, b) => (b.views || 0) - (a.views || 0))
     .slice(0, 5);
 
   const relatedArticles = articles
-    .filter((a) => a.id !== currentArticle.id && (a.status === 'published' || !a.status) && (a.category === currentArticle.category || !currentArticle.category))
+    .filter((a) => a.id !== currentArticle.id && (a.status === 'approved' || a.status === 'published' || !a.status) && (a.category === currentArticle.category || !currentArticle.category))
     .slice(0, 3);
 
   return (

@@ -21,7 +21,7 @@ export default function CategoryGrids() {
     openArticle(art);
   };
 
-  const publishedArticles = (articles || []).filter((a) => a.status === 'published' || !a.status);
+  const publishedArticles = (articles || []).filter((a) => a.status === 'approved' || a.status === 'published' || !a.status);
 
   return (
     <section className="category-blocks-grid">

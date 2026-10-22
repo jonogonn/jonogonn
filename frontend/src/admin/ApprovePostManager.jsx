@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNews } from '../context/NewsContext';
 import {
   CheckCircle,
@@ -35,6 +35,7 @@ import { uploadImageToStorage } from '../utils/imageUploader';
 export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit, onNavigateToCreate }) {
   const {
     articles,
+    refreshArticles,
     updateArticle,
     deleteArticle,
     adminLanguage,
@@ -45,6 +46,12 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
     categories,
     categoryMasterGroups
   } = useNews();
+
+  useEffect(() => {
+    if (typeof refreshArticles === 'function') {
+      refreshArticles();
+    }
+  }, []);
 
   const isBn = (adminLanguage || language) === 'bn';
 
@@ -85,11 +92,13 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
 
       // 3. Tab Filter
       const s = art.status || 'published';
+      const isEditorApproved = art.editor_approved == 1 || art.status_note === 'approved_by_editor' || s === 'pending_approval';
+
       if (activeTab === 'pending') {
-        return s === 'pending_approval';
+        return (s === 'pannding' || s === 'pending' || s === 'pending_approval') && isEditorApproved;
       }
       if (activeTab === 'published') {
-        return s === 'published' || !art.status;
+        return s === 'approved' || s === 'published' || (!art.status && art.id);
       }
       if (activeTab === 'revision') {
         return s === 'revision_needed';
@@ -107,8 +116,9 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
 
     articles.forEach((a) => {
       const s = a.status || 'published';
-      if (s === 'pending_approval') pending++;
-      else if (s === 'published' || !a.status) published++;
+      const isEditorApproved = a.editor_approved == 1 || a.status_note === 'approved_by_editor' || s === 'pending_approval';
+      if ((s === 'pannding' || s === 'pending' || s === 'pending_approval') && isEditorApproved) pending++;
+      else if (s === 'approved' || s === 'published' || (!a.status && a.id)) published++;
       else if (s === 'revision_needed') revision++;
     });
 
@@ -131,47 +141,23 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
     });
 
     if (confirmed) {
-      const publishedPayload = {
-        ...article,
-        status: 'published',
-        approvedAt: new Date().toISOString(),
-        publishedAt: new Date().toISOString()
-      };
-
-      updateArticle(article.id, {
-        status: 'published',
+      await updateArticle(article.id, {
+        status: 'approved',
+        editor_approved: 1,
         approvedAt: new Date().toISOString(),
         publishedAt: new Date().toISOString()
       });
-
-      // Save directly to MariaDB
-      let syncRes = null;
-      try {
-        syncRes = await saveArticleToMariaDb(publishedPayload);
-      } catch (err) {
-        console.warn('MariaDB publish sync error:', err);
-      }
 
       if (triggerSaveToast) {
         triggerSaveToast(isBn ? 'সংবাদটি সফলভাবে অনুমোদিত ও প্রকাশিত হয়েছে!' : 'Post approved and published successfully!');
       }
 
-      if (syncRes && syncRes.success === false) {
-        showWarning(
-          isBn
-            ? `সংবাদটি ওয়েবসাইটে প্রকাশিত হয়েছে, তবে সার্ভার নোটিশ: ${syncRes.error || 'Server error'}`
-            : `Post published, but server notice: ${syncRes.error || 'Server error'}`,
-          isBn ? 'প্রকাশনা নোটিশ' : 'Publish Notice'
-        );
-      } else {
-        showSuccess(
-          isBn
-            ? 'সংবাদটি সফলভাবে অনুমোদিত হয়েছে এবং মূল ওয়েবসাইটে লাইভ প্রকাশিত হয়েছে।'
-            : 'The news post has been approved and published live to the website.',
-          isBn ? 'অনুমোদন ও প্রকাশনা সম্পন্ন' : 'Publication Complete'
-        );
-      }
-
+      showSuccess(
+        isBn
+          ? 'সংবাদটি সফলভাবে অনুমোদিত হয়েছে এবং মূল ওয়েবসাইটে লাইভ প্রকাশিত হয়েছে।'
+          : 'Post approved and published to live website.',
+        isBn ? 'অনুমোদন ও প্রকাশনা সম্পন্ন' : 'Approved & Published'
+      );
       if (previewArticle && previewArticle.id === article.id) {
         setPreviewArticle((prev) => ({ ...prev, status: 'published' }));
       }
@@ -193,6 +179,7 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
 
     updateArticle(revisionModalArticle.id, {
       status: 'revision_needed',
+      editor_approved: 0,
       revisionNotes: revisionNote.trim(),
       sentForRevisionAt: new Date().toISOString()
     });

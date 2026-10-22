@@ -14,8 +14,8 @@ export default function HeroLeadGrid() {
   const [isSliderPaused, setIsSliderPaused] = useState(false);
   const [slideProgress, setSlideProgress] = useState(0);
 
-  // Filter only published articles for public homepage
-  const publishedArticles = (articles || []).filter((a) => a && (a.status === 'published' || !a.status));
+  // Filter only published/approved articles for public homepage
+  const publishedArticles = (articles || []).filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status));
   const activeArticleList = publishedArticles;
 
   // 1. Highlighted News Pool (Admin marked or fallback to lead/recent)

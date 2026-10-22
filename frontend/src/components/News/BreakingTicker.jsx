@@ -6,9 +6,10 @@ export default function BreakingTicker() {
   const { language, articles, breakingNews, openArticle } = useNews();
   const isBn = language === 'bn';
 
-  // 1. Breaking News Ticker Items (Horizontal Crawl)
-  const tickerItems = articles && articles.length > 0
-    ? articles
+  // 1. Breaking News Ticker Items (Horizontal Crawl - strictly published/approved articles)
+  const validArticles = (articles || []).filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status));
+  const tickerItems = validArticles.length > 0
+    ? validArticles
     : breakingNews.map((b) => ({
         id: b.id,
         titleBn: b.textBn,
@@ -17,8 +18,8 @@ export default function BreakingTicker() {
         category: 'Latest'
       }));
 
-  // 2. Highlighted Headlines (Top Push-Slide Bar - strictly published articles)
-  const publishedPool = (articles || []).filter((a) => a.status === 'published' || !a.status);
+  // 2. Highlighted Headlines (Top Push-Slide Bar - strictly published/approved articles)
+  const publishedPool = validArticles;
   const highlightedArticles = publishedPool.filter((a) => a.isHighlighted);
   const highlightItems = highlightedArticles.length > 0 ? highlightedArticles : publishedPool.slice(0, 10);
 

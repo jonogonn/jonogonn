@@ -52,8 +52,10 @@ export default function AdminNotificationDropdown({
   const notifications = React.useMemo(() => {
     const list = [];
 
-    // 1. Pending Approval posts
-    const pendingArticles = articles.filter((a) => a.status === 'pending_approval');
+    // 1. Pending Approval posts (Editor-approved pending posts)
+    const pendingArticles = articles.filter(
+      (a) => (a.status === 'pannding' || a.status === 'pending' || a.status === 'pending_approval') && (a.editor_approved == 1 || a.status_note === 'approved_by_editor' || a.status === 'pending_approval')
+    );
     pendingArticles.forEach((art, idx) => {
       list.push({
         id: `pending-${art.id}`,

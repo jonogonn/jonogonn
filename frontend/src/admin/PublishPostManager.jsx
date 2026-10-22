@@ -52,7 +52,7 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
 
   // Filters & Controls
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'published' | 'draft' | 'pending_approval' | 'revision_needed'
+  const [statusFilter, setStatusFilter] = useState('published'); // 'published' (default for published tab) | 'all' | 'draft' | 'pending_approval' | 'revision_needed'
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [sortBy, setSortBy] = useState('latest'); // 'latest' | 'views' | 'oldest'
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -89,23 +89,39 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
     };
   }, [activeMenuPostId]);
 
-  const handleStartEdit = (art) => {
+  const handleStartEdit = async (art) => {
     if (!art) return;
+    let target = { ...art };
+    if ((!target.blocks || target.blocks.length === 0) && (target.id || target.post_id)) {
+      try {
+        const queryId = target.post_id || target.id;
+        const res = await fetch(`/api/news.php?id=${encodeURIComponent(queryId)}&full=1&admin=1`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {
+            const fullArt = json.data[0];
+            target = { ...target, ...fullArt, blocks: fullArt.blocks || target.blocks };
+          }
+        }
+      } catch (e) {
+        console.warn('Error fetching full post for edit in PublishPostManager:', e);
+      }
+    }
     if (typeof setArticles === 'function') {
       try {
         setArticles((prev) => {
-          if (!Array.isArray(prev)) return [art];
-          if (!prev.some((a) => String(a.id) === String(art.id))) {
-            return [art, ...prev];
+          if (!Array.isArray(prev)) return [target];
+          if (!prev.some((a) => String(a.id) === String(target.id))) {
+            return [target, ...prev];
           }
-          return prev.map((a) => (String(a.id) === String(art.id) ? { ...a, ...art } : a));
+          return prev.map((a) => (String(a.id) === String(target.id) ? { ...a, ...target } : a));
         });
       } catch (e) {
         console.warn('setArticles error:', e);
       }
     }
-    setEditingArticle(art);
-    setEditingArticleId(art.id);
+    setEditingArticle(target);
+    setEditingArticleId(target.id);
   };
 
   const [dbArticles, setDbArticles] = useState([]);
@@ -127,8 +143,10 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
             contentEn: p.contentEn || p.content_en || '',
             excerptBn: p.excerptBn || p.excerpt || p.excerpt_bn,
             excerptEn: p.excerptEn || p.excerpt_en || '',
+            blocks: p.blocks || [],
             imageUrl: p.imageUrl || p.featured_image || p.featuredImage,
             status: p.status || 'published',
+            editor_approved: p.editor_approved !== undefined ? p.editor_approved : 0,
             views: parseInt(p.views || 0, 10),
             category: p.category || p.category_id || 'bangladesh',
             categoryBn: p.categoryBn || p.category_bn || 'বাংলাদেশ',
@@ -138,10 +156,9 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
           }));
           setDbArticles(normalized);
           setHasLoadedDb(true);
-          const publishedOnly = normalized.filter((p) => p.status === 'published' || !p.status);
-          if (typeof setArticles === 'function' && publishedOnly.length > 0) {
-            setArticles(publishedOnly);
-            safeSetLocalStorage('jonogon_articles', publishedOnly);
+          if (typeof setArticles === 'function' && normalized.length > 0) {
+            setArticles(normalized);
+            safeSetLocalStorage('jonogon_articles', normalized);
           }
         }
       } catch (err) {
@@ -169,8 +186,10 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
           contentEn: p.contentEn || p.content_en || '',
           excerptBn: p.excerptBn || p.excerpt || p.excerpt_bn,
           excerptEn: p.excerptEn || p.excerpt_en || '',
+          blocks: p.blocks || [],
           imageUrl: p.imageUrl || p.featured_image || p.featuredImage,
           status: p.status || 'published',
+          editor_approved: p.editor_approved !== undefined ? p.editor_approved : 0,
           views: parseInt(p.views || 0, 10),
           category: p.category || p.category_id || 'bangladesh',
           categoryBn: p.categoryBn || p.category_bn || 'বাংলাদেশ',
@@ -182,10 +201,9 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
         setDbArticles(normalized);
         setHasLoadedDb(true);
 
-        const publishedOnly = normalized.filter((p) => p.status === 'published' || !p.status);
         if (typeof setArticles === 'function') {
-          setArticles(publishedOnly);
-          safeSetLocalStorage('jonogon_articles', publishedOnly);
+          setArticles(normalized);
+          safeSetLocalStorage('jonogon_articles', normalized);
         }
 
         showSuccess(
@@ -202,6 +220,8 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
       setIsRefreshing(false);
     }
   };
+
+
 
   // Source Articles - Strictly DB articles from MariaDB news_posts/news_post
   const sourceArticles = useMemo(() => {
@@ -229,7 +249,15 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
     if (statusFilter !== 'all') {
       list = list.filter((art) => {
         const s = art.status || 'published';
-        if (statusFilter === 'published') return s === 'published' || !art.status;
+        if (statusFilter === 'published') {
+          return s === 'published' || s === 'approved' || (!art.status && art.id);
+        }
+        if (statusFilter === 'pending_approval' || statusFilter === 'pending') {
+          return s === 'pannding' || s === 'pending' || s === 'pending_approval';
+        }
+        if (statusFilter === 'draft') {
+          return s === 'draft' || s === 'review';
+        }
         return s === statusFilter;
       });
     }
@@ -278,9 +306,9 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
   // Overall Database Stats (strictly DB articles)
   const stats = useMemo(() => {
     const total = sourceArticles.length;
-    const published = sourceArticles.filter((a) => a.status === 'published' || !a.status).length;
-    const drafts = sourceArticles.filter((a) => a.status === 'draft' || a.status === 'review').length;
-    const pending = sourceArticles.filter((a) => a.status === 'pending_approval').length;
+    const published = sourceArticles.filter((a) => a.status === 'approved' || a.status === 'published' || !a.status).length;
+    const drafts = sourceArticles.filter((a) => !a.editor_approved && (a.status === 'pannding' || a.status === 'pending' || a.status === 'draft' || a.status === 'review')).length;
+    const pending = sourceArticles.filter((a) => (a.status === 'pannding' || a.status === 'pending' || a.status === 'pending_approval') && (a.editor_approved == 1 || a.status_note === 'approved_by_editor' || a.status === 'pending_approval')).length;
     const totalViews = sourceArticles.reduce((acc, curr) => acc + (curr.views || 0), 0);
     return { total, published, drafts, pending, totalViews };
   }, [sourceArticles]);
@@ -666,8 +694,8 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
               </thead>
               <tbody>
                 {paginatedArticles.map((art) => {
-                  const isPublished = art.status === 'published' || !art.status;
-                  const isPending = art.status === 'pending_approval';
+                  const isPublished = art.status === 'published' || art.status === 'approved' || !art.status;
+                  const isPending = art.status === 'pannding' || art.status === 'pending' || art.status === 'pending_approval';
                   const isDraft = art.status === 'draft' || art.status === 'review';
                   const isRevision = art.status === 'revision_needed';
 

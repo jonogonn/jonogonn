@@ -214,7 +214,8 @@ function provisionDatabaseSchema($pdo) {
                 `author_avatar` TEXT DEFAULT NULL,
                 `reporter_name` VARCHAR(150) DEFAULT NULL,
                 `read_time` VARCHAR(50) DEFAULT '৪ মিনিট পড়তে',
-                `status` VARCHAR(50) NOT NULL DEFAULT 'published',
+                `status` VARCHAR(50) NOT NULL DEFAULT 'pannding',
+                `editor_approved` TINYINT(1) NOT NULL DEFAULT 0,
                 `status_note` TEXT DEFAULT NULL,
                 `views` BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
                 `shares_count` INT(11) UNSIGNED NOT NULL DEFAULT 0,
@@ -236,6 +237,13 @@ function provisionDatabaseSchema($pdo) {
                 INDEX (`created_at`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
+
+        try {
+            $hasEditorCol = $pdo->query("SHOW COLUMNS FROM `news_posts` LIKE 'editor_approved'")->fetch();
+            if (!$hasEditorCol) {
+                $pdo->exec("ALTER TABLE `news_posts` ADD COLUMN `editor_approved` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`");
+            }
+        } catch (Exception $e) {}
     } catch (Exception $e) {}
 }
 

@@ -45,8 +45,8 @@ export default function VideoNewsSection() {
     }
   ];
 
-  // Video Articles Pool (strictly published articles marked as isVideo)
-  const publishedArticles = (articles || []).filter((a) => a && (a.status === 'published' || !a.status) && a.isVideo);
+  // Video Articles Pool (strictly published/approved articles marked as isVideo)
+  const publishedArticles = (articles || []).filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status) && a.isVideo);
   const activeVideoNews = (Array.isArray(videoNews) ? videoNews : []).filter(Boolean);
 
   // Combine custom video news first, then published articles with isVideo: true

@@ -81,8 +81,8 @@ export default function SubGroupSections({ subGroupIds = null, targetSubGroupId 
     const titleEn = String(subGrp.titleEn || '').toLowerCase().trim();
 
     return (articles || []).filter((art) => {
-      // Must be published (or default published if status not explicitly set)
-      if (art.status && art.status !== 'published') return false;
+      // Must be published/approved (or default published if status not explicitly set)
+      if (art.status && art.status !== 'published' && art.status !== 'approved') return false;
 
       const artCat = String(art.category || art.categoryId || '').toLowerCase().trim();
       const artCatBn = String(art.categoryBn || '').trim();

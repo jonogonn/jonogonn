@@ -29,6 +29,11 @@ import {
   normalizeImageUrl
 } from '../utils/mariaDbSync';
 import { safeSetLocalStorage, safeGetLocalStorage, safeRemoveLocalStorage } from '../utils/safeStorage';
+import {
+  VIEW_CONFIG,
+  getEffectiveViews,
+  calculateNextViews
+} from '../config/viewConfig';
 
 const NewsContext = createContext();
 
@@ -161,7 +166,13 @@ export function NewsProvider({ children }) {
         if (dbItems.length > 0) {
           return dbItems.map((a) => {
             const clean = normalizeImageUrl(a.imageUrl || a.featuredImage);
-            return { ...a, imageUrl: clean, featuredImage: clean, thumbnail_image: clean };
+            return {
+              ...a,
+              views: getEffectiveViews(a),
+              imageUrl: clean,
+              featuredImage: clean,
+              thumbnail_image: clean
+            };
           });
         }
       }
@@ -342,10 +353,14 @@ export function NewsProvider({ children }) {
 
   const refreshArticles = async () => {
     try {
-      const dbPosts = await fetchArticlesFromMariaDb({ status: 'published' });
+      const dbPosts = await fetchArticlesFromMariaDb({ status: 'all', admin: '1' });
       if (Array.isArray(dbPosts) && dbPosts.length > 0) {
-        setArticles(dbPosts);
-        safeSetLocalStorage('jonogon_articles', dbPosts);
+        const processed = dbPosts.map((p) => ({
+          ...p,
+          views: getEffectiveViews(p)
+        }));
+        setArticles(processed);
+        safeSetLocalStorage('jonogon_articles', processed);
       }
     } catch (e) {
       console.warn('Error refreshing articles:', e);
@@ -785,7 +800,7 @@ export function NewsProvider({ children }) {
       const slug = decodeURIComponent(path.replace('/news/', '').trim());
       const found = articles.find((a) => a.slug === slug || a.id === slug || a.titleBn === slug || a.titleEn === slug);
       if (found) {
-        if (!isAdminOpen && found.status && found.status !== 'published') {
+        if (!isAdminOpen && found.status && found.status !== 'published' && found.status !== 'approved') {
           setCurrentArticle(null);
           setActivePage('home');
           return;
@@ -797,7 +812,7 @@ export function NewsProvider({ children }) {
     } else if (newsParam) {
       const found = articles.find((a) => a.id === newsParam || a.slug === newsParam);
       if (found) {
-        if (!isAdminOpen && found.status && found.status !== 'published') {
+        if (!isAdminOpen && found.status && found.status !== 'published' && found.status !== 'approved') {
           setCurrentArticle(null);
           setActivePage('home');
           return;
@@ -881,7 +896,7 @@ export function NewsProvider({ children }) {
   // Navigate to Dedicated Full Article Page with SEO Friendly URL (/news/:slug)
   const openArticle = (art) => {
     if (!art) return;
-    if (!isAdminOpen && art.status && art.status !== 'published') {
+    if (!isAdminOpen && art.status && art.status !== 'published' && art.status !== 'approved') {
       console.warn('Cannot open draft/unpublished article publicly');
       return;
     }
@@ -970,7 +985,7 @@ export function NewsProvider({ children }) {
       const slug = path.replace('/news/', '').trim();
       const found = articles.find((a) => a.slug === slug || a.id === slug);
       if (found) {
-        if (!isAdminOpen && found.status && found.status !== 'published') {
+        if (!isAdminOpen && found.status && found.status !== 'published' && found.status !== 'approved') {
           setCurrentArticle(null);
           setActivePage('home');
         } else {
@@ -1128,21 +1143,41 @@ export function NewsProvider({ children }) {
   };
 
   const updateArticle = async (id, updatedData) => {
-    let fullArticle = null;
+    // 1. Synchronously find current full article from state or localStorage
+    const savedArticles = safeGetLocalStorage('jonogon_articles') || [];
+    const sourceList = Array.isArray(articles) && articles.length > 0 ? articles : (Array.isArray(savedArticles) ? savedArticles : []);
+    const existing = sourceList.find(
+      (item) =>
+        String(item.id) === String(id) ||
+        String(item.post_id) === String(id) ||
+        String(item.postId) === String(id) ||
+        String(item.db_id) === String(id) ||
+        item.slug === id
+    ) || {};
+
+    const fullArticle = { ...existing, ...updatedData, id: existing.id || id };
+
+    // 2. Synchronously update state and local storage
     setArticles((prev) => {
       let found = false;
       const next = (Array.isArray(prev) ? prev : []).map((item) => {
-        if (String(item.id) === String(id) || item.slug === id) {
+        if (
+          String(item.id) === String(id) ||
+          String(item.post_id) === String(id) ||
+          String(item.postId) === String(id) ||
+          item.slug === id
+        ) {
           found = true;
-          fullArticle = { ...item, ...updatedData, id };
-          return fullArticle;
+          return { ...item, ...updatedData };
         }
         return item;
       });
       if (!found) {
-        fullArticle = { ...updatedData, id };
-        return [fullArticle, ...next];
+        const updated = [fullArticle, ...next];
+        safeSetLocalStorage('jonogon_articles', updated);
+        return updated;
       }
+      safeSetLocalStorage('jonogon_articles', next);
       return next;
     });
 
@@ -1150,9 +1185,9 @@ export function NewsProvider({ children }) {
       setCurrentArticle((prev) => ({ ...prev, ...updatedData }));
     }
 
-    const payloadToSave = fullArticle || { ...updatedData, id };
+    // 3. Persist to MariaDB with complete payload
     try {
-      const res = await saveArticleToMariaDb(payloadToSave);
+      const res = await saveArticleToMariaDb(fullArticle);
       return res;
     } catch (err) {
       console.warn('MariaDB update sync error:', err);
@@ -1173,15 +1208,52 @@ export function NewsProvider({ children }) {
     }
   };
 
-  // Increment views by 5 for every article read (1 view = 5 views multiplier)
-  const incrementViews = (id, count = 5) => {
+  // =========================================================================
+  // 🚀 SMART VIEW COUNTER (১ম ১০ মিনিটে অটো ২০০ ভিউ, <২০০০ এ ৫ গুণ, >২০০০ এ ১ গুণ)
+  // আপনি যেকোনো সময় নিয়ম পরিবর্তন করতে দেখতে পারেন: src/config/viewConfig.js
+  // =========================================================================
+  const incrementViews = (id, count) => {
+    if (!id) return;
+
     setArticles((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, views: (item.views || 0) + count } : item
-      )
+      prev.map((item) => {
+        if (item.id === id || item.postId === id || item.slug === id) {
+          const current = getEffectiveViews(item);
+          const next = typeof count === 'number' ? current + count : calculateNextViews(current);
+          return { ...item, views: next };
+        }
+        return item;
+      })
     );
-    if (currentArticle && currentArticle.id === id) {
-      setCurrentArticle((prev) => (prev ? { ...prev, views: (prev.views || 0) + count } : prev));
+
+    if (currentArticle && (currentArticle.id === id || currentArticle.postId === id || currentArticle.slug === id)) {
+      setCurrentArticle((prev) => {
+        if (!prev) return prev;
+        const current = getEffectiveViews(prev);
+        const next = typeof count === 'number' ? current + count : calculateNextViews(current);
+        return { ...prev, views: next };
+      });
+    }
+
+    // Persist view to MariaDB
+    try {
+      const endpoints = [
+        `/api/news.php?action=view&id=${encodeURIComponent(id)}`,
+        `/janogon/api/news.php?action=view&id=${encodeURIComponent(id)}`
+      ];
+      if (typeof window !== 'undefined' && window.location.origin) {
+        endpoints.unshift(`${window.location.origin}/api/news.php?action=view&id=${encodeURIComponent(id)}`);
+      }
+      (async () => {
+        for (const ep of endpoints) {
+          try {
+            const res = await fetch(ep, { method: 'POST' });
+            if (res.ok) break;
+          } catch (_) {}
+        }
+      })();
+    } catch (e) {
+      console.warn('MariaDB view sync notice:', e);
     }
   };
 
@@ -2036,6 +2108,9 @@ export function NewsProvider({ children }) {
         updateArticle,
         deleteArticle,
         incrementViews,
+        VIEW_CONFIG,
+        getEffectiveViews,
+        calculateNextViews,
         categories,
         categoryGroups,
         categoryMasterGroups,
@@ -2123,6 +2198,7 @@ export function NewsProvider({ children }) {
         showUploadProgress,
         updateUploadProgress,
         closeUploadProgress,
+        refreshArticles,
         refreshCategories,
         refreshPodcasts,
         refreshAllModulesFromDb,

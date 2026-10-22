@@ -240,40 +240,103 @@ export async function generateSocialCardJpg({
             ctx.textBaseline = 'middle';
             ctx.fillText(fullCaption, 958, 696);
 
-            // 6. Draw Text Section (Kicker & Headline with Exact User Proportional Sizing)
-            const canvasTitleFontSize = titleFontSize > 36 ? titleFontSize : Math.round((titleFontSize || 24) * 2.25);
-            const canvasKickerFontSize = kickerFontSize > 22 ? kickerFontSize : Math.round((kickerFontSize || 15) * 1.85);
+            // 6. Draw Text Section (Kicker & Headline with Auto Line Wrap & Auto 1px Font Shrink)
+            // Safe Margins (Generous 77px gap on both sides, ensuring text never touches card borders)
+            const maxTextWidth = 870;
+            const textMinY = 724;
+            const textMaxY = 952;
+            const textMaxHeight = textMaxY - textMinY; // 228px available height
+            const textCenterY = (textMinY + textMaxY) / 2; // 838px
 
-            const rawTitle = title || 'একবছরে গরিব জনগণ বেড়েছে প্রায় ২১ লাখ !';
-            let line1 = '';
-            let line2 = '';
-
-            if (manualLineBreak && manualLineBreak.trim()) {
-              const parts = manualLineBreak.split('|');
-              line1 = parts[0]?.trim() || '';
-              line2 = parts.slice(1).join(' ').trim();
-            } else if (rawTitle.includes('\n')) {
-              const parts = rawTitle.split('\n');
-              line1 = parts[0]?.trim() || '';
-              line2 = parts.slice(1).join(' ').trim();
-            } else if (rawTitle.includes('|')) {
-              const parts = rawTitle.split('|');
-              line1 = parts[0]?.trim() || '';
-              line2 = parts.slice(1).join(' ').trim();
-            } else {
-              const words = rawTitle.trim().split(/\s+/);
-              if (words.length <= 4) {
-                line1 = rawTitle;
-                line2 = '';
-              } else if (words.length <= 6) {
-                const splitAt = Math.max(2, words.length - 2);
-                line1 = words.slice(0, splitAt).join(' ');
-                line2 = words.slice(splitAt).join(' ');
-              } else {
-                const splitAt = Math.ceil(words.length * 0.58);
-                line1 = words.slice(0, splitAt).join(' ');
-                line2 = words.slice(splitAt).join(' ');
+            // A. Kicker Layout (if present)
+            let kickerSize = kickerFontSize > 22 ? kickerFontSize : Math.round((kickerFontSize || 15) * 1.85);
+            if (kicker && kicker.trim()) {
+              ctx.font = `800 ${kickerSize}px ${fontSans}`;
+              while (kickerSize > 16 && ctx.measureText(kicker.trim()).width > maxTextWidth) {
+                kickerSize -= 1;
+                ctx.font = `800 ${kickerSize}px ${fontSans}`;
               }
+            }
+            const hasKicker = Boolean(kicker && kicker.trim());
+            const kickerHeight = hasKicker ? Math.round(kickerSize * 1.25) : 0;
+            const kickerBottomGap = hasKicker ? 12 : 0;
+            const availableHeadlineHeight = textMaxHeight - kickerHeight - kickerBottomGap;
+
+            // B. Headline Auto Wrap & Auto 1px Font Size Shrinking
+            const rawTitle = (title || 'একবছরে গরিব জনগণ বেড়েছে প্রায় ২১ লাখ !').trim();
+            let titleSize = titleFontSize > 36 ? titleFontSize : Math.round((titleFontSize || 24) * 2.25);
+            const minTitleSize = 22;
+
+            let finalLines = [];
+
+            while (titleSize >= minTitleSize) {
+              ctx.font = `900 ${titleSize}px ${fontSans}`;
+
+              let lines = [];
+              const hasManualSplit = manualLineBreak && manualLineBreak.trim();
+              const segments = hasManualSplit
+                ? manualLineBreak.split(/[|\n]/).map((s) => s.trim()).filter(Boolean)
+                : rawTitle.includes('\n') || rawTitle.includes('|')
+                ? rawTitle.split(/[|\n]/).map((s) => s.trim()).filter(Boolean)
+                : null;
+
+              if (segments && segments.length > 0) {
+                for (const seg of segments) {
+                  const segWords = seg.split(/\s+/);
+                  let curLine = '';
+                  for (const w of segWords) {
+                    const test = curLine ? `${curLine} ${w}` : w;
+                    if (ctx.measureText(test).width <= maxTextWidth) {
+                      curLine = test;
+                    } else {
+                      if (curLine) lines.push(curLine);
+                      curLine = w;
+                    }
+                  }
+                  if (curLine) lines.push(curLine);
+                }
+              } else {
+                const words = rawTitle.split(/\s+/);
+                if (words.length <= 4 && ctx.measureText(rawTitle).width <= maxTextWidth) {
+                  lines = [rawTitle];
+                } else {
+                  // Attempt clean balanced 2-line split
+                  const mid = Math.ceil(words.length / 2);
+                  const try1 = words.slice(0, mid).join(' ');
+                  const try2 = words.slice(mid).join(' ');
+
+                  if (ctx.measureText(try1).width <= maxTextWidth && ctx.measureText(try2).width <= maxTextWidth) {
+                    lines = [try1, try2];
+                  } else {
+                    // Word-by-word line wrapping
+                    let curLine = '';
+                    for (const w of words) {
+                      const test = curLine ? `${curLine} ${w}` : w;
+                      if (ctx.measureText(test).width <= maxTextWidth) {
+                        curLine = test;
+                      } else {
+                        if (curLine) lines.push(curLine);
+                        curLine = w;
+                      }
+                    }
+                    if (curLine) lines.push(curLine);
+                  }
+                }
+              }
+
+              // Check if all lines fit within maxTextWidth and total height fits within available area
+              const lineSpacing = Math.round(titleSize * 1.25);
+              const totalHeadlineHeight = lines.length * lineSpacing;
+              const anyOverflow = lines.some((l) => ctx.measureText(l).width > maxTextWidth);
+
+              if (!anyOverflow && totalHeadlineHeight <= availableHeadlineHeight && lines.length <= 3) {
+                finalLines = lines;
+                break;
+              }
+
+              finalLines = lines;
+              // Auto-shrink by 1px
+              titleSize -= 1;
             }
 
             const line1Color = colorMode === 'blue' ? '#0C1D48' : colorMode === 'dark' ? '#111827' : '#E50914';
@@ -282,40 +345,25 @@ export async function generateSocialCardJpg({
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            // Coordinated Positioning in the text box (Y: 725px to 970px, Center: 848px)
-            if (kicker && line1 && line2) {
-              ctx.font = `800 ${canvasKickerFontSize}px ${fontSans}`;
+            // Coordinated Vertical Centering in Text Section
+            const headlineLineSpacing = Math.round(titleSize * 1.25);
+            const totalTextHeight = (hasKicker ? kickerHeight + kickerBottomGap : 0) + (finalLines.length * headlineLineSpacing);
+            let currentDrawY = textCenterY - (totalTextHeight / 2) + (hasKicker ? kickerHeight / 2 : headlineLineSpacing / 2);
+
+            if (hasKicker) {
+              ctx.font = `800 ${kickerSize}px ${fontSans}`;
               ctx.fillStyle = '#B82A24';
-              ctx.fillText(kicker, 512, 758);
-
-              ctx.font = `900 ${canvasTitleFontSize}px ${fontSans}`;
-              ctx.fillStyle = line1Color;
-              ctx.fillText(line1, 512, 822);
-
-              ctx.font = `900 ${canvasTitleFontSize + 3}px ${fontSans}`;
-              ctx.fillStyle = line2Color;
-              ctx.fillText(line2, 512, 886);
-            } else if (kicker && line1 && !line2) {
-              ctx.font = `800 ${canvasKickerFontSize}px ${fontSans}`;
-              ctx.fillStyle = '#B82A24';
-              ctx.fillText(kicker, 512, 780);
-
-              ctx.font = `900 ${canvasTitleFontSize}px ${fontSans}`;
-              ctx.fillStyle = line1Color;
-              ctx.fillText(line1, 512, 852);
-            } else if (!kicker && line1 && line2) {
-              ctx.font = `900 ${canvasTitleFontSize}px ${fontSans}`;
-              ctx.fillStyle = line1Color;
-              ctx.fillText(line1, 512, 804);
-
-              ctx.font = `900 ${canvasTitleFontSize + 3}px ${fontSans}`;
-              ctx.fillStyle = line2Color;
-              ctx.fillText(line2, 512, 874);
-            } else if (line1) {
-              ctx.font = `900 ${canvasTitleFontSize}px ${fontSans}`;
-              ctx.fillStyle = line1Color;
-              ctx.fillText(line1, 512, 848);
+              ctx.fillText(kicker.trim(), 512, currentDrawY);
+              currentDrawY += (kickerHeight / 2) + kickerBottomGap + (headlineLineSpacing / 2);
             }
+
+            finalLines.forEach((textLine, idx) => {
+              // Line 0 is vibrant editorial red, remaining lines in navy blue
+              ctx.font = `900 ${idx === 0 ? titleSize : titleSize + 2}px ${fontSans}`;
+              ctx.fillStyle = idx === 0 ? line1Color : line2Color;
+              ctx.fillText(textLine, 512, currentDrawY);
+              currentDrawY += headlineLineSpacing;
+            });
 
             // 7. Draw Dynamic Category in Bottom Bar
             ctx.font = `800 18px ${fontSans}`;

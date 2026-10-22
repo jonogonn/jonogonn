@@ -150,7 +150,7 @@ export default function SocialNewsCardPreview({
   });
 
   const displayCaption = caption || (isBangla ? 'ছবি: সংগৃহীত' : 'Photo: Collected');
-  const displayImage = imageUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80';
+  const displayImage = imageUrl || '';
 
   // Smart splitting for headline (Dual Color: Line 1 in Red, Line 2 in Navy Blue like the official sample)
   const rawTitle = title || 'একবছরে গরিব জনগণ বেড়েছে প্রায় ২১ লাখ !';
@@ -176,14 +176,8 @@ export default function SocialNewsCardPreview({
     if (words.length <= 4) {
       line1 = rawTitle;
       line2 = '';
-    } else if (words.length <= 6) {
-      // Split approx 3 + 2 or 4 + 2
-      const splitAt = Math.max(2, words.length - 2);
-      line1 = words.slice(0, splitAt).join(' ');
-      line2 = words.slice(splitAt).join(' ');
     } else {
-      // Longer headline
-      const splitAt = Math.ceil(words.length * 0.58);
+      const splitAt = Math.ceil(words.length / 2);
       line1 = words.slice(0, splitAt).join(' ');
       line2 = words.slice(splitAt).join(' ');
     }
@@ -386,20 +380,37 @@ export default function SocialNewsCardPreview({
             zIndex: 1
           }}
         >
-          <img
-            src={displayImage}
-            alt="News Subject"
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              objectPosition: currentImagePosition,
-              display: 'block',
-              pointerEvents: 'none',
-              transition: 'object-position 0.2s ease'
-            }}
-            draggable={false}
-          />
+          {displayImage ? (
+            <img
+              src={displayImage}
+              alt="News Subject"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: currentImagePosition,
+                display: 'block',
+                pointerEvents: 'none',
+                transition: 'object-position 0.2s ease'
+              }}
+              draggable={false}
+            />
+          ) : (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'rgba(255,255,255,0.3)',
+                fontSize: '3.5cqw',
+                fontWeight: 600
+              }}
+            >
+              {isBangla ? 'ছবি নেই' : 'No Image'}
+            </div>
+          )}
         </div>
 
         {/* Layer 2: Official Template Frame (Header logo, QR code, red frame, golden pill, ribbon & footer) */}
@@ -477,17 +488,17 @@ export default function SocialNewsCardPreview({
         <div
           style={{
             position: 'absolute',
-            top: '70.8%',
+            top: '71.5%',
             bottom: '4.8%',
-            left: '3.5%',
-            width: '93%',
+            left: '5%',
+            width: '90%',
             zIndex: 3,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             textAlign: 'center',
-            padding: '0 4px',
+            padding: '0 14px',
             pointerEvents: 'none'
           }}
         >
@@ -496,12 +507,12 @@ export default function SocialNewsCardPreview({
             <div
               style={{
                 fontFamily: 'var(--font-headline, "Anek Bangla", "Hind Siliguri", sans-serif)',
-                fontSize: `clamp(12px, ${kickerFontSize * 0.20}cqw, 32px)`,
+                fontSize: `clamp(11px, ${kickerFontSize * 0.18}cqw, 28px)`,
                 fontWeight: 800,
                 color: '#B82A24', // Crimson / Rust Red matching reference image
                 lineHeight: 1.2,
                 marginBottom: '0.4cqw',
-                maxWidth: '96%',
+                maxWidth: '92%',
                 letterSpacing: 0.1
               }}
             >
@@ -515,13 +526,13 @@ export default function SocialNewsCardPreview({
               style={{
                 fontFamily: 'var(--font-headline, "Anek Bangla", "Hind Siliguri", sans-serif)',
                 fontSize: kicker
-                  ? `clamp(17px, ${titleFontSize * 0.20}cqw, 52px)`
-                  : `clamp(19px, ${titleFontSize * 0.22}cqw, 56px)`,
+                  ? `clamp(15px, ${titleFontSize * 0.17}cqw, 46px)`
+                  : `clamp(16px, ${titleFontSize * 0.19}cqw, 48px)`,
                 fontWeight: 900,
                 color: getLine1Color(),
                 lineHeight: lineHeightRatio,
                 wordBreak: 'break-word',
-                maxWidth: '98%',
+                maxWidth: '94%',
                 letterSpacing: -0.3
               }}
             >
@@ -535,13 +546,13 @@ export default function SocialNewsCardPreview({
               style={{
                 fontFamily: 'var(--font-headline, "Anek Bangla", "Hind Siliguri", sans-serif)',
                 fontSize: kicker
-                  ? `clamp(18px, ${(titleFontSize + 2) * 0.20}cqw, 54px)`
-                  : `clamp(20px, ${(titleFontSize + 2) * 0.22}cqw, 58px)`,
+                  ? `clamp(15px, ${(titleFontSize + 2) * 0.17}cqw, 48px)`
+                  : `clamp(16px, ${(titleFontSize + 2) * 0.19}cqw, 50px)`,
                 fontWeight: 900,
                 color: getLine2Color(),
                 lineHeight: lineHeightRatio,
                 wordBreak: 'break-word',
-                maxWidth: '98%',
+                maxWidth: '94%',
                 marginTop: '0.3cqw',
                 letterSpacing: -0.3
               }}

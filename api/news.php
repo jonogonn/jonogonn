@@ -4,6 +4,7 @@
  * Target Table: `news_posts` (Auto-migrating UTF-8 Multi-language Schema)
  */
 ini_set('memory_limit', '1024M');
+date_default_timezone_set('Asia/Dhaka');
 require_once __DIR__ . '/db.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -21,6 +22,55 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
+// ============================================================================
+// 🚀 ভিউ গণনা সেটিংস (VIEW COUNT SYSTEM CONFIGURATION)
+// আপনি যেকোনো সময় নিচের মানগুলো পরিবর্তন করে সিস্টেমের নিয়ম পরিবর্তন করতে পারবেন:
+// ============================================================================
+define('VIEW_INITIAL_RAMP_MINUTES', 10);  // পোস্ট পাবলিশের ১ম কত মিনিটের মধ্যে অটো ভিউ পূর্ণ হবে (মিনিট হিসেবে)
+define('VIEW_INITIAL_AUTO_VIEWS', 200);    // প্রথম ১০ মিনিটে মোট কত ভিউ অটোমেটিক হবে
+define('VIEW_MULTIPLIER_LIMIT', 2000);     // কত ভিউ পর্যন্ত গুণিতক (Multiplier) চালু থাকবে (২,০০০)
+define('VIEW_MULTIPLIER_RATE', 5);         // ২০০০ এর নিচে থাকলে প্রতি ক্লিকে কত ভিউ যোগ হবে (১ ভিউ = ৫ ভিউ)
+define('VIEW_NORMAL_RATE', 1);             // ২০০০ পার হওয়ার পর প্রতি ক্লিকে কত ভিউ যোগ হবে (১ ভিউ = ১ ভিউ)
+// ============================================================================
+
+/**
+ * পোস্টের পাবলিশ সময় অনুযায়ী প্রদেয় ভিউ হিসাব করার হেল্পার ফাংশন
+ */
+function calculateEffectiveViews($storedViews, $publishedAt, $createdAt, $status) {
+    $rawViews = (int)$storedViews;
+    $isPublished = ($status === 'published' || $status === 'approved');
+    if (!$isPublished) return $rawViews;
+
+    $timeStr = !empty($publishedAt) ? $publishedAt : $createdAt;
+    if (!$timeStr) return max($rawViews, VIEW_INITIAL_AUTO_VIEWS);
+
+    $publishTimestamp = strtotime($timeStr);
+    if (!$publishTimestamp) return max($rawViews, VIEW_INITIAL_AUTO_VIEWS);
+
+    $elapsedSeconds = time() - $publishTimestamp;
+    if ($elapsedSeconds <= 0) return $rawViews;
+
+    $elapsedMinutes = $elapsedSeconds / 60;
+    if ($elapsedMinutes >= VIEW_INITIAL_RAMP_MINUTES) {
+        $autoViews = VIEW_INITIAL_AUTO_VIEWS;
+    } else {
+        $autoViews = (int)floor(($elapsedMinutes / VIEW_INITIAL_RAMP_MINUTES) * VIEW_INITIAL_AUTO_VIEWS);
+    }
+
+    return max($rawViews, $autoViews);
+}
+
+/**
+ * ১ বার পাঠ করার পর পরবর্তী ভিউ কত হবে তা হিসাব করার ফাংশন
+ */
+function calculateNextViews($currentViews) {
+    $current = (int)$currentViews;
+    if ($current < VIEW_MULTIPLIER_LIMIT) {
+        return $current + VIEW_MULTIPLIER_RATE;
+    }
+    return $current + VIEW_NORMAL_RATE;
+}
+
 // -------------------------------------------------------------
 // HELPER: Auto-detect active table (Fast, cached, no DDL overhead)
 // -------------------------------------------------------------
@@ -37,6 +87,63 @@ function normalizeNewsImageUrl($url) {
         }
     }
     return $url;
+}
+
+// -------------------------------------------------------------
+// 0. VIEW INCREMENT HANDLER: Fast & Atomic 1-click View Multiplier
+// -------------------------------------------------------------
+$reqAction = $_GET['action'] ?? '';
+$reqPostId = $_GET['id'] ?? ($_GET['post_id'] ?? ($_GET['slug'] ?? ''));
+
+if (!$reqAction && $method === 'POST') {
+    $rawPeek = @file_get_contents('php://input');
+    $inputPeek = json_decode($rawPeek, true) ?: $_POST;
+    $reqAction = $inputPeek['action'] ?? '';
+    if (!$reqPostId) {
+        $reqPostId = $inputPeek['id'] ?? ($inputPeek['post_id'] ?? ($inputPeek['slug'] ?? ''));
+    }
+}
+
+if ($reqAction === 'view' || $reqAction === 'increment_views' || $reqAction === 'increment_view') {
+    try {
+        if (!$pdo) {
+            throw new Exception('MariaDB connection error: ' . ($dbError ?? 'Unknown error'));
+        }
+        $tableName = getAndEnsureNewsTable($pdo);
+        if (!$reqPostId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'পোস্ট আইডি প্রয়োজন।'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("SELECT `id`, `post_id`, `slug`, `views`, `published_at`, `created_at`, `status` FROM `{$tableName}` WHERE `id` = ? OR `post_id` = ? OR `slug` = ? LIMIT 1");
+        $stmt->execute([$reqPostId, $reqPostId, $reqPostId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'সংবাদটি পাওয়া যায়নি।'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $currentViews = calculateEffectiveViews($row['views'], $row['published_at'], $row['created_at'], $row['status']);
+        $newViews = calculateNextViews($currentViews);
+
+        $upStmt = $pdo->prepare("UPDATE `{$tableName}` SET `views` = ? WHERE `id` = ?");
+        $upStmt->execute([$newViews, $row['id']]);
+
+        echo json_encode([
+            'success' => true,
+            'id' => $row['post_id'] ?: $row['id'],
+            'views' => $newViews,
+            'previous_views' => $currentViews
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 }
 
 // -------------------------------------------------------------
@@ -58,14 +165,15 @@ if ($method === 'GET') {
         $slug = isset($_GET['slug']) ? trim($_GET['slug']) : null;
         $postId = isset($_GET['id']) ? trim($_GET['id']) : null;
         $full = isset($_GET['full']) && $_GET['full'] === '1';
+        $isAdmin = isset($_GET['admin']) && $_GET['admin'] === '1';
 
-        // Select full content only for single post or when explicitly requested
+        // Select full content for single post, explicit full request, or admin requests
         $isSingle = !empty($postId) || !empty($slug);
-        if ($isSingle || $full) {
+        if ($isSingle || $full || $isAdmin) {
             $cols = "*";
         } else {
             // Optimized lightweight card fields (omits huge content_bn, content_en, and blocks JSON)
-            $cols = "`id`, `post_id`, `slug`, `title_bn`, `title_en`, `kicker`, `subtitle`, `excerpt_bn`, `excerpt_en`, `category_id`, `category_bn`, `category_en`, `categories`, `card_category`, `card_image_position`, `image_caption`, `featured_image`, `gallery_images`, `author`, `author_id`, `author_avatar`, `reporter_name`, `read_time`, `is_lead_hero`, `is_highlighted`, `is_breaking`, `is_featured`, `is_video`, `youtube_url`, `video_duration`, `status`, `status_note`, `views`, `shares_count`, `tags`, `seo_title`, `seo_description`, `seo_keywords`, `created_at`, `updated_at`, `published_at`";
+            $cols = "`id`, `post_id`, `slug`, `title_bn`, `title_en`, `kicker`, `subtitle`, `excerpt_bn`, `excerpt_en`, `category_id`, `category_bn`, `category_en`, `categories`, `card_category`, `card_image_position`, `image_caption`, `featured_image`, `gallery_images`, `author`, `author_id`, `author_avatar`, `reporter_name`, `read_time`, `is_lead_hero`, `is_highlighted`, `is_breaking`, `is_featured`, `is_video`, `youtube_url`, `video_duration`, `status`, `editor_approved`, `status_note`, `views`, `shares_count`, `tags`, `seo_title`, `seo_description`, `seo_keywords`, `created_at`, `updated_at`, `published_at`";
         }
 
         $query = "SELECT {$cols} FROM `{$tableName}` WHERE 1=1";
@@ -75,13 +183,28 @@ if ($method === 'GET') {
             $query .= " AND (`post_id` = ? OR `id` = ?)";
             $params[] = $postId;
             $params[] = $postId;
+            if (!$isAdmin) {
+                $query .= " AND (`status` = 'approved' OR `status` = 'published')";
+            }
         } elseif ($slug) {
             $query .= " AND `slug` = ?";
             $params[] = $slug;
+            if (!$isAdmin) {
+                $query .= " AND (`status` = 'approved' OR `status` = 'published')";
+            }
         } else {
             if ($status && $status !== 'all') {
-                $query .= " AND `status` = ?";
-                $params[] = $status;
+                if ($status === 'published' || $status === 'approved') {
+                    $query .= " AND (`status` = 'approved' OR `status` = 'published')";
+                } elseif ($status === 'pannding' || $status === 'pending') {
+                    $query .= " AND (`status` = 'pannding' OR `status` = 'pending')";
+                } else {
+                    $query .= " AND `status` = ?";
+                    $params[] = $status;
+                }
+            } elseif (!$isAdmin && !$status) {
+                // Public feed: strictly only approved & published news open to read
+                $query .= " AND (`status` = 'approved' OR `status` = 'published')";
             }
 
             if ($category && $category !== 'all') {
@@ -150,8 +273,9 @@ if ($method === 'GET') {
                 'reporterName' => $row['reporter_name'] ?? '',
                 'readTime' => $row['read_time'] ?? '৪ মিনিট পড়তে',
                 'status' => $row['status'] ?? 'published',
+                'editor_approved' => (int)($row['editor_approved'] ?? 0),
                 'statusNote' => $row['status_note'] ?? ($row['revision_note'] ?? ''),
-                'views' => (int)($row['views'] ?? 0),
+                'views' => calculateEffectiveViews($row['views'] ?? 0, $row['published_at'] ?? $row['created_at'], $row['created_at'], $row['status'] ?? ''),
                 'sharesCount' => (int)($row['shares_count'] ?? 0),
                 'isLeadHero' => !empty($row['is_lead_hero']) ? true : false,
                 'isHighlighted' => !empty($row['is_highlighted']) ? true : false,
@@ -256,16 +380,25 @@ if ($method === 'POST') {
             $data = $_POST;
         }
 
-        $titleBn = trim($data['titleBn'] ?? ($data['title_bn'] ?? ($data['title'] ?? '')));
-        $titleEn = trim($data['titleEn'] ?? ($data['title_en'] ?? ''));
-        $kicker = trim($data['kicker'] ?? '');
-        $subtitle = trim($data['subtitle'] ?? '');
-        $contentBn = $data['contentBn'] ?? ($data['content_bn'] ?? ($data['content'] ?? ''));
-        $contentEn = $data['contentEn'] ?? ($data['content_en'] ?? '');
-        $excerptBn = $data['excerptBn'] ?? ($data['excerpt_bn'] ?? ($data['excerpt'] ?? $titleBn));
-        $excerptEn = $data['excerptEn'] ?? ($data['excerpt_en'] ?? '');
-        $slug = trim($data['slug'] ?? '');
         $postId = trim($data['id'] ?? ($data['postId'] ?? ($data['post_id'] ?? '')));
+        $slug = trim($data['slug'] ?? '');
+
+        // Pre-fetch existing record if updating (matches post_id, primary key id, or slug)
+        $existing = null;
+        if ($postId || $slug) {
+            $checkStmt = $pdo->prepare("SELECT * FROM `{$tableName}` WHERE `post_id` = ? OR `id` = ? OR `slug` = ? LIMIT 1");
+            $checkStmt->execute([$postId, $postId, $slug]);
+            $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        }
+
+        $titleBn = trim($data['titleBn'] ?? ($data['title_bn'] ?? ($data['title'] ?? ($existing['title_bn'] ?? ($existing['title'] ?? '')))));
+        $titleEn = trim($data['titleEn'] ?? ($data['title_en'] ?? ($existing['title_en'] ?? '')));
+        $kicker = trim($data['kicker'] ?? ($existing['kicker'] ?? ''));
+        $subtitle = trim($data['subtitle'] ?? ($existing['subtitle'] ?? ''));
+        $contentBn = $data['contentBn'] ?? ($data['content_bn'] ?? ($data['content'] ?? ($existing['content_bn'] ?? ($existing['content'] ?? ''))));
+        $contentEn = $data['contentEn'] ?? ($data['content_en'] ?? ($existing['content_en'] ?? ''));
+        $excerptBn = $data['excerptBn'] ?? ($data['excerpt_bn'] ?? ($data['excerpt'] ?? ($existing['excerpt_bn'] ?? ($existing['excerpt'] ?? $titleBn))));
+        $excerptEn = $data['excerptEn'] ?? ($data['excerpt_en'] ?? ($existing['excerpt_en'] ?? ''));
 
         if (!$titleBn) {
             http_response_code(400);
@@ -274,42 +407,70 @@ if ($method === 'POST') {
         }
 
         if (!$slug) {
-            $slug = 'post-' . time() . '-' . rand(100, 999);
+            $slug = !empty($existing['slug']) ? $existing['slug'] : ('post-' . time() . '-' . rand(100, 999));
         }
 
         if (!$postId) {
-            $postId = 'news-' . time() . '-' . rand(100, 999);
+            $postId = !empty($existing['post_id']) ? $existing['post_id'] : ('news-' . time() . '-' . rand(100, 999));
         }
 
-        $blocks = is_array($data['blocks'] ?? null) ? json_encode($data['blocks'], JSON_UNESCAPED_UNICODE) : ($data['blocks'] ?? null);
-        $categories = is_array($data['categories'] ?? null) ? json_encode($data['categories'], JSON_UNESCAPED_UNICODE) : null;
-        $categoryId = $data['category'] ?? ($data['categoryId'] ?? ($data['category_id'] ?? 'bangladesh'));
-        $categoryBn = $data['categoryBn'] ?? ($data['category_bn'] ?? 'বাংলাদেশ');
-        $categoryEn = $data['categoryEn'] ?? ($data['category_en'] ?? 'Bangladesh');
-        $cardCategory = $data['cardCategory'] ?? ($data['card_category'] ?? 'সারাদেশ । বাংলাদেশ');
-        $cardCaption = $data['imageCaption'] ?? ($data['cardCaption'] ?? ($data['card_caption'] ?? 'ছবি: সংগৃহীত'));
-        $featuredImage = $data['imageUrl'] ?? ($data['featuredImage'] ?? ($data['featured_image'] ?? ''));
-        $galleryImages = is_array($data['galleryImages'] ?? null) ? json_encode($data['galleryImages'], JSON_UNESCAPED_UNICODE) : null;
-        $author = $data['author'] ?? 'জনগণ নিউজ ডেস্ক';
-        $authorId = $data['authorId'] ?? ($data['author_id'] ?? 'user-1');
-        $authorAvatar = $data['authorAvatar'] ?? ($data['author_avatar'] ?? '');
-        $reporterName = $data['reporterName'] ?? ($data['reporter_name'] ?? '');
-        $readTime = $data['readTime'] ?? ($data['read_time'] ?? '৪ মিনিট পড়তে');
-        $status = strtolower($data['status'] ?? 'published');
-        $statusNote = $data['statusNote'] ?? ($data['revisionNote'] ?? ($data['revision_note'] ?? null));
-        $views = (int)($data['views'] ?? 0);
-        $sharesCount = (int)($data['sharesCount'] ?? ($data['shares_count'] ?? 0));
-        $isLeadHero = !empty($data['isLeadHero']) ? 1 : 0;
-        $isBreaking = !empty($data['isBreaking']) ? 1 : 0;
-        $isFeatured = !empty($data['isFeatured']) || !empty($data['isHighlighted']) ? 1 : 0;
-        $isHighlighted = !empty($data['isHighlighted']) ? 1 : 0;
-        $isVideo = !empty($data['isVideo']) ? 1 : 0;
-        $youtubeUrl = $data['youtubeUrl'] ?? ($data['youtube_url'] ?? '');
-        $videoDuration = $data['videoDuration'] ?? ($data['video_duration'] ?? null);
-        $tags = is_array($data['tags'] ?? null) ? json_encode($data['tags'], JSON_UNESCAPED_UNICODE) : ($data['tags'] ?? '');
-        $seoTitle = $data['metaTitle'] ?? ($data['seo_title'] ?? $titleBn);
-        $seoDesc = $data['metaDesc'] ?? ($data['seo_description'] ?? $excerptBn);
-        $seoKeywords = $data['focusKeyword'] ?? ($data['seo_keywords'] ?? '');
+        $blocks = null;
+        if (!empty($data['blocks'])) {
+            if (is_array($data['blocks'])) {
+                $blocks = count($data['blocks']) > 0 ? json_encode($data['blocks'], JSON_UNESCAPED_UNICODE) : ($existing['blocks'] ?? null);
+            } else {
+                $trimmed = trim((string)$data['blocks']);
+                $blocks = ($trimmed !== '' && $trimmed !== '[]' && $trimmed !== 'null') ? $trimmed : ($existing['blocks'] ?? null);
+            }
+        } elseif (!empty($existing['blocks'])) {
+            $blocks = $existing['blocks'];
+        }
+
+        $inputContent = trim((string)($data['contentBn'] ?? ($data['content_bn'] ?? ($data['content'] ?? ''))));
+        $contentBn = $inputContent !== '' ? $inputContent : ($existing['content_bn'] ?? ($existing['content'] ?? ''));
+
+        $inputContentEn = trim((string)($data['contentEn'] ?? ($data['content_en'] ?? '')));
+        $contentEn = $inputContentEn !== '' ? $inputContentEn : ($existing['content_en'] ?? '');
+
+        $categories = is_array($data['categories'] ?? null) ? json_encode($data['categories'], JSON_UNESCAPED_UNICODE) : ($existing['categories'] ?? null);
+        $categoryId = $data['category'] ?? ($data['categoryId'] ?? ($data['category_id'] ?? ($existing['category_id'] ?? 'bangladesh')));
+        $categoryBn = $data['categoryBn'] ?? ($data['category_bn'] ?? ($existing['category_bn'] ?? 'বাংলাদেশ'));
+        $categoryEn = $data['categoryEn'] ?? ($data['category_en'] ?? ($existing['category_en'] ?? 'Bangladesh'));
+        $cardCategory = $data['cardCategory'] ?? ($data['card_category'] ?? ($existing['card_category'] ?? 'সারাদেশ । বাংলাদেশ'));
+        $cardCaption = $data['imageCaption'] ?? ($data['cardCaption'] ?? ($data['card_caption'] ?? ($existing['image_caption'] ?? 'ছবি: সংগৃহীত')));
+        $featuredImage = $data['imageUrl'] ?? ($data['featuredImage'] ?? ($data['featured_image'] ?? ($existing['featured_image'] ?? '')));
+        $galleryImages = is_array($data['galleryImages'] ?? null) ? json_encode($data['galleryImages'], JSON_UNESCAPED_UNICODE) : ($existing['gallery_images'] ?? null);
+        $author = $data['author'] ?? ($existing['author'] ?? 'জনগণ নিউজ ডেস্ক');
+        $authorId = $data['authorId'] ?? ($data['author_id'] ?? ($existing['author_id'] ?? 'user-1'));
+        $authorAvatar = $data['authorAvatar'] ?? ($data['author_avatar'] ?? ($existing['author_avatar'] ?? ''));
+        $reporterName = $data['reporterName'] ?? ($data['reporter_name'] ?? ($existing['reporter_name'] ?? ''));
+        $readTime = $data['readTime'] ?? ($data['read_time'] ?? ($existing['read_time'] ?? '৪ মিনিট পড়তে'));
+        $rawStatus = isset($data['status']) ? trim(strtolower($data['status'])) : ($existing['status'] ?? '');
+        if (!$rawStatus || $rawStatus === 'review' || $rawStatus === 'draft' || $rawStatus === 'submitted' || $rawStatus === 'pending') {
+            $status = 'pannding';
+        } else {
+            $status = $rawStatus;
+        }
+
+        $editorApproved = isset($data['editorApproved'])
+            ? ($data['editorApproved'] ? 1 : 0)
+            : (isset($data['editor_approved'])
+                ? ($data['editor_approved'] ? 1 : 0)
+                : (isset($existing['editor_approved']) ? (int)$existing['editor_approved'] : 0));
+        $statusNote = $data['statusNote'] ?? ($data['revisionNotes'] ?? ($data['revisionNote'] ?? ($data['revision_note'] ?? ($existing['status_note'] ?? null))));
+        $views = isset($data['views']) ? (int)$data['views'] : (int)($existing['views'] ?? 0);
+        $sharesCount = isset($data['sharesCount']) ? (int)$data['sharesCount'] : (int)($existing['shares_count'] ?? 0);
+        $isLeadHero = isset($data['isLeadHero']) ? (!empty($data['isLeadHero']) ? 1 : 0) : (!empty($existing['is_lead_hero']) ? 1 : 0);
+        $isBreaking = isset($data['isBreaking']) ? (!empty($data['isBreaking']) ? 1 : 0) : (!empty($existing['is_breaking']) ? 1 : 0);
+        $isFeatured = isset($data['isFeatured']) ? (!empty($data['isFeatured']) || !empty($data['isHighlighted']) ? 1 : 0) : (!empty($existing['is_featured']) ? 1 : 0);
+        $isHighlighted = isset($data['isHighlighted']) ? (!empty($data['isHighlighted']) ? 1 : 0) : (!empty($existing['is_highlighted']) ? 1 : 0);
+        $isVideo = isset($data['isVideo']) ? (!empty($data['isVideo']) ? 1 : 0) : (!empty($existing['is_video']) ? 1 : 0);
+        $youtubeUrl = $data['youtubeUrl'] ?? ($data['youtube_url'] ?? ($existing['youtube_url'] ?? ''));
+        $videoDuration = $data['videoDuration'] ?? ($data['video_duration'] ?? ($existing['video_duration'] ?? null));
+        $tags = is_array($data['tags'] ?? null) ? json_encode($data['tags'], JSON_UNESCAPED_UNICODE) : ($data['tags'] ?? ($existing['tags'] ?? ''));
+        $seoTitle = $data['metaTitle'] ?? ($data['seo_title'] ?? ($existing['seo_title'] ?? $titleBn));
+        $seoDesc = $data['metaDesc'] ?? ($data['seo_description'] ?? ($existing['seo_description'] ?? $excerptBn));
+        $seoKeywords = $data['focusKeyword'] ?? ($data['seo_keywords'] ?? ($existing['seo_keywords'] ?? ''));
 
         // Fetch actual table columns to dynamically adapt query
         $colStmt = $pdo->query("SHOW COLUMNS FROM `{$tableName}`");
@@ -362,6 +523,7 @@ if ($method === 'POST') {
             'youtube_url' => $youtubeUrl,
             'video_duration' => $videoDuration,
             'status' => $status,
+            'editor_approved' => $editorApproved,
             'status_note' => $statusNote,
             'views' => $views,
             'shares_count' => $sharesCount,
@@ -380,9 +542,11 @@ if ($method === 'POST') {
         }
 
         // Check if row already exists
-        $checkStmt = $pdo->prepare("SELECT `id` FROM `{$tableName}` WHERE `post_id` = ? OR `slug` = ? LIMIT 1");
-        $checkStmt->execute([$postId, $slug]);
-        $existing = $checkStmt->fetch();
+        if (!$existing) {
+            $checkStmt = $pdo->prepare("SELECT `id` FROM `{$tableName}` WHERE `post_id` = ? OR `id` = ? OR `slug` = ? LIMIT 1");
+            $checkStmt->execute([$postId, $postId, $slug]);
+            $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        }
 
         if ($existing) {
             $setClauses = [];

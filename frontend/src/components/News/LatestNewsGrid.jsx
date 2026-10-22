@@ -16,7 +16,7 @@ export default function LatestNewsGrid() {
   if (secConfig && secConfig.isVisible === false) return null;
 
   // Ensure at least 12 cards per half for consistent track width and velocity
-  const publishedArticles = (articles || []).filter((a) => a.status === 'published' || !a.status);
+  const publishedArticles = (articles || []).filter((a) => a.status === 'approved' || a.status === 'published' || !a.status);
   const baseCards = publishedArticles.length > 0 ? publishedArticles : [];
 
   if (baseCards.length === 0) {

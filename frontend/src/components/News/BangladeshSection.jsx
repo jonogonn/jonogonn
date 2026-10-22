@@ -12,8 +12,8 @@ export default function BangladeshSection() {
   const [bdSlideIndex, setBdSlideIndex] = useState(0);
   const [bdPaused, setBdPaused] = useState(false);
 
-  // Bangladesh Section Articles Pool (strictly published articles)
-  const publishedArticles = (articles || []).filter((a) => a && (a.status === 'published' || !a.status));
+  // Bangladesh Section Articles Pool (strictly published/approved articles)
+  const publishedArticles = (articles || []).filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status));
   const bdArticles = publishedArticles.filter(
     (a) => a && (a.category === 'bangladesh' || a.category === 'politics' || (a.id && String(a.id).startsWith('bd')))
   );

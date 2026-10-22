@@ -22,8 +22,8 @@ export default function RemittanceFighter() {
   const [slideIndex, setSlideIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  // Expatriates & Remittance Articles Pool (strictly published articles)
-  const publishedArticles = (articles || []).filter((a) => a && (a.status === 'published' || !a.status));
+  // Expatriates & Remittance Articles Pool (strictly published/approved articles)
+  const publishedArticles = (articles || []).filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status));
   const probashiArticles = publishedArticles.filter(
     (a) => a && (a.category === 'probashi' || (a.id && String(a.id).startsWith('probashi')))
   );
