@@ -2,7 +2,7 @@
  * Janogon News - Image Upload Utility
  * 1. Converts any image to high-quality .webp client-side via HTML5 Canvas.
  * 2. Uploads via backend API (/api/upload.php) which securely uploads to Backblaze B2 & MariaDB.
- * 3. Returns permanent CDN URL (https://cdn.jonogon.news/uploads/YYYY/MM/filename.webp).
+ * 3. Returns Backblaze B2 Cloud / CDN URL.
  */
 
 let cachedWatermarkImage = null;

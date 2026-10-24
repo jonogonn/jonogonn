@@ -26,6 +26,9 @@ import {
   savePodcastToMariaDb,
   deletePodcastFromMariaDb,
   fetchPodcastsFromMariaDb,
+  fetchVideoNewsFromMariaDb,
+  saveVideoNewsToMariaDb,
+  deleteVideoNewsFromMariaDb,
   normalizeImageUrl
 } from '../utils/mariaDbSync';
 import { safeSetLocalStorage, safeGetLocalStorage, safeRemoveLocalStorage } from '../utils/safeStorage';
@@ -369,6 +372,18 @@ export function NewsProvider({ children }) {
     }
   };
 
+  const refreshVideoNews = async () => {
+    try {
+      const dbVideos = await fetchVideoNewsFromMariaDb();
+      if (Array.isArray(dbVideos) && dbVideos.length > 0) {
+        setVideoNews(dbVideos);
+        safeSetLocalStorage('jonogon_video_news', dbVideos);
+      }
+    } catch (e) {
+      console.warn('Error refreshing video news from MariaDB:', e);
+    }
+  };
+
   const refreshPodcasts = async () => {
     try {
       const dbPods = await fetchPodcastsFromMariaDb();
@@ -465,6 +480,7 @@ export function NewsProvider({ children }) {
     refreshCategories();
     refreshArticles();
     refreshPodcasts();
+    refreshVideoNews();
     refreshAllModulesFromDb();
 
     setCategoryMasterGroups((prevGroups) => {
@@ -1863,6 +1879,7 @@ export function NewsProvider({ children }) {
       const updated = [newItem, ...(Array.isArray(prev) ? prev : [])];
       safeSetLocalStorage('jonogon_video_news', updated);
       syncModuleToMariaDb('videoNews', updated).catch(() => {});
+      saveVideoNewsToMariaDb(newItem).catch((err) => console.warn('MariaDB videoNews sync notice:', err));
       return updated;
     });
     return newItem;
@@ -1892,6 +1909,7 @@ export function NewsProvider({ children }) {
       const updated = list.map((item) => (item.id === id ? { ...item, ...cleanUpdated } : item));
       safeSetLocalStorage('jonogon_video_news', updated);
       syncModuleToMariaDb('videoNews', updated).catch(() => {});
+      saveVideoNewsToMariaDb({ ...cleanUpdated, id }).catch((err) => console.warn('MariaDB videoNews sync notice:', err));
       return updated;
     });
     return { success: true };
@@ -1902,6 +1920,7 @@ export function NewsProvider({ children }) {
       const remaining = (Array.isArray(prev) ? prev : []).filter((item) => item.id !== id);
       safeSetLocalStorage('jonogon_video_news', remaining);
       syncModuleToMariaDb('videoNews', remaining).catch(() => {});
+      deleteVideoNewsFromMariaDb(id).catch((err) => console.warn('MariaDB videoNews delete notice:', err));
       return remaining;
     });
     return { success: true };

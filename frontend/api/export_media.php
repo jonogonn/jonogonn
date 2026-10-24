@@ -20,17 +20,7 @@ try {
     $stmt = $db->query("SELECT * FROM `media_gallery` ORDER BY `created_at` DESC");
     $mediaList = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
-    // If table not initialized yet, fetch from uploads directory
-    $uploadFiles = glob(__DIR__ . '/../uploads/*.*');
-    foreach ($uploadFiles as $file) {
-        $mediaList[] = [
-            'file_name' => basename($file),
-            'file_url' => '/uploads/' . basename($file),
-            'file_size' => filesize($file),
-            'storage_provider' => 'local',
-            'created_at' => date('Y-m-d H:i:s', filemtime($file))
-        ];
-    }
+    $mediaList = [];
 }
 
 $exportData = [

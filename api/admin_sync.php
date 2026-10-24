@@ -133,6 +133,41 @@ if ($method === 'GET') {
             $results['podcasts'] = $podcasts;
         }
 
+                // Video News
+        if (!$type || $type === 'videoNews' || $type === 'video_news' || $type === 'all') {
+            $vnStmt = $pdo->query("SELECT * FROM `video_news` ORDER BY `created_at` DESC, `id` DESC");
+            $vnRows = $vnStmt ? $vnStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $vNews = [];
+            foreach ($vnRows as $r) {
+                $ytId = $r['youtube_id'] ?: '';
+                if (!$ytId && preg_match('/(?:v=|\/embed\/|youtu\.be\/|\/v\/|watch\?v=)([a-zA-Z0-9_-]{11})/', $r['youtube_url'] ?? '', $m)) {
+                    $ytId = $m[1];
+                }
+                $thumb = $r['image_url'] ?: ($r['thumbnail'] ?: ($ytId ? "https://img.youtube.com/vi/{$ytId}/hqdefault.jpg" : ''));
+                $vNews[] = [
+                    'id' => $r['video_id'] ?: ('vnews-' . $r['id']),
+                    'db_id' => (int)$r['id'],
+                    'videoId' => $r['video_id'] ?: ('vnews-' . $r['id']),
+                    'titleBn' => $r['title_bn'] ?: '',
+                    'titleEn' => $r['title_en'] ?: '',
+                    'category' => $r['category'] ?: 'bangladesh',
+                    'categoryBn' => $r['category_bn'] ?: 'বাংলাদেশ',
+                    'categoryEn' => $r['category_en'] ?: 'Bangladesh',
+                    'youtubeUrl' => $r['youtube_url'] ?: ($ytId ? "https://www.youtube.com/watch?v={$ytId}" : ''),
+                    'youtubeId' => $ytId,
+                    'imageUrl' => $thumb,
+                    'thumbnail' => $thumb,
+                    'videoDuration' => $r['video_duration'] ?: '০৩:৪৫',
+                    'duration' => $r['video_duration'] ?: '০৩:৪৫',
+                    'dateBn' => $r['date_bn'] ?: date('d M Y', strtotime($r['created_at'])),
+                    'dateEn' => $r['date_en'] ?: date('d M Y', strtotime($r['created_at'])),
+                    'createdAt' => $r['created_at'],
+                    'updatedAt' => $r['updated_at']
+                ];
+            }
+            $results['videoNews'] = $vNews;
+        }
+
         // 4. Emergency Services
         if (!$type || $type === 'emergency' || $type === 'all') {
             $emgStmt = $pdo->query("SELECT * FROM `emergency_services` ORDER BY `order_index` ASC");
@@ -465,6 +500,61 @@ if ($method === 'POST') {
             }
 
             echo json_encode(['success' => true, 'message' => 'পডকাস্ট ডাটা MariaDB podcasts টেবিলে সফলভাবে সংরক্ষিত হয়েছে।'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+                // Video News
+        if ($module === 'videoNews' || $module === 'video_news') {
+            if (is_array($data)) {
+                $vnStmt = $pdo->prepare("
+                    INSERT INTO `video_news` (
+                        `video_id`, `title_bn`, `title_en`, `category`, `category_bn`, `category_en`,
+                        `youtube_url`, `youtube_id`, `image_url`, `thumbnail`, `video_duration`, `date_bn`, `date_en`
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        `title_bn` = VALUES(`title_bn`),
+                        `title_en` = VALUES(`title_en`),
+                        `category` = VALUES(`category`),
+                        `category_bn` = VALUES(`category_bn`),
+                        `category_en` = VALUES(`category_en`),
+                        `youtube_url` = VALUES(`youtube_url`),
+                        `youtube_id` = VALUES(`youtube_id`),
+                        `image_url` = VALUES(`image_url`),
+                        `thumbnail` = VALUES(`thumbnail`),
+                        `video_duration` = VALUES(`video_duration`),
+                        `date_bn` = VALUES(`date_bn`),
+                        `date_en` = VALUES(`date_en`),
+                        `updated_at` = CURRENT_TIMESTAMP
+                ");
+                $items = isset($data[0]) ? $data : [$data];
+                foreach ($items as $v) {
+                    if (empty($v['titleBn']) && empty($v['title_bn'])) continue;
+                    $vId = trim($v['id'] ?? ($v['videoId'] ?? ($v['video_id'] ?? '')));
+                    if (!$vId) $vId = 'vnews-' . round(microtime(true) * 1000);
+                    $titleBn = trim($v['titleBn'] ?? ($v['title_bn'] ?? ''));
+                    $titleEn = trim($v['titleEn'] ?? ($v['title_en'] ?? $titleBn));
+                    $category = trim($v['category'] ?? ($v['category_id'] ?? 'bangladesh'));
+                    $categoryBn = trim($v['categoryBn'] ?? ($v['category_bn'] ?? 'বাংলাদেশ'));
+                    $categoryEn = trim($v['categoryEn'] ?? ($v['category_en'] ?? 'Bangladesh'));
+                    $ytUrl = trim($v['youtubeUrl'] ?? ($v['youtube_url'] ?? ($v['videoUrl'] ?? '')));
+                    $ytId = trim($v['youtubeId'] ?? ($v['youtube_id'] ?? ''));
+                    if (!$ytId && $ytUrl && preg_match('/(?:v=|\/embed\/|youtu\.be\/|\/v\/|watch\?v=)([a-zA-Z0-9_-]{11})/', $ytUrl, $m)) {
+                        $ytId = $m[1];
+                    }
+                    $img = trim($v['imageUrl'] ?? ($v['image_url'] ?? ($v['thumbnail'] ?? '')));
+                    if (!$img && $ytId) $img = "https://img.youtube.com/vi/{$ytId}/hqdefault.jpg";
+                    $thumb = trim($v['thumbnail'] ?? $img);
+                    $duration = trim($v['videoDuration'] ?? ($v['video_duration'] ?? ($v['duration'] ?? '০৩:৪৫')));
+                    $dateBn = trim($v['dateBn'] ?? ($v['date_bn'] ?? ''));
+                    $dateEn = trim($v['dateEn'] ?? ($v['date_en'] ?? ''));
+
+                    $vnStmt->execute([
+                        $vId, $titleBn, $titleEn, $category, $categoryBn, $categoryEn,
+                        $ytUrl, $ytId, $img, $thumb, $duration, $dateBn, $dateEn
+                    ]);
+                }
+            }
+            echo json_encode(['success' => true, 'message' => 'ভিডিও সংবাদ MariaDB-তে সংরক্ষণ করা হয়েছে।'], JSON_UNESCAPED_UNICODE);
             exit;
         }
 

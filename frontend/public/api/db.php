@@ -26,14 +26,27 @@ function getDB() {
     return $pdo;
 }
 
+$activeDbNode = 'failed';
+
+function getActiveDbNode() {
+    global $activeDbNode;
+    return $activeDbNode;
+}
+
 // -------------------------------------------------------------
-// 1. FAST ENVIRONMENT-AWARE CONNECTION (NO SLOW 18-SET LOOPS)
+// 1. FAST ENVIRONMENT-AWARE DUAL DB FAILOVER
 // -------------------------------------------------------------
 $primaryHost = defined('DB_HOST') ? DB_HOST : 'localhost';
 $primaryPort = defined('DB_PORT') ? (int)DB_PORT : 3306;
 $primaryDb   = defined('DB_NAME') ? DB_NAME : 'jonogonn_news_db';
 $primaryUser = defined('DB_USER') ? DB_USER : 'jonogonn_admin';
 $primaryPass = defined('DB_PASS') ? DB_PASS : 'Jg#Db!2026@X7pL9';
+
+$backupHost = defined('DB_BACKUP_HOST') ? DB_BACKUP_HOST : '103.148.51.48';
+$backupPort = defined('DB_BACKUP_PORT') ? (int)DB_BACKUP_PORT : 3306;
+$backupDb   = defined('DB_BACKUP_NAME') ? DB_BACKUP_NAME : 'jonogonn_news_db_backup';
+$backupUser = defined('DB_BACKUP_USER') ? DB_BACKUP_USER : 'admin_backup';
+$backupPass = defined('DB_BACKUP_PASS') ? DB_BACKUP_PASS : 'Jg#Db!2026@X7pL9';
 
 $isLocal = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'])
     || in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1'])
@@ -44,46 +57,56 @@ $isLocal = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'])
 $options = [
     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    PDO::ATTR_TIMEOUT            => 2,
+    PDO::ATTR_TIMEOUT            => 2, // 2s max timeout for lightning-fast failover
     PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
 ];
 
-// Candidates ordered for instant 1st-try success:
+// Candidates ordered for instant 1st-try success & seamless failover:
 $candidateSets = [];
 if ($isLocal) {
-    // 1. Local XAMPP root with empty password (connects in <1ms)
-    $candidateSets[] = ['host' => 'localhost', 'port' => 3306, 'user' => 'root', 'pass' => '', 'dbname' => $primaryDb];
-    $candidateSets[] = ['host' => '127.0.0.1', 'port' => 3306, 'user' => 'root', 'pass' => '', 'dbname' => $primaryDb];
-    // 2. Fallback to configured user
-    $candidateSets[] = ['host' => $primaryHost, 'port' => $primaryPort, 'user' => $primaryUser, 'pass' => $primaryPass, 'dbname' => $primaryDb];
+    // Local dev: XAMPP root primary -> Local XAMPP replica -> Remote Primary -> Remote Backup
+    $candidateSets[] = ['node' => 'primary',   'host' => 'localhost',    'port' => 3306, 'user' => 'root',        'pass' => '',          'dbname' => $primaryDb];
+    $candidateSets[] = ['node' => 'primary',   'host' => '127.0.0.1',    'port' => 3306, 'user' => 'root',        'pass' => '',          'dbname' => $primaryDb];
+    $candidateSets[] = ['node' => 'secondary', 'host' => 'localhost',    'port' => 3306, 'user' => 'root',        'pass' => '',          'dbname' => $backupDb];
+    $candidateSets[] = ['node' => 'primary',   'host' => $primaryHost,   'port' => $primaryPort, 'user' => $primaryUser, 'pass' => $primaryPass, 'dbname' => $primaryDb];
+    $candidateSets[] = ['node' => 'secondary', 'host' => $backupHost,    'port' => $backupPort,  'user' => $backupUser,  'pass' => $backupPass,  'dbname' => $backupDb];
 } else {
-    // 1. Production cPanel credentials
-    $candidateSets[] = ['host' => $primaryHost, 'port' => $primaryPort, 'user' => $primaryUser, 'pass' => $primaryPass, 'dbname' => $primaryDb];
-    $candidateSets[] = ['host' => '127.0.0.1',  'port' => 3306,        'user' => $primaryUser, 'pass' => $primaryPass, 'dbname' => $primaryDb];
-    $candidateSets[] = ['host' => 'localhost',  'port' => 3306,        'user' => 'root',        'pass' => '',          'dbname' => $primaryDb];
+    // Production:
+    // 1. If running on Hosting 1: localhost connects to primary DB 1 in <1ms
+    $candidateSets[] = ['node' => 'primary',   'host' => 'localhost',    'port' => 3306, 'user' => $primaryUser, 'pass' => $primaryPass, 'dbname' => $primaryDb];
+    // 2. If running on Hosting 2: localhost connects to backup DB 2 in <1ms
+    $candidateSets[] = ['node' => 'secondary', 'host' => 'localhost',    'port' => 3306, 'user' => $backupUser,  'pass' => $backupPass,  'dbname' => $backupDb];
+    // 3. Remote Fallback to Hosting 2 (if Hosting 1's local MySQL is down)
+    $candidateSets[] = ['node' => 'secondary', 'host' => $backupHost,    'port' => $backupPort,  'user' => $backupUser,  'pass' => $backupPass,  'dbname' => $backupDb];
+    // 4. Remote Fallback to Hosting 1 (if Hosting 2's local MySQL is down)
+    $candidateSets[] = ['node' => 'primary',   'host' => $primaryHost,   'port' => $primaryPort, 'user' => $primaryUser, 'pass' => $primaryPass, 'dbname' => $primaryDb];
 }
 
 $attemptedLogs = [];
 foreach ($candidateSets as $cand) {
-    $h  = $cand['host'];
-    $p  = (int)$cand['port'];
-    $u  = $cand['user'];
-    $pw = $cand['pass'];
-    $db = $cand['dbname'];
+    $node = $cand['node'];
+    $h    = $cand['host'];
+    $p    = (int)$cand['port'];
+    $u    = $cand['user'];
+    $pw   = $cand['pass'];
+    $db   = $cand['dbname'];
 
     try {
         $dsn = "mysql:host={$h};port={$p};dbname={$db};charset=utf8mb4";
         $pdo = new PDO($dsn, $u, $pw, $options);
         $activeConnection = [
+            'node'   => $node,
             'host'   => $h,
             'port'   => $p,
             'user'   => $u,
             'dbname' => $db
         ];
+        $activeDbNode = $node;
         $dbError = null;
         break; // Successfully connected! Exit loop immediately.
     } catch (PDOException $e) {
         $attemptedLogs[] = [
+            'node'          => $node,
             'host'          => $h,
             'user'          => $u,
             'dbname'        => $db,
@@ -91,6 +114,28 @@ foreach ($candidateSets as $cand) {
             'error_message' => $e->getMessage()
         ];
         $dbError = $e->getMessage();
+    }
+}
+
+/**
+ * Secondary DB Replicator Helper
+ * Safely mirrors write queries to Secondary DB in background without blocking primary
+ */
+function syncQueryToBackupDB($sql, $params = []) {
+    global $options, $backupHost, $backupPort, $backupDb, $backupUser, $backupPass, $activeDbNode;
+    // Only replicate if primary is currently the active node
+    if ($activeDbNode !== 'primary') {
+        return false;
+    }
+    try {
+        $dsn = "mysql:host={$backupHost};port={$backupPort};dbname={$backupDb};charset=utf8mb4";
+        $backupPdo = new PDO($dsn, $backupUser, $backupPass, $options);
+        $stmt = $backupPdo->prepare($sql);
+        return $stmt->execute($params);
+    } catch (Exception $e) {
+        // Silently log failure - does not break primary user request
+        @error_log("[DB2 Sync Note] " . $e->getMessage());
+        return false;
     }
 }
 

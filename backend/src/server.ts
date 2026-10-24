@@ -18,8 +18,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve local uploads folder statically for development fallback
-app.use("/uploads", express.static(path.resolve(process.cwd(), "public", "uploads")));
+// Cloud-Only Storage: All images are served from Backblaze B2 / CDN (no local uploads)
 
 // API Base Health Check
 app.get("/api", (_req, res) => {

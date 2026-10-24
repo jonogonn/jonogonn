@@ -313,6 +313,100 @@ export async function fetchPodcastsFromMariaDb() {
   return null;
 }
 
+function getVideoNewsEndpoints(query = '') {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isJanogon = pathname.includes('/janogon');
+  const isLocal = isLocalEnvironment();
+  const q = query ? (query.startsWith('?') ? query : `?${query}`) : '';
+
+  const list = [];
+  if (isJanogon || isLocal) {
+    list.push(`/janogon.news/api/video_news.php${q}`);
+    list.push(`/janogon/api/video_news.php${q}`);
+    if (origin) list.push(`${origin}/janogon.news/api/video_news.php${q}`);
+    if (origin) list.push(`${origin}/janogon/api/video_news.php${q}`);
+    list.push(`http://127.0.0.1/janogon.news/api/video_news.php${q}`);
+    list.push(`http://localhost/janogon.news/api/video_news.php${q}`);
+    list.push(`/api/video_news.php${q}`);
+  } else {
+    list.push(`/api/video_news.php${q}`);
+    if (origin) list.push(`${origin}/api/video_news.php${q}`);
+    list.push(`https://jonogon.news/api/video_news.php${q}`);
+  }
+  return [...new Set(list)];
+}
+
+export async function fetchVideoNewsFromMariaDb() {
+  const endpoints = getVideoNewsEndpoints();
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result && result.success && Array.isArray(result.data)) {
+          return result.data;
+        }
+      }
+    } catch (err) {
+      // continue
+    }
+  }
+  return null;
+}
+
+export async function saveVideoNewsToMariaDb(videoPayload) {
+  let lastError = null;
+  const endpoints = getVideoNewsEndpoints();
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(videoPayload)
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result && result.success) {
+          return { success: true, result };
+        }
+      }
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  return { success: false, error: lastError?.message || 'Failed to save video news to MariaDB' };
+}
+
+export async function deleteVideoNewsFromMariaDb(videoId) {
+  const endpoints = getVideoNewsEndpoints();
+  for (const endpoint of endpoints) {
+    try {
+      const url = `${endpoint}?id=${encodeURIComponent(videoId)}`;
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (response.ok) return true;
+      const postFallback = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id: videoId })
+      });
+      if (postFallback.ok) return true;
+    } catch (err) {
+      // continue
+    }
+  }
+  return false;
+}
+
 function getCommentsEndpoints(query = '') {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';

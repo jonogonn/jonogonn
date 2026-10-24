@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export interface StorageConfig {
-  provider: "b2" | "s3" | "r2" | "local";
+  provider: "b2" | "s3" | "r2";
   endpoint?: string;
   region: string;
   credentials: {

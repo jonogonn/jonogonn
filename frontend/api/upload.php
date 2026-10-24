@@ -132,50 +132,41 @@ if ($requestMethod === 'POST') {
         $finalFileName = ($finalFormat === 'webp') ? $webpFileName : ($slugName . '-' . $timestamp . '-' . $rand . '.' . $finalFormat);
         $finalSize = file_exists($finalUploadPath) ? filesize($finalUploadPath) : $sizeBytes;
 
-        // 3. Upload to Backblaze B2 (if configured) AND always save local copy
+        // 3. Upload directly to Backblaze B2 Cloud Storage (No local disk storage)
         $b2Configured = !empty(B2_KEY_ID) && !empty(B2_APPLICATION_KEY) && !empty(B2_BUCKET_ID);
-        $publicUrl = '';
+        if (!$b2Configured) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Backblaze B2 ক্লাউড স্টোরেজ ক্রেডেনশিয়াল কনফিগার করা নেই।'
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
         $storageKey = 'uploads/' . date('Y/m') . '/' . $finalFileName;
-        $provider = 'local';
+        $contentType = ($finalFormat === 'webp') ? 'image/webp' : ($mime ?: 'image/jpeg');
 
-        // Always save a local copy in uploads/ directory for instant backup & local preview
-        $uploadDir = __DIR__ . '/../uploads/' . date('Y/m') . '/';
-        if (!is_dir($uploadDir)) {
-            @mkdir($uploadDir, 0755, true);
-        }
-        $localDest = $uploadDir . $finalFileName;
-        @copy($finalUploadPath, $localDest);
+        $b2Result = uploadToBackblazeB2($finalUploadPath, $storageKey, $contentType);
 
-        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        $scriptPath = dirname(dirname($_SERVER['SCRIPT_NAME'] ?? ''));
-        $scriptPath = rtrim($scriptPath, '/\\');
-        $localUrl = $protocol . $host . $scriptPath . '/uploads/' . date('Y/m') . '/' . $finalFileName;
-
-        $canonicalUrl = (strpos($host, 'jonogon.news') !== false) 
-            ? "https://jonogon.news/uploads/" . date('Y/m') . '/' . $finalFileName 
-            : $localUrl;
-
-        if ($b2Configured) {
-            $contentType = ($finalFormat === 'webp') ? 'image/webp' : ($mime ?: 'image/jpeg');
-            $b2Result = uploadToBackblazeB2($finalUploadPath, $storageKey, $contentType);
-            if ($b2Result && !empty($b2Result['publicUrl'])) {
-                // Keep canonical server URL as primary public URL so Backblaze free download cap never blocks images
-                $publicUrl = $canonicalUrl;
-                $provider = 'jonogon_cloud';
-            }
-        }
-
-        // Fallback to local storage if Backblaze failed or not configured
-        if (!$publicUrl) {
-            $publicUrl = $canonicalUrl;
-            $provider = 'local_server';
-        }
-
-        // Clean temp WebP file if generated
+        // Clean up temp files immediately - never store on local server disk
         if (file_exists($tempWebpPath)) {
             @unlink($tempWebpPath);
         }
+        if ($finalUploadPath !== $tmpPath && file_exists($finalUploadPath)) {
+            @unlink($finalUploadPath);
+        }
+
+        if (!$b2Result || empty($b2Result['publicUrl'])) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Backblaze B2 ক্লাউড স্টোরেজে আপলোড ব্যর্থ হয়েছে।'
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $publicUrl = $b2Result['publicUrl'];
+        $provider = 'b2';
 
         // 4. Save Record to MariaDB `media_gallery` (and legacy `media_uploads` if present)
         if ($pdo) {

@@ -274,14 +274,6 @@ if (!function_exists('deleteMediaComplete')) {
             } catch (Exception $e) {}
         }
 
-        // 3. Delete from local server disk
-        if (!empty($cleanKey) && strpos($cleanKey, 'uploads/') !== false) {
-            $localPath = __DIR__ . '/../' . substr($cleanKey, strpos($cleanKey, 'uploads/'));
-            if (file_exists($localPath) && is_file($localPath)) {
-                @unlink($localPath);
-            }
-        }
-
         return true;
     }
 }

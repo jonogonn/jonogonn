@@ -1,33 +1,24 @@
 import { storageConfig, buildCdnUrl } from "../config/storage.config";
 import { IStorageProvider, UploadResult } from "./storage/IStorageProvider";
 import { B2Service, b2Service } from "./b2Service";
-import { LocalStorageProvider } from "./storage/LocalStorageProvider";
 import { ImageService, ProcessedImage } from "./imageService";
 
 /**
  * Storage Service Factory & Facade
- * Allows swapping between Backblaze B2, AWS S3, Cloudflare R2, or Local Storage
- * without modifying any database records or frontend logic.
+ * All assets upload directly to Backblaze B2 Cloud Storage (zero local disk storage).
  */
 class StorageService {
   private provider: IStorageProvider;
 
   constructor() {
-    // If B2 credentials are provided or configured
+    this.provider = b2Service;
     if (
-      storageConfig.provider !== "local" &&
-      storageConfig.credentials.accessKeyId &&
-      storageConfig.credentials.secretAccessKey
+      !storageConfig.credentials.accessKeyId ||
+      !storageConfig.credentials.secretAccessKey
     ) {
-      this.provider = b2Service;
-    } else {
-      // In local dev without B2 credentials, use local storage fallback safely
-      this.provider = new LocalStorageProvider();
-      if (storageConfig.provider !== "local") {
-        console.info(
-          "ℹ️ Storage Note: Backblaze B2 credentials not fully set; falling back to Local Storage. Add credentials in .env when ready."
-        );
-      }
+      console.warn(
+        "⚠️ Warning: Backblaze B2 credentials not fully set in .env. Cloud uploads will require credentials."
+      );
     }
   }
 

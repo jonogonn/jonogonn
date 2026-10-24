@@ -36,7 +36,7 @@ if ($action === 'proxy_image') {
         exit(json_encode(['error' => 'Invalid or missing image URL']));
     }
 
-    // 1. Check if targetUrl matches local file in uploads/
+    // Fetch directly from Backblaze B2 using download authorization token
     $parsedPath = parse_url($targetUrl, PHP_URL_PATH) ?: $targetUrl;
     $relPath = ltrim($parsedPath, '/');
     $cleanSubPath = '';
@@ -47,20 +47,6 @@ if ($action === 'proxy_image') {
         $cleanSubPath = explode('?', $cleanSubPath)[0];
     }
 
-    if ($cleanSubPath) {
-        $localFilePath = __DIR__ . '/../' . $cleanSubPath;
-        if (file_exists($localFilePath) && is_file($localFilePath)) {
-            $ext = strtolower(pathinfo($localFilePath, PATHINFO_EXTENSION));
-            $cType = ($ext === 'webp') ? 'image/webp' : (($ext === 'png') ? 'image/png' : 'image/jpeg');
-            header('Content-Type: ' . $cType);
-            header('Access-Control-Allow-Origin: *');
-            header('Cache-Control: public, max-age=31536000');
-            readfile($localFilePath);
-            exit;
-        }
-    }
-
-    // 2. Fetch directly from Backblaze B2 using download authorization token
     $storageKey = $cleanSubPath ?: basename($parsedPath);
     if ($storageKey) {
         $auth = b2Auth();
