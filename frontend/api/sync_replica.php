@@ -91,21 +91,34 @@ function runMasterToReplicaSync() {
     $backupPass = defined('DB_BACKUP_PASS') ? DB_BACKUP_PASS : 'Jg#Db!2026@X7pL9';
 
     $targetPdo = null;
+    $targetConnectedInfo = null;
     $targetCandidates = [
-        ['host' => $backupHost, 'port' => $backupPort, 'user' => $backupUser, 'pass' => $backupPass, 'db' => $backupDb],
-        ['host' => 'localhost', 'port' => 3306, 'user' => $backupUser, 'pass' => $backupPass, 'db' => $backupDb]
+        ['host' => 'delta.hostseba.com', 'port' => 3306, 'user' => 'jonogonn_admin_backup', 'pass' => $backupPass, 'db' => $backupDb],
+        ['host' => '103.148.51.48',     'port' => 3306, 'user' => 'jonogonn_admin_backup', 'pass' => $backupPass, 'db' => $backupDb],
+        ['host' => '198.23.142.70',     'port' => 3306, 'user' => 'jonogonn_admin_backup', 'pass' => $backupPass, 'db' => $backupDb],
+        ['host' => $backupHost,         'port' => $backupPort, 'user' => $backupUser, 'pass' => $backupPass, 'db' => $backupDb],
+        ['host' => 'localhost',         'port' => 3306, 'user' => 'jonogonn_admin_backup', 'pass' => $backupPass, 'db' => $backupDb]
     ];
 
+    $targetAttemptErrors = [];
     foreach ($targetCandidates as $tcand) {
         try {
             $dsn = "mysql:host={$tcand['host']};port={$tcand['port']};dbname={$tcand['db']};charset=utf8mb4";
             $targetPdo = new PDO($dsn, $tcand['user'], $tcand['pass'], $options);
+            $targetConnectedInfo = $tcand;
             break;
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+            $targetAttemptErrors[] = [
+                'user' => $tcand['user'],
+                'host' => $tcand['host'],
+                'error' => $e->getMessage()
+            ];
+        }
     }
 
     if (!$targetPdo) {
-        $report['errors'][] = "Secondary DB (Hosting 2 - {$backupHost}) এ সংযোগ স্থাপন করা সম্ভব হয়নি। Remote MySQL Host সক্রিয় আছে কিনা নিশ্চিত করুন।";
+        $report['errors'][] = "Secondary DB (Hosting 2 - {$backupHost}) এ সংযোগ স্থাপন করা সম্ভব হয়নি।";
+        $report['connection_diagnostic'] = $targetAttemptErrors;
         return $report;
     }
 

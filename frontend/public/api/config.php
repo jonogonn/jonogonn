@@ -16,10 +16,10 @@ define('DB_PASS', getenv('DB_PASSWORD') ?: (getenv('DB_PASS') ?: 'Jg#Db!2026@X7p
 // -------------------------------------------------------------
 // 2. SECONDARY / FALLBACK MARIADB (Hosting 2 - Replica & Failover)
 // -------------------------------------------------------------
-define('DB_BACKUP_HOST', getenv('DB_BACKUP_HOST') ?: '103.148.51.48');
+define('DB_BACKUP_HOST', getenv('DB_BACKUP_HOST') ?: 'delta.hostseba.com');
 define('DB_BACKUP_PORT', (int)(getenv('DB_BACKUP_PORT') ?: 3306));
 define('DB_BACKUP_NAME', getenv('DB_BACKUP_NAME') ?: 'jonogonn_news_db_backup');
-define('DB_BACKUP_USER', getenv('DB_BACKUP_USER') ?: 'admin_backup');
+define('DB_BACKUP_USER', getenv('DB_BACKUP_USER') ?: 'jonogonn_admin_backup');
 define('DB_BACKUP_PASS', getenv('DB_BACKUP_PASSWORD') ?: (getenv('DB_BACKUP_PASS') ?: 'Jg#Db!2026@X7pL9'));
 
 // -------------------------------------------------------------
