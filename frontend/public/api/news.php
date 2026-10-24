@@ -331,6 +331,13 @@ if ($method === 'DELETE' || ($method === 'POST' && in_array($deleteAction, ['del
         $stmt = $pdo->prepare("DELETE FROM `{$tableName}` WHERE `id` = ? OR `post_id` = ? OR `slug` = ?");
         $stmt->execute([$id, $id, $id]);
 
+        // Real-time Dual-Write deletion to Secondary DB
+        try {
+            if (function_exists('syncQueryToBackupDB')) {
+                syncQueryToBackupDB("DELETE FROM `{$tableName}` WHERE `id` = ? OR `post_id` = ? OR `slug` = ?", [$id, $id, $id]);
+            }
+        } catch (Exception $syncDelEx) {}
+
         // Also clean up from legacy news table if present
         try {
             $pdo->prepare("DELETE FROM `news` WHERE `id` = ? OR `post_id` = ? OR `slug` = ?")->execute([$id, $id, $id]);
@@ -559,6 +566,13 @@ if ($method === 'POST') {
             $stmt->execute($values);
             $dbId = $existing['id'];
             $msg = "সংবাদটি cPanel MariaDB (`{$tableName}`) টেবিলে সফলভাবে আপডেট হয়েছে!";
+
+            // Real-time Dual-Write Update to Secondary DB
+            try {
+                if (function_exists('syncQueryToBackupDB')) {
+                    syncQueryToBackupDB($updateSql, $values);
+                }
+            } catch (Exception $syncUpEx) {}
         } else {
             $colNames = array_keys($validFields);
             $placeholders = array_fill(0, count($colNames), '?');
@@ -569,6 +583,13 @@ if ($method === 'POST') {
             $stmt->execute($values);
             $dbId = $pdo->lastInsertId();
             $msg = "সংবাদটি cPanel MariaDB (`{$tableName}`) টেবিলে সফলভাবে সংরক্ষিত হয়েছে!";
+
+            // Real-time Dual-Write Insert to Secondary DB
+            try {
+                if (function_exists('syncQueryToBackupDB')) {
+                    syncQueryToBackupDB($insertSql, $values);
+                }
+            } catch (Exception $syncInsEx) {}
         }
 
         // Also update/mirror into legacy news table if it exists
