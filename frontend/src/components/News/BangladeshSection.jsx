@@ -12,12 +12,56 @@ export default function BangladeshSection() {
   const [bdSlideIndex, setBdSlideIndex] = useState(0);
   const [bdPaused, setBdPaused] = useState(false);
 
-  // Bangladesh Section Articles Pool (strictly published/approved articles)
-  const publishedArticles = (articles || []).filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status));
-  const bdArticles = publishedArticles.filter(
-    (a) => a && (a.category === 'bangladesh' || a.category === 'politics' || (a.id && String(a.id).startsWith('bd')))
-  );
-  const bdPool = bdArticles.length >= 5 ? bdArticles : publishedArticles;
+  // Bangladesh Section Articles Pool (strictly published/approved articles sorted newest first)
+  const publishedArticles = (articles || [])
+    .filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status))
+    .sort((a, b) => {
+      const dateA = new Date(a.publishedAt || a.published_at || a.createdAt || a.created_at || 0).getTime();
+      const dateB = new Date(b.publishedAt || b.published_at || b.createdAt || b.created_at || 0).getTime();
+      return dateB - dateA;
+    });
+
+  const isBdArticle = (a) => {
+    if (!a) return false;
+    const cat = String(a.category || a.categoryId || '').toLowerCase().trim();
+    const catBn = String(a.categoryBn || '').trim();
+    const cardCat = String(a.cardCategory || '').trim();
+    const categories = Array.isArray(a.categories)
+      ? a.categories.map((c) => String(c).toLowerCase().trim())
+      : [];
+    const title = String(a.titleBn || a.title || '').trim();
+
+    // Never leak probashi/remittance news into Bangladesh section
+    if (
+      cat === 'probashi' ||
+      cat === 'remittance' ||
+      categories.includes('probashi') ||
+      categories.includes('remittance') ||
+      catBn.includes('প্রবাসী') ||
+      catBn.includes('রেমিট্যান্স') ||
+      title.includes('প্রবাসী') ||
+      title.includes('রেমিট্যান্স')
+    ) {
+      return false;
+    }
+
+    return (
+      cat === 'bangladesh' ||
+      cat === 'politics' ||
+      cat === 'saradesh' ||
+      cat === 'national' ||
+      catBn.includes('বাংলাদেশ') ||
+      catBn.includes('রাজনীতি') ||
+      catBn.includes('সারাদেশ') ||
+      cardCat.includes('বাংলাদেশ') ||
+      categories.includes('bangladesh') ||
+      categories.includes('politics') ||
+      (a.id && String(a.id).startsWith('bd'))
+    );
+  };
+
+  const bdArticles = publishedArticles.filter(isBdArticle);
+  const bdPool = bdArticles.length > 0 ? bdArticles : publishedArticles.filter((a) => !String(a.category).includes('probashi'));
 
   // Auto-slide for Featured Lead Card (6 seconds)
   useEffect(() => {
@@ -35,7 +79,11 @@ export default function BangladeshSection() {
   if (bdPool.length === 0) return null;
 
   const currentBdSlide = bdPool[bdSlideIndex] || bdPool[0];
-  const bdSubArticles = bdPool.filter((_, idx) => idx !== bdSlideIndex).slice(0, 4);
+  const currentBdId = currentBdSlide ? (currentBdSlide.id || currentBdSlide.postId || currentBdSlide.db_id) : null;
+  // Strictly prevent lead story duplication in sub-articles list
+  const bdSubArticles = bdPool
+    .filter((a) => (a.id || a.postId || a.db_id) !== currentBdId)
+    .slice(0, 4);
 
   // 3-Column dynamic ordering
   const defaultColOrder = ['featuredLead', 'subLeads', 'weatherFollow'];

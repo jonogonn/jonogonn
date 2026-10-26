@@ -25,42 +25,94 @@ export default function SlidingAdBanners() {
     return () => clearInterval(interval);
   }, [showBottomAd, isPaused]);
 
+  const topAdConfig = settings?.topAdBanner || {};
+  const isTopAdEnabled = topAdConfig.enabled !== false;
+  const isBoomAnim = topAdConfig.animation !== false;
+
+  const badgeText = isBn
+    ? (topAdConfig.badgeBn || 'বিজ্ঞাপন ও স্পন্সর')
+    : (topAdConfig.badgeEn || 'Sponsored Banner');
+
+  const highlightText = isBn
+    ? (topAdConfig.highlightBn || 'দেশব্যাপী ডিজিটাল প্রচারণা:')
+    : (topAdConfig.highlightEn || 'Nationwide Digital Promotion:');
+
+  const messageText = isBn
+    ? (topAdConfig.messageBn || 'জনগণ.নিউজ-এ আপনার ব্র্যান্ড ও পণ্যের বিজ্ঞাপন দিতে আজই বুকিং করুন')
+    : (topAdConfig.messageEn || 'Book your brand & business advertisements on Jonogon News today');
+
+  const phoneText = topAdConfig.phone || settings?.adPhone || settings?.phone || '০১৯৩৬-৬১৮৫৩৪';
+  const phoneClean = String(phoneText).replace(/[^\d+]/g, '');
+
+  const ctaText = isBn
+    ? (topAdConfig.actionTextBn || 'বিজ্ঞাপন রেট')
+    : (topAdConfig.actionTextEn || 'Ad Rates');
+
+  const ctaUrl = topAdConfig.actionUrl || '';
+
+  const handleCtaClick = () => {
+    if (ctaUrl) {
+      if (ctaUrl.startsWith('http://') || ctaUrl.startsWith('https://')) {
+        window.open(ctaUrl, '_blank', 'noopener,noreferrer');
+      } else if (ctaUrl.startsWith('/')) {
+        const pageName = ctaUrl.replace(/^\//, '');
+        if (typeof navigateTo === 'function') navigateTo(pageName);
+      } else {
+        if (typeof navigateTo === 'function') navigateTo(ctaUrl);
+      }
+    } else {
+      if (typeof navigateTo === 'function') navigateTo('advertisement');
+    }
+  };
+
   return (
     <>
       {/* =========================================================
-          1. TOP SLIDING BANNER (Slides down when site opens)
+          1. TOP SLIDING BANNER (Boom-Boom / Pop-up Animation Deck)
          ========================================================= */}
-      {showTopAd && (
-        <aside className="sliding-top-ad-banner" aria-label="Top Announcement & Ad Banner">
+      {showTopAd && isTopAdEnabled && (
+        <aside
+          className={`sliding-top-ad-banner ${isBoomAnim ? 'anim-banner-boom-pop' : ''}`}
+          aria-label="Top Announcement & Ad Banner"
+        >
+          {/* Sweeping Light Sheen Effect */}
+          {isBoomAnim && <div className="sliding-ad-shimmer-sweep" aria-hidden="true" />}
+
           <div className="container sliding-ad-inner">
-            <div className="sliding-ad-badge">
+            <div className={`sliding-ad-badge ${isBoomAnim ? 'anim-boom-boom-pulse' : ''}`}>
               <Megaphone size={14} className="sliding-ad-icon" />
-              <span>{isBn ? 'বিজ্ঞাপন ও স্পন্সর' : 'Sponsored Banner'}</span>
+              <span>{badgeText}</span>
             </div>
 
             <div className="sliding-ad-content-text">
-              <span className="sliding-ad-highlight">
-                {isBn ? '📢 দেশব্যাপী ডিজিটাল প্রচারণা:' : '📢 Nationwide Digital Promotion:'}
-              </span>
+              {highlightText && (
+                <span className="sliding-ad-highlight">
+                  {highlightText}
+                </span>
+              )}
               <span className="sliding-ad-message">
-                {isBn
-                  ? ' জনগণ.নিউজ-এ আপনার ব্র্যান্ড ও পণ্যের বিজ্ঞাপন দিতে আজই বুকিং করুন'
-                  : ' Book your brand & business advertisements on Jonogon News today'}
+                {messageText}
               </span>
-              <a href="tel:01936618534" className="sliding-ad-phone-pill">
-                <PhoneCall size={12} />
-                <span>০১৯৩৬-৬১৮৫৩৪</span>
-              </a>
+              {phoneText && (
+                <a
+                  href={`tel:${phoneClean || phoneText}`}
+                  className={`sliding-ad-phone-pill ${isBoomAnim ? 'anim-pop-float' : ''}`}
+                  title={isBn ? 'সরাসরি কল করতে ক্লিক করুন' : 'Click to call'}
+                >
+                  <PhoneCall size={12} />
+                  <span>{phoneText}</span>
+                </a>
+              )}
             </div>
 
             <div className="sliding-ad-actions">
               <button
                 type="button"
-                onClick={() => navigateTo('advertisement')}
-                className="sliding-ad-cta-btn"
+                onClick={handleCtaClick}
+                className={`sliding-ad-cta-btn ${isBoomAnim ? 'anim-cta-glow' : ''}`}
                 title={isBn ? 'বিজ্ঞাপন রেট ও বিস্তারিত' : 'Ad Rates & Details'}
               >
-                <span>{isBn ? 'বিজ্ঞাপন রেট' : 'Ad Rates'}</span>
+                <span>{ctaText}</span>
                 <ExternalLink size={12} />
               </button>
 

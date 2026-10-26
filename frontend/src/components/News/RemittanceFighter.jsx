@@ -22,12 +22,43 @@ export default function RemittanceFighter() {
   const [slideIndex, setSlideIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  // Expatriates & Remittance Articles Pool (strictly published/approved articles)
-  const publishedArticles = (articles || []).filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status));
-  const probashiArticles = publishedArticles.filter(
-    (a) => a && (a.category === 'probashi' || (a.id && String(a.id).startsWith('probashi')))
-  );
-  const pool = probashiArticles.length >= 5 ? probashiArticles : publishedArticles;
+  // Expatriates & Remittance Articles Pool (strictly published/approved articles sorted newest first)
+  const publishedArticles = (articles || [])
+    .filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status))
+    .sort((a, b) => {
+      const dateA = new Date(a.publishedAt || a.published_at || a.createdAt || a.created_at || 0).getTime();
+      const dateB = new Date(b.publishedAt || b.published_at || b.createdAt || b.created_at || 0).getTime();
+      return dateB - dateA;
+    });
+
+  const isProbashiArticle = (a) => {
+    if (!a) return false;
+    const cat = String(a.category || a.categoryId || '').toLowerCase().trim();
+    const catBn = String(a.categoryBn || '').trim();
+    const cardCat = String(a.cardCategory || '').trim();
+    const categories = Array.isArray(a.categories)
+      ? a.categories.map((c) => String(c).toLowerCase().trim())
+      : [];
+    const title = String(a.titleBn || a.title || '').trim();
+
+    return (
+      cat === 'probashi' ||
+      cat === 'remittance' ||
+      categories.includes('probashi') ||
+      categories.includes('remittance') ||
+      catBn.includes('প্রবাসী') ||
+      catBn.includes('রেমিট্যান্স') ||
+      cardCat.includes('প্রবাসী') ||
+      cardCat.includes('রেমিট্যান্স') ||
+      title.includes('প্রবাসী') ||
+      title.includes('রেমিট্যান্স') ||
+      (a.id && String(a.id).startsWith('probashi'))
+    );
+  };
+
+  const probashiArticles = publishedArticles.filter(isProbashiArticle);
+  // Strictly use probashi articles only - no unrelated news
+  const pool = probashiArticles;
 
   // Auto-slide for Featured Lead Card (6 seconds)
   useEffect(() => {
@@ -45,7 +76,11 @@ export default function RemittanceFighter() {
   if (pool.length === 0) return null;
 
   const currentSlide = pool[slideIndex] || pool[0];
-  const subArticles = pool.filter((_, idx) => idx !== slideIndex).slice(0, 4);
+  const currentSlideId = currentSlide ? (currentSlide.id || currentSlide.postId || currentSlide.db_id) : null;
+  // Strictly prevent lead story duplication in sub-articles list
+  const subArticles = pool
+    .filter((a) => (a.id || a.postId || a.db_id) !== currentSlideId)
+    .slice(0, 4);
 
   // 3-Column dynamic ordering
   const defaultColOrder = ['featuredLead', 'subLeads', 'ratesHelpline'];

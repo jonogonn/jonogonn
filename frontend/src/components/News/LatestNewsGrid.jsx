@@ -15,8 +15,14 @@ export default function LatestNewsGrid() {
   const secConfig = (homepageSections || []).find((s) => s.id === 'latestNewsGrid');
   if (secConfig && secConfig.isVisible === false) return null;
 
-  // Ensure at least 12 cards per half for consistent track width and velocity
-  const publishedArticles = (articles || []).filter((a) => a.status === 'approved' || a.status === 'published' || !a.status);
+  // Ensure at least 12 cards per half for consistent track width and velocity, sorted newest first
+  const publishedArticles = (articles || [])
+    .filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status))
+    .sort((a, b) => {
+      const timeA = new Date(a.publishedAt || a.published_at || a.createdAt || a.created_at || 0).getTime();
+      const timeB = new Date(b.publishedAt || b.published_at || b.createdAt || b.created_at || 0).getTime();
+      return timeB - timeA;
+    });
   const baseCards = publishedArticles.length > 0 ? publishedArticles : [];
 
   if (baseCards.length === 0) {

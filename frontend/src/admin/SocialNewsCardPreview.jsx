@@ -3,15 +3,15 @@ import { Minus, Plus, RotateCcw, ShieldAlert, Lock, Eye, Type, Palette, Lightbul
 import { generateSocialCardJpg } from '../utils/generateSocialCardJpg';
 
 const GRID_POSITIONS = [
-  { id: 'top left', label: 'Top Left', bn: 'উপর-বাম', arrow: '↖' },
-  { id: 'top center', label: 'Top Center', bn: 'উপর-মাঝ', arrow: '⬆' },
-  { id: 'top right', label: 'Top Right', bn: 'উপর-ডান', arrow: '↗' },
-  { id: 'center left', label: 'Center Left', bn: 'মাঝ-বাম', arrow: '⬅' },
-  { id: 'center center', label: 'Center Center', bn: 'মাঝখান', arrow: '⏺' },
-  { id: 'center right', label: 'Center Right', bn: 'মাঝ-ডান', arrow: '➡️' },
-  { id: 'bottom left', label: 'Bottom Left', bn: 'নিচে-বাম', arrow: '↙' },
-  { id: 'bottom center', label: 'Bottom Center', bn: 'নিচে-মাঝ', arrow: '⬇' },
-  { id: 'bottom right', label: 'Bottom Right', bn: 'নিচে-ডান', arrow: '↘' }
+  { id: 'top left', label: 'Top Left', bn: 'উপর-বাম', arrow: <i className="fa-solid fa-arrow-up" style={{ transform: 'rotate(-45deg)' }}></i> },
+  { id: 'top center', label: 'Top Center', bn: 'উপর-মাঝ', arrow: <i className="fa-solid fa-arrow-up"></i> },
+  { id: 'top right', label: 'Top Right', bn: 'উপর-ডান', arrow: <i className="fa-solid fa-arrow-up" style={{ transform: 'rotate(45deg)' }}></i> },
+  { id: 'center left', label: 'Center Left', bn: 'মাঝ-বাম', arrow: <i className="fa-solid fa-arrow-left"></i> },
+  { id: 'center center', label: 'Center Center', bn: 'মাঝখান', arrow: <i className="fa-solid fa-circle-dot"></i> },
+  { id: 'center right', label: 'Center Right', bn: 'মাঝ-ডান', arrow: <i className="fa-solid fa-arrow-right"></i> },
+  { id: 'bottom left', label: 'Bottom Left', bn: 'নিচে-বাম', arrow: <i className="fa-solid fa-arrow-down" style={{ transform: 'rotate(45deg)' }}></i> },
+  { id: 'bottom center', label: 'Bottom Center', bn: 'নিচে-মাঝ', arrow: <i className="fa-solid fa-arrow-down"></i> },
+  { id: 'bottom right', label: 'Bottom Right', bn: 'নিচে-ডান', arrow: <i className="fa-solid fa-arrow-down" style={{ transform: 'rotate(-45deg)' }}></i> }
 ];
 
 export default function SocialNewsCardPreview({
@@ -301,30 +301,6 @@ export default function SocialNewsCardPreview({
         return false;
       }}
     >
-      {/* View Only Security Notice Banner */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: 'rgba(230, 0, 18, 0.08)',
-          border: '1px solid rgba(230, 0, 18, 0.22)',
-          padding: '7px 12px',
-          borderRadius: '10px 10px 0 0',
-          fontSize: '0.78rem',
-          color: 'var(--primary-red)',
-          fontWeight: 700
-        }}
-      >
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          <Lock size={13} />
-          <span>অফিসিয়াল সোশ্যাল ফটোকার্ড (View Only)</span>
-        </span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-          <Lock size={11} />
-          <span>ডাউনলোড ও স্ক্রিনশট সুরক্ষিত</span>
-        </span>
-      </div>
 
       {/* Main Square Card Container (1:1 Ratio with Container Queries) */}
       <div

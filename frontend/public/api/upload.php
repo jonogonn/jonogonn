@@ -314,16 +314,18 @@ if ($requestMethod === 'POST') {
 // -------------------------------------------------------------
 // HELPER: CONVERT IMAGE TO WEBP
 // -------------------------------------------------------------
-// HELPER: APPLY WATERMARK TO GD IMAGE (38% OPACITY CENTER)
+// HELPER: APPLY WATERMARK TO GD IMAGE (BOTTOM WATERMARK)
 // -------------------------------------------------------------
-function addWatermarkToGdImage($mainImage, $opacity = 38) {
+function addWatermarkToGdImage($mainImage, $opacity = 100) {
     if (!$mainImage || !function_exists('imagecreatefrompng') || !function_exists('imagecopyresampled')) {
         return $mainImage;
     }
     $watermarkPaths = [
+        __DIR__ . '/news-card-jonogon-watermark.png',
+        __DIR__ . '/../news-card-jonogon-watermark.png',
+        __DIR__ . '/../frontend/public/news-card-jonogon-watermark.png',
+        __DIR__ . '/../frontend/dist/news-card-jonogon-watermark.png',
         __DIR__ . '/../logo-watermark.png',
-        __DIR__ . '/../frontend/public/logo-watermark.png',
-        __DIR__ . '/../frontend/dist/logo-watermark.png',
         __DIR__ . '/logo-watermark.png'
     ];
     $wmFile = null;
@@ -343,18 +345,28 @@ function addWatermarkToGdImage($mainImage, $opacity = 38) {
     $wmOrigW = imagesx($wmImg);
     $wmOrigH = imagesy($wmImg);
 
-    // Calculate watermark dimensions (approx 25% of image width)
-    $wmTargetW = (int)round($mainW * 0.25);
-    if ($mainW > 600) {
-        $wmTargetW = max(160, min($wmTargetW, 420));
+    // If it's a wide banner watermark (aspect ratio width >> height, e.g. > 3:1)
+    if ($wmOrigW > $wmOrigH * 3) {
+        $wmAspect = $wmOrigH / $wmOrigW;
+        $wmTargetW = $mainW;
+        $wmTargetH = (int)round($mainW * $wmAspect);
+        if ($wmTargetH > (int)round($mainH * 0.22)) {
+            $wmTargetH = (int)round($mainH * 0.16);
+            $wmTargetW = (int)round($wmTargetH / $wmAspect);
+        }
+        $destX = (int)round(($mainW - $wmTargetW) / 2);
+        $destY = $mainH - $wmTargetH; // Snapped precisely to bottom
     } else {
-        $wmTargetW = max(100, min($wmTargetW, (int)round($mainW * 0.45)));
+        $wmTargetW = (int)round($mainW * 0.25);
+        if ($mainW > 600) {
+            $wmTargetW = max(160, min($wmTargetW, 420));
+        } else {
+            $wmTargetW = max(100, min($wmTargetW, (int)round($mainW * 0.45)));
+        }
+        $wmTargetH = (int)round($wmTargetW * ($wmOrigH / $wmOrigW));
+        $destX = (int)round(($mainW - $wmTargetW) / 2);
+        $destY = $mainH - $wmTargetH - 20;
     }
-    $wmTargetH = (int)round($wmTargetW * ($wmOrigH / $wmOrigW));
-
-    // Center position
-    $destX = (int)round(($mainW - $wmTargetW) / 2);
-    $destY = (int)round(($mainH - $wmTargetH) / 2);
 
     $resizedWm = imagecreatetruecolor($wmTargetW, $wmTargetH);
     imagealphablending($resizedWm, false);
@@ -422,7 +434,7 @@ function convertToWebp($sourcePath, $mime, $destPath, $quality = 85, $applyWater
     }
 
     if ($applyWatermark && empty($_POST['skip_watermark'])) {
-        $image = addWatermarkToGdImage($image, 38);
+        $image = addWatermarkToGdImage($image, 100);
     }
 
     $result = @imagewebp($image, $destPath, $quality);

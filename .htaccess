@@ -1,9 +1,8 @@
 # Jonogon News - Apache / LiteSpeed Configuration
-# Ensures API endpoints execute as PHP and SPA client routes work smoothly.
+# Ensures API endpoints execute as PHP, Social Previews work on /news/*, and SPA client routes work smoothly.
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteBase /
 
   # 1. Allow direct execution of /api/ PHP endpoints and /uploads/
   RewriteCond %{REQUEST_URI} ^/(api|uploads)/ [NC]
@@ -14,8 +13,12 @@
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # 3. Route all other requests to index.html for React SPA (if index.html exists)
-  RewriteCond %{DOCUMENT_ROOT}/index.html -f
+  # 3. Dynamic Social Previews & Fast Hydration for News articles (Facebook, WhatsApp, Messenger, etc.)
+  RewriteRule ^(?:.*/)?(news|article|p)/([^/]+)/?$ share.php?slug=$2 [QSA,L]
+
+  # 4. Route all other requests to index.html for React SPA (if index.html exists)
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule ^ index.html [L]
 </IfModule>
 

@@ -44,9 +44,10 @@ export const initialSiteSettings = {
   facebook: 'https://www.facebook.com/jonogon.newstv/',
   youtube: 'https://www.youtube.com/@jonogon.newstv',
   twitter: 'https://twitter.com/jonogonnews',
-  instagram: 'https://instagram.com/jonogonnews',
-  linkedin: 'https://linkedin.com/company/jonogonnews',
-  telegram: 'https://t.me/jonogonnews',
+  instagram: 'https://www.instagram.com/jonogon.newstv/',
+  tiktok: 'https://www.tiktok.com/@jonogon.newstv',
+  telegram: 'https://t.me/jionogon.newstv',
+  linkedin: 'https://www.linkedin.com/',
   country: 'Bangladesh',
 
   // Website On-Load Popup Settings
@@ -63,6 +64,26 @@ export const initialSiteSettings = {
     actionUrl: '',
     frequency: 'once_per_session', // 'every_visit' | 'once_per_session' | 'once_per_day'
     autoCloseSeconds: 0
+  },
+
+  // Complaint Box Featured Video Settings
+  complaintBoxVideo: {
+    youtubeUrl: 'https://youtu.be/Hma2pA8rPe0',
+    posterUrl: '/complaint-video-poster.jpg',
+    titleBn: 'জনগণের অভিযোগ ও অনুসন্ধানী প্রতিবেদন',
+    titleEn: 'Public Grievance & Investigative Report',
+    duration: '২:১৮'
+  },
+  complaintBoxVideoUrl: 'https://youtu.be/Hma2pA8rPe0',
+
+  // Image Watermark Configuration (Controlled from Admin Panel)
+  watermark: {
+    enabled: true,
+    imageUrl: '/news-card-jonogon-watermark.png',
+    position: 'bottom-full', // 'bottom-full' | 'bottom-center' | 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center'
+    scale: 100, // percentage 20 to 100
+    opacity: 100, // percentage 10 to 100
+    margin: 0
   },
 
   // Google AdSense & Ads Configuration

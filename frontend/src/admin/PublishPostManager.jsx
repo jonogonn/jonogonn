@@ -23,11 +23,12 @@ import {
   TrendingUp,
   SlidersHorizontal,
   MoreVertical,
+  Zap,
   X
 } from 'lucide-react';
 import { generateSocialCardJpg } from '../utils/generateSocialCardJpg';
 import { getCardCategoryLabel } from '../utils/cardCategoryHelper';
-import { fetchArticlesFromMariaDb, deleteArticleFromMariaDb } from '../utils/mariaDbSync';
+import { fetchArticlesFromMariaDb, deleteArticleFromMariaDb, saveArticleToMariaDb } from '../utils/mariaDbSync';
 import { safeSetLocalStorage } from '../utils/safeStorage';
 import CreatePostManager from './CreatePostManager';
 
@@ -148,11 +149,15 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
             status: p.status || 'published',
             editor_approved: p.editor_approved !== undefined ? p.editor_approved : 0,
             views: parseInt(p.views || 0, 10),
+            isHighlighted: Boolean(p.isHighlighted || p.is_highlighted),
+            isLeadHero: Boolean(p.isLeadHero || p.is_lead_hero),
+            isBreaking: Boolean(p.isBreaking || p.is_breaking),
             category: p.category || p.category_id || 'bangladesh',
             categoryBn: p.categoryBn || p.category_bn || 'বাংলাদেশ',
             dateBn: p.dateBn || p.date_bn,
             dateEn: p.dateEn || p.date_en,
-            createdAt: p.createdAt || p.created_at
+            createdAt: p.createdAt || p.created_at,
+            publishedAt: p.publishedAt || p.published_at || p.createdAt || p.created_at
           }));
           setDbArticles(normalized);
           setHasLoadedDb(true);
@@ -191,11 +196,15 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
           status: p.status || 'published',
           editor_approved: p.editor_approved !== undefined ? p.editor_approved : 0,
           views: parseInt(p.views || 0, 10),
+          isHighlighted: Boolean(p.isHighlighted || p.is_highlighted),
+          isLeadHero: Boolean(p.isLeadHero || p.is_lead_hero),
+          isBreaking: Boolean(p.isBreaking || p.is_breaking),
           category: p.category || p.category_id || 'bangladesh',
           categoryBn: p.categoryBn || p.category_bn || 'বাংলাদেশ',
           dateBn: p.dateBn || p.date_bn,
           dateEn: p.dateEn || p.date_en,
-          createdAt: p.createdAt || p.created_at
+          createdAt: p.createdAt || p.created_at,
+          publishedAt: p.publishedAt || p.published_at || p.createdAt || p.created_at
         }));
 
         setDbArticles(normalized);
@@ -249,6 +258,18 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
     if (statusFilter !== 'all') {
       list = list.filter((art) => {
         const s = art.status || 'published';
+        if (statusFilter === 'highlighted') {
+          return Boolean(art.isHighlighted || art.is_highlighted);
+        }
+        if (statusFilter === 'last24h') {
+          const raw = art.publishedAt || art.createdAt || art.dateEn || art.dateBn;
+          if (!raw) return false;
+          let ts = Date.parse(raw);
+          if (isNaN(ts) && typeof raw === 'string') ts = Date.parse(raw.replace(/-/g, '/'));
+          if (isNaN(ts)) return false;
+          const diff = Date.now() - ts;
+          return diff <= 24 * 60 * 60 * 1000 && diff >= -3600000;
+        }
         if (statusFilter === 'published') {
           return s === 'published' || s === 'approved' || (!art.status && art.id);
         }
@@ -354,6 +375,42 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
     }
   };
 
+  // Toggle Highlight Status (হাইলাইটস এ প্রদর্শন / প্রত্যাহার)
+  const handleToggleHighlight = async (article) => {
+    const newHighlighted = !article.isHighlighted;
+
+    setDbArticles((prev) =>
+      prev.map((a) => (a.id === article.id ? { ...a, isHighlighted: newHighlighted } : a))
+    );
+    if (typeof setArticles === 'function') {
+      setArticles((prev) =>
+        prev.map((a) => (a.id === article.id ? { ...a, isHighlighted: newHighlighted } : a))
+      );
+    }
+    if (typeof updateArticle === 'function') {
+      updateArticle(article.id, { isHighlighted: newHighlighted });
+    }
+
+    try {
+      await saveArticleToMariaDb({
+        id: article.id,
+        postId: article.post_id || article.id,
+        isHighlighted: newHighlighted ? 1 : 0
+      });
+      showSuccess(
+        newHighlighted
+          ? (isBn ? 'সংবাদটি "হাইলাইটস" সেকশনে সফলভাবে যুক্ত করা হয়েছে।' : 'Added to Highlights.')
+          : (isBn ? 'সংবাদটি "হাইলাইটস" থেকে বাদ দেওয়া হয়েছে।' : 'Removed from Highlights.'),
+        isBn ? 'হাইলাইটস' : 'Highlights'
+      );
+      if (triggerSaveToast) {
+        triggerSaveToast(newHighlighted ? 'সংবাদ হাইলাইটস-এ যুক্ত হয়েছে' : 'হাইলাইটস থেকে বাদ দেওয়া হয়েছে');
+      }
+    } catch (err) {
+      showError(isBn ? 'হাইলাইটস আপডেট করতে সমস্যা হয়েছে।' : 'Failed to update highlights.');
+    }
+  };
+
   // Delete Article
   const handleDelete = async (article) => {
     const confirmed = await showConfirm({
@@ -423,7 +480,8 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
       setCurrentArticle(article);
       setActivePage('article');
       if (typeof window !== 'undefined') {
-        window.history.pushState({}, '', `/news/${encodeURIComponent(article.slug || article.id)}`);
+        const shortId = article.db_id || article.id || article.slug;
+        window.history.pushState({}, '', `/news/${shortId}`);
       }
     }
   };
@@ -630,6 +688,8 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
           >
             <option value="all">{isBn ? 'সকল স্ট্যাটাস (All Status)' : 'All Status'}</option>
             <option value="published">{isBn ? 'শুধুমাত্র প্রকাশিত (Published)' : 'Published Only'}</option>
+            <option value="highlighted">{isBn ? 'হাইলাইটস সংবাদ (Highlights Only)' : 'Highlights Only'}</option>
+            <option value="last24h">{isBn ? 'সর্বশেষ ২৪ ঘণ্টা (Last 24 Hours)' : 'Last 24 Hours'}</option>
             <option value="draft">{isBn ? 'খসড়া (Draft)' : 'Drafts'}</option>
             <option value="pending_approval">{isBn ? 'অনুমোদনের অপেক্ষায় (Pending)' : 'Pending Approval'}</option>
             <option value="revision_needed">{isBn ? 'সংশোধন প্রয়োজন (Revision)' : 'Revision Needed'}</option>
@@ -810,6 +870,28 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
                               <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', opacity: 0.75 }}>
                                 ID: {art.id}
                               </span>
+
+                              {/* Highlight Badge */}
+                              {art.isHighlighted && (
+                                <span
+                                  style={{
+                                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                                    color: '#F59E0B',
+                                    border: '1px solid rgba(245, 158, 11, 0.35)',
+                                    padding: '1px 6px',
+                                    borderRadius: 4,
+                                    fontSize: '0.68rem',
+                                    fontWeight: 800,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 3
+                                  }}
+                                  title={isBn ? 'এই সংবাদটি হাইলাইটস এ সক্রিয় রয়েছে' : 'Featured in Highlights'}
+                                >
+                                  <Zap size={10} fill="#F59E0B" />
+                                  <span>{isBn ? 'হাইলাইটস' : 'HIGHLIGHT'}</span>
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -930,6 +1012,22 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
                             <Download size={14} color="#3B82F6" />
                           </button>
 
+                          {/* Toggle Highlight */}
+                          <button
+                            type="button"
+                            className="admin-btn-action"
+                            style={{
+                              padding: '5px 8px',
+                              color: art.isHighlighted ? '#F59E0B' : 'var(--text-muted)',
+                              backgroundColor: art.isHighlighted ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+                              border: art.isHighlighted ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid transparent'
+                            }}
+                            onClick={() => handleToggleHighlight(art)}
+                            title={art.isHighlighted ? (isBn ? 'হাইলাইটস থেকে বাদ দিন' : 'Remove from Highlights') : (isBn ? 'হাইলাইটস এ যুক্ত করুন' : 'Add to Highlights')}
+                          >
+                            <Zap size={14} fill={art.isHighlighted ? '#F59E0B' : 'none'} />
+                          </button>
+
                           {/* Toggle Publish / Draft */}
                           <button
                             type="button"
@@ -1034,6 +1132,22 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
                               >
                                 <Download size={14} color="#3B82F6" />
                                 <span>{downloadingId === art.id ? (isBn ? 'ডাউনলোড হচ্ছে...' : 'Downloading...') : (isBn ? 'সোশ্যাল কার্ড ডাউনলোড' : 'Download Card')}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                className="admin-menu-item-btn"
+                                onClick={() => {
+                                  setActiveMenuPostId(null);
+                                  handleToggleHighlight(art);
+                                }}
+                              >
+                                <Zap size={14} color="#F59E0B" fill={art.isHighlighted ? '#F59E0B' : 'none'} />
+                                <span>
+                                  {art.isHighlighted
+                                    ? (isBn ? 'হাইলাইটস থেকে বাদ দিন' : 'Remove from Highlights')
+                                    : (isBn ? 'হাইলাইটস এ যুক্ত করুন' : 'Add to Highlights')}
+                                </span>
                               </button>
 
                               <button

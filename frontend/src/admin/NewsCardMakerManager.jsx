@@ -23,15 +23,15 @@ import {
 } from 'lucide-react';
 
 const GRID_POSITIONS = [
-  { id: 'top left', label: 'Top Left', bn: 'উপর-বাম', arrow: '↖' },
-  { id: 'top center', label: 'Top Center', bn: 'উপর-মাঝ', arrow: '⬆' },
-  { id: 'top right', label: 'Top Right', bn: 'উপর-ডান', arrow: '↗' },
-  { id: 'center left', label: 'Center Left', bn: 'মাঝ-বাম', arrow: '⬅' },
-  { id: 'center center', label: 'Center Center', bn: 'মাঝখান', arrow: '⏺' },
-  { id: 'center right', label: 'Center Right', bn: 'মাঝ-ডান', arrow: '➡️' },
-  { id: 'bottom left', label: 'Bottom Left', bn: 'নিচে-বাম', arrow: '↙' },
-  { id: 'bottom center', label: 'Bottom Center', bn: 'নিচে-মাঝ', arrow: '⬇' },
-  { id: 'bottom right', label: 'Bottom Right', bn: 'নিচে-ডান', arrow: '↘' }
+  { id: 'top left', label: 'Top Left', bn: 'উপর-বাম', arrow: <i className="fa-solid fa-arrow-up" style={{ transform: 'rotate(-45deg)' }}></i> },
+  { id: 'top center', label: 'Top Center', bn: 'উপর-মাঝ', arrow: <i className="fa-solid fa-arrow-up"></i> },
+  { id: 'top right', label: 'Top Right', bn: 'উপর-ডান', arrow: <i className="fa-solid fa-arrow-up" style={{ transform: 'rotate(45deg)' }}></i> },
+  { id: 'center left', label: 'Center Left', bn: 'মাঝ-বাম', arrow: <i className="fa-solid fa-arrow-left"></i> },
+  { id: 'center center', label: 'Center Center', bn: 'মাঝখান', arrow: <i className="fa-solid fa-circle-dot"></i> },
+  { id: 'center right', label: 'Center Right', bn: 'মাঝ-ডান', arrow: <i className="fa-solid fa-arrow-right"></i> },
+  { id: 'bottom left', label: 'Bottom Left', bn: 'নিচে-বাম', arrow: <i className="fa-solid fa-arrow-down" style={{ transform: 'rotate(45deg)' }}></i> },
+  { id: 'bottom center', label: 'Bottom Center', bn: 'নিচে-মাঝ', arrow: <i className="fa-solid fa-arrow-down"></i> },
+  { id: 'bottom right', label: 'Bottom Right', bn: 'নিচে-ডান', arrow: <i className="fa-solid fa-arrow-down" style={{ transform: 'rotate(-45deg)' }}></i> }
 ];
 
 export default function NewsCardMakerManager({ triggerSaveToast }) {

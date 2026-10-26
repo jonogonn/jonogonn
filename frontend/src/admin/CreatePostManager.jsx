@@ -69,15 +69,15 @@ import SocialNewsCardPreview from './SocialNewsCardPreview';
 import { getCardCategoryLabel } from '../utils/cardCategoryHelper';
 
 const GRID_POSITIONS = [
-  { id: 'top left', label: 'Top Left', bn: 'উপর-বাম', arrow: '↖' },
-  { id: 'top center', label: 'Top Center', bn: 'উপর-মাঝ', arrow: '⬆' },
-  { id: 'top right', label: 'Top Right', bn: 'উপর-ডান', arrow: '↗' },
-  { id: 'center left', label: 'Center Left', bn: 'মাঝ-বাম', arrow: '⬅' },
-  { id: 'center center', label: 'Center Center', bn: 'মাঝখান', arrow: '⏺' },
-  { id: 'center right', label: 'Center Right', bn: 'মাঝ-ডান', arrow: '➡️' },
-  { id: 'bottom left', label: 'Bottom Left', bn: 'নিচে-বাম', arrow: '↙' },
-  { id: 'bottom center', label: 'Bottom Center', bn: 'নিচে-মাঝ', arrow: '⬇' },
-  { id: 'bottom right', label: 'Bottom Right', bn: 'নিচে-ডান', arrow: '↘' }
+  { id: 'top left', label: 'Top Left', bn: 'উপর-বাম', arrow: <i className="fa-solid fa-arrow-up" style={{ transform: 'rotate(-45deg)' }}></i> },
+  { id: 'top center', label: 'Top Center', bn: 'উপর-মাঝ', arrow: <i className="fa-solid fa-arrow-up"></i> },
+  { id: 'top right', label: 'Top Right', bn: 'উপর-ডান', arrow: <i className="fa-solid fa-arrow-up" style={{ transform: 'rotate(45deg)' }}></i> },
+  { id: 'center left', label: 'Center Left', bn: 'মাঝ-বাম', arrow: <i className="fa-solid fa-arrow-left"></i> },
+  { id: 'center center', label: 'Center Center', bn: 'মাঝখান', arrow: <i className="fa-solid fa-circle-dot"></i> },
+  { id: 'center right', label: 'Center Right', bn: 'মাঝ-ডান', arrow: <i className="fa-solid fa-arrow-right"></i> },
+  { id: 'bottom left', label: 'Bottom Left', bn: 'নিচে-বাম', arrow: <i className="fa-solid fa-arrow-down" style={{ transform: 'rotate(45deg)' }}></i> },
+  { id: 'bottom center', label: 'Bottom Center', bn: 'নিচে-মাঝ', arrow: <i className="fa-solid fa-arrow-down"></i> },
+  { id: 'bottom right', label: 'Bottom Right', bn: 'নিচে-ডান', arrow: <i className="fa-solid fa-arrow-down" style={{ transform: 'rotate(-45deg)' }}></i> }
 ];
 
 // Helper: Format any YouTube / Vimeo / web video URL to valid embed iframe URL
@@ -703,7 +703,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
     }
 
     try {
-      if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবিতে অফিসিয়াল ওয়াটারমার্ক ও WebP রূপান্তর হচ্ছে...' : 'Applying watermark & optimizing to WebP...');
+      if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি সংরক্ষণ করা হচ্ছে...' : 'Image uploding ...');
 
       const newsSlugForImg = slug || mainTitle || kicker || 'news';
 
@@ -724,7 +724,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
         });
         if (uploadedUrl) {
           updateBlock(index, { url: uploadedUrl, previewUrl: uploadedUrl, isUploading: false });
-          if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি ওয়াটারমার্ক সহ সফলভাবে ক্লাউডে সংরক্ষিত হয়েছে!' : 'Image with watermark uploaded to cloud as .webp!');
+          if (triggerSaveToast) triggerSaveToast(isBn ? 'ছবি সফলভাবে সংরক্ষিত হয়েছে!' : 'Image uploaded successfully!');
         } else {
           updateBlock(index, { isUploading: false });
         }
@@ -1043,7 +1043,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
     });
 
     setLastSavedTime(new Date().toLocaleTimeString());
-    showSuccess(isBn ? 'পোস্টটি সফলভাবে খসড়া (Draft) হিসেবে সংরক্ষিত হয়েছে!' : 'Post saved as draft successfully!');
+    showSuccess(isBn ? 'পোস্টটি সফলভাবে খসড়া হিসেবে সংরক্ষিত হয়েছে!' : 'Post saved as draft successfully!');
   };
 
   // Load Draft into Editor
@@ -1090,14 +1090,14 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
   // Discard Everything
   const handleDiscard = async () => {
     const confirmed = await showConfirm({
-      title: isBn ? 'এডিটর রিসেট নিশ্চিতকরণ' : 'Confirm Discard',
+      title: isBn ? 'রিসেট নিশ্চিত করুন' : 'Confirm Reset',
       message: isBn
         ? 'আপনি কি নিশ্চিত যে বর্তমান লেখা মুছে ফেলে নতুনভাবে শুরু করতে চান?'
         : 'Are you sure you want to discard all current progress and start fresh?',
       subMessage: isBn
         ? 'বর্তমান এডিটর রিসেট করা হলে অসংরক্ষিত কোনো তথ্য থাকলে তা মুছে যাবে।'
         : 'Any unsaved progress in the editor will be cleared.',
-      confirmText: isBn ? 'হ্যাঁ, রিসেট করুন' : 'Yes, Discard',
+      confirmText: isBn ? 'হ্যাঁ, রিসেট করুন' : 'Yes, Reset',
       cancelText: isBn ? 'বাতিল' : 'Cancel',
       type: 'warning'
     });
@@ -1127,7 +1127,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
         { id: `image-${Date.now()}`, type: 'image', url: '', caption: 'ছবি: সংগৃহীত' },
         { id: `paragraph-${Date.now()}`, type: 'paragraph', content: '' }
       ]);
-      showSuccess(isBn ? 'এডিটর রিসেট করা হয়েছে!' : 'Editor reset successfully!');
+      showSuccess(isBn ? 'রিসেট সফল' : 'Editor reset successfully!');
     }
   };
 
@@ -1194,7 +1194,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
   // Submit Post for Review (জমা দিন — Direct publish disallowed)
   const handleSubmitPost = async () => {
     if (!mainTitle) {
-      showError(isBn ? 'অনুগ্রহ করে সংবাদের মূল শিরোনাম লিখুন।' : 'Please enter a post title.');
+      showError(isBn ? 'অনুগ্রহ করে সংবাদের মূল শিরোনাম লিখুন।' : 'Please enter a news title.');
       return;
     }
 
@@ -1257,10 +1257,10 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
         isBn
           ? (postId
               ? (isAlreadyPublished
-                  ? 'সংবাদের পরিবর্তনসমূহ সংরক্ষিত হয়েছে এবং ওয়েবসাইটে সরাসরি লাইভ আপডেট সম্পন্ন হয়েছে।'
+                  ? 'সংবাদের পরিবর্তনসমূহ সফলভাবে সংরক্ষণ করা হয়েছে।'
                   : 'সংবাদের পরিবর্তনসমূহ সফলভাবে সংরক্ষণ করা হয়েছে।')
-              : 'সংবাদটি সফলভাবে সংরক্ষণ করা হয়েছে এবং সম্পাদকীয় পর্যালোচনার তালিকায় যুক্ত হয়েছে।')
-          : (postId ? 'News post changes saved and updated live.' : 'News post saved successfully.'),
+              : 'সংবাদটি সফলভাবে সম্পাদকীয় পর্যালোচনার জন্য প্রেরণ করা হয়েছে।')
+          : (postId ? 'News post changes saved successfully.' : 'News post saved successfully.'),
         isBn ? (postId ? 'আপডেট সম্পন্ন' : 'সংবাদ সংরক্ষণ সম্পন্ন') : 'Post Saved'
       );
     }
@@ -1334,7 +1334,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
     } else {
       showSuccess(
         isBn
-          ? 'সংবাদটি সফলভাবে সংরক্ষণ করা হয়েছে এবং অনুমোদনের জন্য সম্পাদকীয় প্যানেলে পাঠানো হয়েছে।'
+          ? 'সংবাদটি সফলভাবে সম্পাদকীয় পর্যালোচনার জন্য প্রেরণ করা হয়েছে।'
           : 'Post successfully saved and submitted for editorial review.',
         isBn ? 'অনুমোদনের আবেদন সম্পন্ন' : 'Submitted for Approval'
       );
@@ -1793,7 +1793,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
                           alignItems: 'center',
                           gap: 4
                         }}
-                        title={isBn ? 'এই ছবিটি প্রধান থাম্বনেইল হিসেবে নির্বাচিত' : 'Selected as Main Article Thumbnail'}
+                        title={isBn ? 'এই ছবিটি থাম্বনেইল হিসেবে নির্বাচিত' : 'Selected as Main Article Thumbnail'}
                       >
                         <Star size={11} fill="#10B981" />
                         <span>{isBn ? 'মূল থাম্বনেইল' : 'Main Thumbnail'}</span>
@@ -1879,7 +1879,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
                             style={{ fontSize: '0.78rem', padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
                           >
                             <Upload size={13} color="var(--primary-red)" />
-                            <span>{isBn ? 'কম্পিউটার থেকে আপলোড' : 'Upload from Device'}</span>
+                            <span>{isBn ? 'আপলোড করুন' : 'Upload from Device'}</span>
                           </button>
 
                           <button
@@ -1898,7 +1898,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
                             }}
                           >
                             <Folder size={13} />
-                            <span>{isBn ? 'মিডিয়া গ্যালারি থেকে নির্বাচন (B2)' : 'Media Gallery (B2)'}</span>
+                            <span>{isBn ? 'মিডিয়া গ্যালারি' : 'Media Gallery'}</span>
                           </button>
                         </div>
 
@@ -1975,12 +1975,12 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
                               >
                                 <div style={{ width: 22, height: 22, border: '3px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                                 <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>
-                                  {isBn ? 'WebP রূপান্তর ও ক্লাউড আপলোড হচ্ছে...' : 'Converting to WebP & uploading...'}
+                                  {isBn ? 'আপলোড হচ্ছে...' : 'Uploading...'}
                                 </div>
                               </div>
                             )}
                             <div style={{ marginTop: 8, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                              {isBn ? 'ছবি পরিবর্তন করতে ক্লিক করুন অথবা উপরের বাটন ব্যবহার করুন' : 'Click to change image or use buttons above'}
+                              {isBn ? 'ছবি পরিবর্তন করতে ক্লিক করুন' : 'Click to change image'}
                             </div>
                           </div>
                         ) : (
@@ -1996,7 +1996,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
                         <input
                           type="text"
                           className="admin-input"
-                          placeholder={isBn ? 'অথবা ছবির সরাসরি URL লিংক দিন...' : 'Or enter direct image URL...'}
+                          placeholder={isBn ? 'অথবা ছবির URL লিংক দিন...' : 'Or enter image URL...'}
                           value={block.url || ''}
                           onChange={(e) => updateBlock(index, { url: e.target.value })}
                           style={{ flex: 1 }}
@@ -2366,7 +2366,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <h3 style={{ fontFamily: 'var(--font-headline)', fontSize: '0.96rem', fontWeight: 800, margin: 0, color: 'var(--primary-red)', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <ImageIcon size={16} />
-                  <span>{isBn ? 'থাম্বনেইল প্রিভিউ ও পজিশন' : 'Thumbnail Preview & Position'}</span>
+                  <span>{isBn ? 'থাম্বনেইল প্রিভিউ' : 'Thumbnail Preview'}</span>
                 </h3>
                 <span style={{ fontSize: '0.72rem', color: 'var(--primary-red)', fontWeight: 800, backgroundColor: 'rgba(230,0,18,0.1)', padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(230,0,18,0.2)' }}>
                   {isBn

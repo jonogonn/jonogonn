@@ -120,23 +120,53 @@ export default function DistrictNewsSection() {
   const districtNameBn = selectedDistrictObj.nameBn;
   const districtNameEn = selectedDistrictObj.nameEn.toLowerCase();
 
-  const publishedArticles = (articles || []).filter((a) => a.status === 'approved' || a.status === 'published' || !a.status);
+  const publishedArticles = (articles || [])
+    .filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status))
+    .sort((a, b) => {
+      const dateA = new Date(a.publishedAt || a.published_at || a.createdAt || a.created_at || 0).getTime();
+      const dateB = new Date(b.publishedAt || b.published_at || b.createdAt || b.created_at || 0).getTime();
+      return dateB - dateA;
+    });
 
   const matchingArticles = publishedArticles.filter((a) => {
-    if (a.district === selectedDistrictId) return true;
+    if (a.district && a.district === selectedDistrictId) return true;
     if (a.titleBn && a.titleBn.includes(districtNameBn)) return true;
     if (a.contentBn && a.contentBn.includes(districtNameBn)) return true;
-    if (a.titleEn && a.titleEn.toLowerCase().includes(districtNameEn)) return true;
+    if (a.titleEn && districtNameEn && a.titleEn.toLowerCase().includes(districtNameEn)) return true;
     return false;
   });
 
   // If specific district articles are fewer than 4, fill with regional / district / saradesh news
-  const fallbackPool = publishedArticles.filter(
-    (a) => a.category === 'district' || a.category === 'saradesh' || a.category === 'bangladesh'
-  );
+  const fallbackPool = publishedArticles.filter((a) => {
+    const cat = String(a.category || a.categoryId || '').toLowerCase();
+    const categories = Array.isArray(a.categories) ? a.categories.map(c => String(c).toLowerCase()) : [];
+    return cat === 'district-news' || cat === 'saradesh' || cat === 'district' || categories.includes('district-news');
+  });
 
-  const displayList = matchingArticles.length > 0 ? matchingArticles : fallbackPool;
-  const cardsToShow = displayList.slice(0, 4);
+  // Deduplicate cardsToShow by unique ID
+  const displayList = [...matchingArticles, ...fallbackPool];
+  const seenCardIds = new Set();
+  const cardsToShow = [];
+  for (const art of displayList) {
+    const aid = art.id || art.postId || art.db_id;
+    if (aid && !seenCardIds.has(aid)) {
+      seenCardIds.add(aid);
+      cardsToShow.push(art);
+      if (cardsToShow.length >= 4) break;
+    }
+  }
+
+  // Fallback to published if still empty
+  if (cardsToShow.length < 4) {
+    for (const art of publishedArticles) {
+      const aid = art.id || art.postId || art.db_id;
+      if (aid && !seenCardIds.has(aid)) {
+        seenCardIds.add(aid);
+        cardsToShow.push(art);
+        if (cardsToShow.length >= 4) break;
+      }
+    }
+  }
 
   return (
     <section className="my-district-section" style={{ marginBottom: 32 }}>

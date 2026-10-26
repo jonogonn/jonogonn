@@ -21,17 +21,55 @@ export default function CategoryGrids() {
     openArticle(art);
   };
 
-  const publishedArticles = (articles || []).filter((a) => a.status === 'approved' || a.status === 'published' || !a.status);
+  // Sort published articles newest first
+  const publishedArticles = (articles || [])
+    .filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status))
+    .sort((a, b) => {
+      const dateA = new Date(a.publishedAt || a.published_at || a.createdAt || a.created_at || 0).getTime();
+      const dateB = new Date(b.publishedAt || b.published_at || b.createdAt || b.created_at || 0).getTime();
+      return dateB - dateA;
+    });
+
+  const isArticleForCat = (a, catId, catNameBn) => {
+    if (!a) return false;
+    const cat = String(a.category || a.categoryId || '').toLowerCase().trim();
+    const catBn = String(a.categoryBn || '').trim();
+    const categories = Array.isArray(a.categories)
+      ? a.categories.map((c) => String(c).toLowerCase().trim())
+      : [];
+    return cat === catId || catBn === catNameBn || categories.includes(catId);
+  };
+
+  // Map each category to an appropriate article, ensuring no duplicate article across cards
+  const usedCatArticleIds = new Set();
+  const categoryArticles = categoryConfigs.map((cat) => {
+    // 1. Try to find an unused exact match
+    let match = publishedArticles.find(
+      (a) => !usedCatArticleIds.has(a.id || a.postId || a.db_id) && isArticleForCat(a, cat.id, cat.nameBn)
+    );
+    // 2. If no unused exact match, try any exact match
+    if (!match) {
+      match = publishedArticles.find((a) => isArticleForCat(a, cat.id, cat.nameBn));
+    }
+    // 3. Fallback to next unused article to avoid repeating across cards
+    if (!match) {
+      match = publishedArticles.find((a) => !usedCatArticleIds.has(a.id || a.postId || a.db_id));
+    }
+    // 4. Absolute fallback
+    if (!match) {
+      match = publishedArticles[0];
+    }
+
+    if (match) {
+      usedCatArticleIds.add(match.id || match.postId || match.db_id);
+    }
+
+    return { cat, article: match };
+  });
 
   return (
     <section className="category-blocks-grid">
-      {categoryConfigs.map((cat) => {
-        // Find matching article for this category
-        const article =
-          publishedArticles.find((a) => a.category === cat.id) ||
-          publishedArticles.find((a) => a.id.includes(cat.id)) ||
-          publishedArticles[0];
-
+      {categoryArticles.map(({ cat, article }) => {
         const isOpinion = cat.id === 'opinion';
 
         return (

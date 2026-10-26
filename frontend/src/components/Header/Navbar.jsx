@@ -34,7 +34,15 @@ import {
   Info
 } from 'lucide-react';
 import { bangladeshDistricts } from '../../data/initialData';
-import { FacebookIcon, YoutubeIcon } from '../Icons/SocialIcons';
+import {
+  FacebookIcon,
+  YoutubeIcon,
+  InstagramIcon,
+  TikTokIcon,
+  TelegramIcon,
+  LinkedInIcon,
+  XIcon
+} from '../Icons/SocialIcons';
 
 // Helper to render crisp Lucide SVG Icon for each podcast subject
 const renderSubjectIcon = (iconType, size = 14) => {
@@ -863,7 +871,7 @@ export default function Navbar() {
 
                 {/* Social Channels */}
                 <div className="aleric-drawer-socials">
-                  {settings.facebook && (
+                  {settings?.facebook && (
                     <a
                       href={settings.facebook}
                       target="_blank"
@@ -874,7 +882,7 @@ export default function Navbar() {
                       <FacebookIcon size={14} />
                     </a>
                   )}
-                  {settings.youtube && (
+                  {settings?.youtube && (
                     <a
                       href={settings.youtube}
                       target="_blank"
@@ -883,6 +891,61 @@ export default function Navbar() {
                       title="YouTube"
                     >
                       <YoutubeIcon size={14} />
+                    </a>
+                  )}
+                  {settings?.instagram && (
+                    <a
+                      href={settings.instagram}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="aleric-social-btn"
+                      title="Instagram"
+                    >
+                      <InstagramIcon size={14} />
+                    </a>
+                  )}
+                  {settings?.tiktok && (
+                    <a
+                      href={settings.tiktok}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="aleric-social-btn"
+                      title="TikTok"
+                    >
+                      <TikTokIcon size={14} />
+                    </a>
+                  )}
+                  {settings?.telegram && (
+                    <a
+                      href={settings.telegram}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="aleric-social-btn"
+                      title="Telegram"
+                    >
+                      <TelegramIcon size={14} />
+                    </a>
+                  )}
+                  {settings?.linkedin && (
+                    <a
+                      href={settings.linkedin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="aleric-social-btn"
+                      title="LinkedIn"
+                    >
+                      <LinkedInIcon size={14} />
+                    </a>
+                  )}
+                  {settings?.twitter && (
+                    <a
+                      href={settings.twitter}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="aleric-social-btn"
+                      title="X (Twitter)"
+                    >
+                      <XIcon size={13} />
                     </a>
                   )}
                 </div>

@@ -1,7 +1,15 @@
 import React from 'react';
 import { useNews } from '../../context/NewsContext';
 import { MapPin, Phone, Mail, User, Lock } from 'lucide-react';
-import { FacebookIcon, YoutubeIcon } from '../Icons/SocialIcons';
+import {
+  FacebookIcon,
+  YoutubeIcon,
+  InstagramIcon,
+  TikTokIcon,
+  TelegramIcon,
+  LinkedInIcon,
+  XIcon
+} from '../Icons/SocialIcons';
 
 export default function Footer() {
   const { language, settings, setActiveCategory, navigateTo, openAdmin } = useNews();
@@ -226,7 +234,7 @@ export default function Footer() {
           </div>
 
           <div className="footer-bottom-social">
-            {settings.facebook && (
+            {settings?.facebook && (
               <a
                 href={settings.facebook}
                 target="_blank"
@@ -238,7 +246,7 @@ export default function Footer() {
                 <FacebookIcon size={16} />
               </a>
             )}
-            {settings.youtube && (
+            {settings?.youtube && (
               <a
                 href={settings.youtube}
                 target="_blank"
@@ -248,6 +256,66 @@ export default function Footer() {
                 aria-label="YouTube Channel"
               >
                 <YoutubeIcon size={16} />
+              </a>
+            )}
+            {settings?.instagram && (
+              <a
+                href={settings.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="footer-social-btn"
+                title="Instagram"
+                aria-label="Instagram Profile"
+              >
+                <InstagramIcon size={16} />
+              </a>
+            )}
+            {settings?.tiktok && (
+              <a
+                href={settings.tiktok}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="footer-social-btn"
+                title="TikTok"
+                aria-label="TikTok Profile"
+              >
+                <TikTokIcon size={16} />
+              </a>
+            )}
+            {settings?.telegram && (
+              <a
+                href={settings.telegram}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="footer-social-btn"
+                title="Telegram"
+                aria-label="Telegram Channel"
+              >
+                <TelegramIcon size={16} />
+              </a>
+            )}
+            {settings?.linkedin && (
+              <a
+                href={settings.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="footer-social-btn"
+                title="LinkedIn"
+                aria-label="LinkedIn Page"
+              >
+                <LinkedInIcon size={16} />
+              </a>
+            )}
+            {settings?.twitter && (
+              <a
+                href={settings.twitter}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="footer-social-btn"
+                title="X (Twitter)"
+                aria-label="X Profile"
+              >
+                <XIcon size={15} />
               </a>
             )}
           </div>

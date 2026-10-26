@@ -21,6 +21,7 @@ import {
   saveArticleToMariaDb,
   deleteArticleFromMariaDb,
   fetchArticlesFromMariaDb,
+  fetchSingleArticleFromMariaDb,
   fetchModuleFromMariaDb,
   syncModuleToMariaDb,
   savePodcastToMariaDb,
@@ -167,7 +168,7 @@ export function NewsProvider({ children }) {
               a.id !== 'bd-main')
         );
         if (dbItems.length > 0) {
-          return dbItems.map((a) => {
+          const list = dbItems.map((a) => {
             const clean = normalizeImageUrl(a.imageUrl || a.featuredImage);
             return {
               ...a,
@@ -177,6 +178,12 @@ export function NewsProvider({ children }) {
               thumbnail_image: clean
             };
           });
+          list.sort((a, b) => {
+            const dateA = new Date(a.publishedAt || a.published_at || a.createdAt || a.created_at || 0).getTime();
+            const dateB = new Date(b.publishedAt || b.published_at || b.createdAt || b.created_at || 0).getTime();
+            return dateB - dateA;
+          });
+          return list;
         }
       }
     } catch (e) {
@@ -362,6 +369,11 @@ export function NewsProvider({ children }) {
           ...p,
           views: getEffectiveViews(p)
         }));
+        processed.sort((a, b) => {
+          const dateA = new Date(a.publishedAt || a.published_at || a.createdAt || a.created_at || 0).getTime();
+          const dateB = new Date(b.publishedAt || b.published_at || b.createdAt || b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
         setArticles(processed);
         safeSetLocalStorage('jonogon_articles', processed);
       }
@@ -710,34 +722,34 @@ export function NewsProvider({ children }) {
     }
     const path = window.location.pathname || '';
     const params = new URLSearchParams(window.location.search);
-    const newsParam = params.get('news') || params.get('article');
+    const newsMatch = path.match(/(?:news|article|p)\/([^/?#]+)/i);
+    const newsParam = params.get('news') || params.get('article') || params.get('id');
+    const catMatch = path.match(/category\/([^/?#]+)/i);
     const catParam = params.get('cat') || params.get('category');
 
-    if (path === '/admin' || path === '/admin/' || path.startsWith('/admin')) {
+    if (path === '/admin' || path === '/admin/' || path.includes('/admin')) {
       return { page: 'admin', isAdmin: true, category: 'latest', articleSlug: null };
     }
-    if (path.startsWith('/news/')) {
-      return { page: 'article', isAdmin: false, category: 'latest', articleSlug: decodeURIComponent(path.replace('/news/', '').trim()) };
+    if (newsMatch) {
+      return { page: 'article', isAdmin: false, category: 'latest', articleSlug: decodeURIComponent(newsMatch[1].trim()) };
     }
     if (newsParam) {
-      return { page: 'article', isAdmin: false, category: 'latest', articleSlug: newsParam };
+      return { page: 'article', isAdmin: false, category: 'latest', articleSlug: decodeURIComponent(newsParam.trim()) };
     }
-    if (path.startsWith('/category/')) {
-      return { page: 'category', isAdmin: false, category: decodeURIComponent(path.replace('/category/', '').trim()), articleSlug: null };
+    if (catMatch) {
+      return { page: 'category', isAdmin: false, category: decodeURIComponent(catMatch[1].trim()), articleSlug: null };
     }
     if (catParam) {
-      return { page: 'category', isAdmin: false, category: catParam, articleSlug: null };
+      return { page: 'category', isAdmin: false, category: decodeURIComponent(catParam.trim()), articleSlug: null };
     }
-    if (path === '/about' || path === '/about/') return { page: 'about', isAdmin: false, category: 'latest', articleSlug: null };
-    if (path === '/contact' || path === '/contact/') return { page: 'contact', isAdmin: false, category: 'latest', articleSlug: null };
-    if (path === '/advertisement' || path === '/advertisement/') return { page: 'advertisement', isAdmin: false, category: 'latest', articleSlug: null };
-    if (path === '/editorial' || path === '/editorial/') return { page: 'editorial', isAdmin: false, category: 'latest', articleSlug: null };
-    if (path === '/privacy' || path === '/privacy/') return { page: 'privacy', isAdmin: false, category: 'latest', articleSlug: null };
-    if (path === '/terms' || path === '/terms/') return { page: 'terms', isAdmin: false, category: 'latest', articleSlug: null };
-    if (path === '/founder' || path === '/editor') return { page: 'founder', isAdmin: false, category: 'latest', articleSlug: null };
-    if (path === '/team' || path === '/team/' || path === '/our-team' || path === '/editorial-team' || path === '/editorial-board') {
-      return { page: 'team', isAdmin: false, category: 'latest', articleSlug: null };
-    }
+    if (path.includes('/about')) return { page: 'about', isAdmin: false, category: 'latest', articleSlug: null };
+    if (path.includes('/contact')) return { page: 'contact', isAdmin: false, category: 'latest', articleSlug: null };
+    if (path.includes('/advertisement') || path.includes('/advertise')) return { page: 'advertisement', isAdmin: false, category: 'latest', articleSlug: null };
+    if (path.includes('/editorial')) return { page: 'editorial', isAdmin: false, category: 'latest', articleSlug: null };
+    if (path.includes('/privacy')) return { page: 'privacy', isAdmin: false, category: 'latest', articleSlug: null };
+    if (path.includes('/terms')) return { page: 'terms', isAdmin: false, category: 'latest', articleSlug: null };
+    if (path.includes('/founder') || path.includes('/editor') || path.includes('/biplob-hossain')) return { page: 'founder', isAdmin: false, category: 'latest', articleSlug: null };
+    if (path.includes('/team') || path.includes('/our-team')) return { page: 'team', isAdmin: false, category: 'latest', articleSlug: null };
 
     return { page: 'home', isAdmin: false, category: 'latest', articleSlug: null };
   };
@@ -747,7 +759,14 @@ export function NewsProvider({ children }) {
   const [activeCategory, setActiveCategoryState] = useState(initialRoute.category);
   const [selectedPodcastSubject, setSelectedPodcastSubject] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentArticle, setCurrentArticle] = useState(null);
+  const [currentArticle, setCurrentArticle] = useState(() => {
+    if (typeof window !== 'undefined' && window.__INITIAL_ARTICLE__) {
+      return window.__INITIAL_ARTICLE__;
+    }
+    return null;
+  });
+  const [isSingleArticleLoading, setIsSingleArticleLoading] = useState(false);
+  const [articleNotFound, setArticleNotFound] = useState(false);
   const [activePolicyModal, setActivePolicyModal] = useState(null);
   const [isAdminOpen, setIsAdminOpen] = useState(initialRoute.isAdmin);
 
@@ -797,12 +816,16 @@ export function NewsProvider({ children }) {
 
   // Handle URL parsing and Browser Back / Forward Navigation (HTML5 History API)
   const syncRouteFromLocation = () => {
-    const path = window.location.pathname;
+    if (typeof window === 'undefined') return;
+    const path = window.location.pathname || '';
     const params = new URLSearchParams(window.location.search);
-    const newsParam = params.get('news') || params.get('article');
+    const newsMatch = path.match(/(?:news|article|p)\/([^/?#]+)/i);
+    const newsParam = params.get('news') || params.get('article') || params.get('id');
+    const targetSlug = newsMatch ? decodeURIComponent(newsMatch[1].trim()) : (newsParam ? decodeURIComponent(newsParam.trim()) : null);
+    const catMatch = path.match(/category\/([^/?#]+)/i);
     const catParam = params.get('cat') || params.get('category');
 
-    if (path === '/admin' || path === '/admin/' || path.startsWith('/admin')) {
+    if (path === '/admin' || path === '/admin/' || path.includes('/admin')) {
       setIsAdminOpen(true);
       setActivePage('admin');
       setCurrentArticle(null);
@@ -812,9 +835,48 @@ export function NewsProvider({ children }) {
     // Clear admin if navigated to non-admin path
     setIsAdminOpen(false);
 
-    if (path.startsWith('/news/')) {
-      const slug = decodeURIComponent(path.replace('/news/', '').trim());
-      const found = articles.find((a) => a.slug === slug || a.id === slug || a.titleBn === slug || a.titleEn === slug);
+    // 1. Target Article Route (/news/:id, /article/:id, ?news=..., ?id=...)
+    if (targetSlug) {
+      // Check preloaded window.__INITIAL_ARTICLE__ from share.php (0ms hydration)
+      if (window.__INITIAL_ARTICLE__ && typeof window.__INITIAL_ARTICLE__ === 'object') {
+        const initArt = window.__INITIAL_ARTICLE__;
+        window.__INITIAL_ARTICLE__ = null;
+        setCurrentArticle(initArt);
+        setActivePage('article');
+        setArticleNotFound(false);
+        incrementViews(initArt.id || initArt.postId || initArt.db_id);
+        return;
+      }
+
+      // Check currentArticle state if already matches target
+      if (currentArticle) {
+        const cDbId = String(currentArticle.db_id || '');
+        const cId = String(currentArticle.id || '');
+        const cPostId = String(currentArticle.postId || currentArticle.post_id || '');
+        const cSlug = String(currentArticle.slug || '');
+        const tLower = targetSlug.toLowerCase();
+        if (cDbId === targetSlug || cId.toLowerCase() === tLower || cPostId.toLowerCase() === tLower || cSlug.toLowerCase() === tLower) {
+          setActivePage('article');
+          setArticleNotFound(false);
+          return;
+        }
+      }
+
+      // Check in loaded articles
+      const isMatch = (a) => {
+        if (!a) return false;
+        const s = targetSlug.toLowerCase();
+        return (
+          String(a.db_id) === targetSlug ||
+          String(a.id || '').toLowerCase() === s ||
+          String(a.postId || a.post_id || '').toLowerCase() === s ||
+          String(a.slug || '').toLowerCase() === s ||
+          String(a.titleBn || '').trim() === targetSlug ||
+          String(a.titleEn || '').toLowerCase() === s
+        );
+      };
+
+      const found = (articles || []).find(isMatch);
       if (found) {
         if (!isAdminOpen && found.status && found.status !== 'published' && found.status !== 'approved') {
           setCurrentArticle(null);
@@ -823,75 +885,56 @@ export function NewsProvider({ children }) {
         }
         setCurrentArticle(found);
         setActivePage('article');
+        setArticleNotFound(false);
+        incrementViews(found.id || found.postId || found.db_id);
         return;
       }
-    } else if (newsParam) {
-      const found = articles.find((a) => a.id === newsParam || a.slug === newsParam);
-      if (found) {
-        if (!isAdminOpen && found.status && found.status !== 'published' && found.status !== 'approved') {
-          setCurrentArticle(null);
-          setActivePage('home');
-          return;
-        }
-        setCurrentArticle(found);
-        setActivePage('article');
-        return;
-      }
+
+      // Direct Link / Cold Start / Shared Link from WhatsApp/Facebook:
+      // Keep on 'article' view, show sleek shimmer, and fetch directly from MariaDB API
+      setActivePage('article');
+      setIsSingleArticleLoading(true);
+      setArticleNotFound(false);
+
+      fetchSingleArticleFromMariaDb(targetSlug)
+        .then((fetched) => {
+          if (fetched && (fetched.status === 'published' || fetched.status === 'approved' || !fetched.status || isAdminOpen)) {
+            const processed = { ...fetched, views: getEffectiveViews(fetched) };
+            setCurrentArticle(processed);
+            setArticleNotFound(false);
+            incrementViews(processed.id || processed.postId || processed.db_id);
+          } else {
+            setArticleNotFound(true);
+          }
+        })
+        .catch((err) => {
+          console.warn('Failed to load article from DB:', err);
+          setArticleNotFound(true);
+        })
+        .finally(() => {
+          setIsSingleArticleLoading(false);
+        });
+      return;
     }
 
-    if (path.startsWith('/category/')) {
-      const slug = decodeURIComponent(path.replace('/category/', '').trim());
+    // 2. Category Route
+    if (catMatch || catParam) {
+      const slug = catMatch ? decodeURIComponent(catMatch[1].trim()) : decodeURIComponent(catParam.trim());
       setActiveCategoryState(slug);
       setActivePage('category');
       setCurrentArticle(null);
       return;
-    } else if (catParam) {
-      setActiveCategoryState(catParam);
-      setActivePage('category');
-      setCurrentArticle(null);
-      return;
     }
 
-    if (path === '/about') {
-      setActivePage('about');
-      setCurrentArticle(null);
-      return;
-    }
-    if (path === '/advertisement' || path === '/advertise') {
-      setActivePage('advertisement');
-      setCurrentArticle(null);
-      return;
-    }
-    if (path === '/contact') {
-      setActivePage('contact');
-      setCurrentArticle(null);
-      return;
-    }
-    if (path === '/editorial-policy' || path === '/editorial') {
-      setActivePage('editorial');
-      setCurrentArticle(null);
-      return;
-    }
-    if (path === '/privacy' || path === '/privacy-policy') {
-      setActivePage('privacy');
-      setCurrentArticle(null);
-      return;
-    }
-    if (path === '/terms' || path === '/terms-and-conditions') {
-      setActivePage('terms');
-      setCurrentArticle(null);
-      return;
-    }
-    if (path === '/founder' || path === '/found' || path === '/editor' || path === '/biplob-hossain') {
-      setActivePage('founder');
-      setCurrentArticle(null);
-      return;
-    }
-    if (path === '/team' || path === '/team/' || path === '/our-team' || path === '/editorial-team' || path === '/editorial-board') {
-      setActivePage('team');
-      setCurrentArticle(null);
-      return;
-    }
+    // 3. Static Pages
+    if (path.includes('/about')) { setActivePage('about'); setCurrentArticle(null); return; }
+    if (path.includes('/advertisement') || path.includes('/advertise')) { setActivePage('advertisement'); setCurrentArticle(null); return; }
+    if (path.includes('/contact')) { setActivePage('contact'); setCurrentArticle(null); return; }
+    if (path.includes('/editorial')) { setActivePage('editorial'); setCurrentArticle(null); return; }
+    if (path.includes('/privacy')) { setActivePage('privacy'); setCurrentArticle(null); return; }
+    if (path.includes('/terms')) { setActivePage('terms'); setCurrentArticle(null); return; }
+    if (path.includes('/founder') || path.includes('/editor') || path.includes('/biplob-hossain')) { setActivePage('founder'); setCurrentArticle(null); return; }
+    if (path.includes('/team') || path.includes('/our-team')) { setActivePage('team'); setCurrentArticle(null); return; }
 
     // Default Home
     setActivePage('home');
@@ -909,19 +952,21 @@ export function NewsProvider({ children }) {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [articles]);
 
-  // Navigate to Dedicated Full Article Page with SEO Friendly URL (/news/:slug)
+  // Navigate to Dedicated Full Article Page with Short SEO URL (/news/:id)
   const openArticle = (art) => {
     if (!art) return;
     if (!isAdminOpen && art.status && art.status !== 'published' && art.status !== 'approved') {
       console.warn('Cannot open draft/unpublished article publicly');
       return;
     }
-    incrementViews(art.id);
+    incrementViews(art.id || art.postId || art.db_id);
     setCurrentArticle(art);
     setActivePage('article');
     setIsAdminOpen(false);
-    const slug = art.slug || art.id;
-    window.history.pushState({ page: 'article', articleId: art.id, slug }, '', `/news/${encodeURIComponent(slug)}`);
+    setArticleNotFound(false);
+    // Short SEO-friendly canonical identifier (db_id or id)
+    const shortId = art.db_id || art.id || art.slug;
+    window.history.pushState({ page: 'article', articleId: art.id, slug: shortId }, '', `/news/${shortId}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -2189,6 +2234,9 @@ export function NewsProvider({ children }) {
         setSearchQuery,
         currentArticle,
         setCurrentArticle,
+        isSingleArticleLoading,
+        articleNotFound,
+        setArticleNotFound,
         openArticle,
         goToHome,
         activePolicyModal,

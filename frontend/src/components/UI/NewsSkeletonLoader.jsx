@@ -86,3 +86,22 @@ export function LatestNewsSkeleton() {
     </section>
   );
 }
+
+export function ArticleDetailSkeleton() {
+  return (
+    <div className="container" style={{ padding: '30px 20px', maxWidth: 900, margin: '0 auto' }} aria-busy="true">
+      <div className="skeleton-shimmer" style={{ width: 140, height: 24, borderRadius: 4, marginBottom: 16 }} />
+      <div className="skeleton-shimmer" style={{ width: '92%', height: 36, borderRadius: 6, marginBottom: 12 }} />
+      <div className="skeleton-shimmer" style={{ width: '65%', height: 28, borderRadius: 6, marginBottom: 20 }} />
+      <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
+        <div className="skeleton-shimmer" style={{ width: 120, height: 18, borderRadius: 4 }} />
+        <div className="skeleton-shimmer" style={{ width: 100, height: 18, borderRadius: 4 }} />
+      </div>
+      <div className="skeleton-shimmer" style={{ width: '100%', height: 420, borderRadius: 12, marginBottom: 24 }} />
+      <div className="skeleton-shimmer" style={{ width: '100%', height: 18, borderRadius: 4, marginBottom: 12 }} />
+      <div className="skeleton-shimmer" style={{ width: '95%', height: 18, borderRadius: 4, marginBottom: 12 }} />
+      <div className="skeleton-shimmer" style={{ width: '98%', height: 18, borderRadius: 4, marginBottom: 12 }} />
+      <div className="skeleton-shimmer" style={{ width: '70%', height: 18, borderRadius: 4, marginBottom: 20 }} />
+    </div>
+  );
+}

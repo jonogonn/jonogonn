@@ -257,20 +257,9 @@ try {
             // Silently continue if listing fails
         }
 
-        // Also perform automated Master-to-Replica synchronization to DB 2 (Hosting 2)
-        $replicaSyncReport = null;
-        try {
-            require_once __DIR__ . '/sync_replica.php';
-            if (function_exists('runMasterToReplicaSync')) {
-                $replicaSyncReport = runMasterToReplicaSync();
-            }
-        } catch (Exception $repEx) {
-            $replicaSyncReport = ['error' => $repEx->getMessage()];
-        }
-
         echo json_encode([
             'success' => true,
-            'message' => 'MariaDB ডাটাবেজ সফলভাবে এক্সপোর্ট হয়ে Admin Backblaze B2 বাকেটে সংরক্ষিত হয়েছে এবং ২য় হোস্টিংয়ে ডাটা সিঙ্ক সম্পন্ন হয়েছে!',
+            'message' => 'MariaDB ডাটাবেজ সফলভাবে এক্সপোর্ট হয়ে Admin Backblaze B2 বাকেটে সংরক্ষিত হয়েছে!',
             'backup' => [
                 'bucket_name' => $actualBucketName,
                 'bucket_id' => $matchedBucketId,
@@ -284,8 +273,7 @@ try {
                 'retention_policy' => '10 days (older backups automatically deleted)',
                 'purged_old_backups' => count($deletedOldBackups),
                 'created_at' => date('Y-m-d H:i:s')
-            ],
-            'replica_sync' => $replicaSyncReport
+            ]
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     } else {

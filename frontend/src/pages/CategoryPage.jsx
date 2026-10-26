@@ -56,9 +56,9 @@ export default function CategoryPage() {
     );
   }, [parentGroup, activeCategory]);
 
-  // Filter Articles for this Category & Search (strictly published)
+  // Filter Articles for this Category & Search (strictly published, sorted newest first, deduplicated)
   const filteredArticles = useMemo(() => {
-    return (articles || []).filter((art) => {
+    const list = (articles || []).filter((art) => {
       if (art.status && art.status !== 'published' && art.status !== 'approved') return false;
       const matchesSearch =
         !searchQuery ||
@@ -66,19 +66,57 @@ export default function CategoryPage() {
         (art.titleEn && art.titleEn.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (art.contentBn && art.contentBn.toLowerCase().includes(searchQuery.toLowerCase()));
 
+      const artCat = String(art.category || art.categoryId || '').toLowerCase().trim();
+      const artCatBn = String(art.categoryBn || '').trim();
+      const artCategories = Array.isArray(art.categories)
+        ? art.categories.map((c) => String(c).toLowerCase().trim())
+        : [];
+
+      const targetCatId = String(activeCategory || '').toLowerCase().trim();
+      const targetObjId = String(activeCategoryObj?.id || '').toLowerCase().trim();
+      const targetObjSlug = String(activeCategoryObj?.slug || '').toLowerCase().trim();
+      const targetObjBn = String(activeCategoryObj?.nameBn || '').trim();
+
       const matchesCat =
-        activeCategory === 'latest' ||
-        activeCategory === 'all' ||
-        art.category === activeCategory ||
-        art.category === activeCategoryObj?.id;
+        targetCatId === 'latest' ||
+        targetCatId === 'all' ||
+        artCat === targetCatId ||
+        artCat === targetObjId ||
+        artCat === targetObjSlug ||
+        (targetObjBn && artCatBn === targetObjBn) ||
+        artCategories.includes(targetCatId) ||
+        artCategories.includes(targetObjId) ||
+        artCategories.includes(targetObjSlug);
 
       return matchesSearch && matchesCat;
     });
+
+    // Sort newest first
+    list.sort((a, b) => {
+      const dateA = new Date(a.publishedAt || a.published_at || a.createdAt || a.created_at || 0).getTime();
+      const dateB = new Date(b.publishedAt || b.published_at || b.createdAt || b.created_at || 0).getTime();
+      return dateB - dateA;
+    });
+
+    // Deduplicate by ID
+    const seen = new Set();
+    const deduped = [];
+    for (const item of list) {
+      const idKey = item.id || item.postId || item.db_id;
+      if (idKey && !seen.has(idKey)) {
+        seen.add(idKey);
+        deduped.push(item);
+      }
+    }
+    return deduped;
   }, [articles, activeCategory, activeCategoryObj, searchQuery]);
 
-  // Separate Lead Article and Grid Articles
+  // Separate Lead Article and Grid Articles (guarantee 0 duplicates)
   const leadArticle = filteredArticles[0];
-  const remainingArticles = filteredArticles.slice(1);
+  const leadId = leadArticle ? (leadArticle.id || leadArticle.postId) : null;
+  const remainingArticles = filteredArticles.filter(
+    (item) => (item.id || item.postId) !== leadId
+  );
 
   // SEO Update
   useEffect(() => {

@@ -175,7 +175,8 @@ if ($method === 'GET') {
         $params = [];
 
         if ($postId) {
-            $query .= " AND (`post_id` = ? OR `id` = ?)";
+            $query .= " AND (`post_id` = ? OR `id` = ? OR `slug` = ?)";
+            $params[] = $postId;
             $params[] = $postId;
             $params[] = $postId;
             if (!$isAdmin) {
@@ -202,14 +203,17 @@ if ($method === 'GET') {
                 $query .= " AND (`status` = 'approved' OR `status` = 'published')";
             }
 
-            if ($category && $category !== 'all') {
-                $query .= " AND (`category_id` = ? OR `category_bn` = ?)";
+            if ($category && $category !== 'all' && $category !== 'latest') {
+                $categoryJsonVal = json_encode($category, JSON_UNESCAPED_UNICODE);
+                $query .= " AND (`category_id` = ? OR `category_bn` = ? OR (JSON_VALID(`categories`) AND JSON_CONTAINS(`categories`, ?)) OR `categories` LIKE ?)";
                 $params[] = $category;
                 $params[] = $category;
+                $params[] = $categoryJsonVal;
+                $params[] = '%' . $category . '%';
             }
         }
 
-        $query .= " ORDER BY `created_at` DESC LIMIT " . max(1, min(500, $limit));
+        $query .= " ORDER BY COALESCE(`published_at`, `created_at`) DESC, `created_at` DESC, `id` DESC LIMIT " . max(1, min(500, $limit));
 
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
@@ -331,12 +335,13 @@ if ($method === 'DELETE' || ($method === 'POST' && in_array($deleteAction, ['del
         $stmt = $pdo->prepare("DELETE FROM `{$tableName}` WHERE `id` = ? OR `post_id` = ? OR `slug` = ?");
         $stmt->execute([$id, $id, $id]);
 
-        // Real-time Dual-Write deletion to Secondary DB
+        // Secure, non-blocking HTTPS sync to Secondary DB (Zero Port 3306)
         try {
-            if (function_exists('syncQueryToBackupDB')) {
-                syncQueryToBackupDB("DELETE FROM `{$tableName}` WHERE `id` = ? OR `post_id` = ? OR `slug` = ?", [$id, $id, $id]);
+            require_once __DIR__ . '/sync_relay.php';
+            if (function_exists('sendSyncWebhookToReplica')) {
+                sendSyncWebhookToReplica('delete_news', ['id' => $id]);
             }
-        } catch (Exception $syncDelEx) {}
+        } catch (Exception $relayEx) {}
 
         // Also clean up from legacy news table if present
         try {
@@ -566,13 +571,6 @@ if ($method === 'POST') {
             $stmt->execute($values);
             $dbId = $existing['id'];
             $msg = "সংবাদটি cPanel MariaDB (`{$tableName}`) টেবিলে সফলভাবে আপডেট হয়েছে!";
-
-            // Real-time Dual-Write Update to Secondary DB
-            try {
-                if (function_exists('syncQueryToBackupDB')) {
-                    syncQueryToBackupDB($updateSql, $values);
-                }
-            } catch (Exception $syncUpEx) {}
         } else {
             $colNames = array_keys($validFields);
             $placeholders = array_fill(0, count($colNames), '?');
@@ -583,14 +581,15 @@ if ($method === 'POST') {
             $stmt->execute($values);
             $dbId = $pdo->lastInsertId();
             $msg = "সংবাদটি cPanel MariaDB (`{$tableName}`) টেবিলে সফলভাবে সংরক্ষিত হয়েছে!";
-
-            // Real-time Dual-Write Insert to Secondary DB
-            try {
-                if (function_exists('syncQueryToBackupDB')) {
-                    syncQueryToBackupDB($insertSql, $values);
-                }
-            } catch (Exception $syncInsEx) {}
         }
+
+        // Secure, non-blocking HTTPS sync to Secondary DB (Zero Port 3306)
+        try {
+            require_once __DIR__ . '/sync_relay.php';
+            if (function_exists('sendSyncWebhookToReplica')) {
+                sendSyncWebhookToReplica('save_news', $validFields);
+            }
+        } catch (Exception $relayEx) {}
 
         // Also update/mirror into legacy news table if it exists
         try {

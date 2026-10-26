@@ -18,6 +18,7 @@ import {
 import { FacebookIcon } from '../Icons/SocialIcons';
 import AdSenseSlot from '../Ads/AdSenseSlot';
 import { fetchCommentsFromMariaDb, saveCommentToMariaDb } from '../../utils/mariaDbSync';
+import { ArticleDetailSkeleton } from '../UI/NewsSkeletonLoader';
 
 export default function ArticleDetailPage() {
   const {
@@ -27,7 +28,9 @@ export default function ArticleDetailPage() {
     language,
     articles,
     categories,
-    setActiveCategory
+    setActiveCategory,
+    isSingleArticleLoading,
+    articleNotFound
   } = useNews();
 
   const [fontSize, setFontSize] = useState(1.15); // rem
@@ -42,6 +45,14 @@ export default function ArticleDetailPage() {
 
   const isBn = language === 'bn';
 
+  // Helper to generate short, clean, beautiful canonical URL (e.g. https://jonogon.news/news/28)
+  const getShortShareUrl = (art) => {
+    if (!art) return typeof window !== 'undefined' ? window.location.href : '';
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://jonogon.news';
+    const id = art.db_id || art.id || art.slug;
+    return `${origin}/news/${id}`;
+  };
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (currentArticle) {
@@ -49,8 +60,7 @@ export default function ArticleDetailPage() {
       const desc = isBn
         ? currentArticle.excerptBn || currentArticle.contentBn?.slice(0, 160)
         : currentArticle.excerptEn || currentArticle.contentEn?.slice(0, 160);
-      const slug = currentArticle.slug || currentArticle.id;
-      const url = `${window.location.origin}/news/${encodeURIComponent(slug)}`;
+      const url = getShortShareUrl(currentArticle);
 
       updateSEO({
         title,
@@ -118,20 +128,32 @@ export default function ArticleDetailPage() {
   }, [currentArticle?.id, currentArticle?.post_id]);
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
+    const shortUrl = getShortShareUrl(currentArticle);
+    navigator.clipboard.writeText(shortUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
 
   const handleFacebookShare = () => {
-    const url = encodeURIComponent(window.location.href);
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank', 'width=600,height=450');
+    const shortUrl = getShortShareUrl(currentArticle);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shortUrl)}`, '_blank', 'width=600,height=450');
   };
 
   const handleWhatsAppShare = () => {
-    const title = encodeURIComponent(isBn ? currentArticle.titleBn : currentArticle.titleEn);
-    const url = encodeURIComponent(window.location.href);
-    window.open(`https://api.whatsapp.com/send?text=${title}%20${url}`, '_blank');
+    const title = isBn ? currentArticle.titleBn : currentArticle.titleEn;
+    const shortUrl = getShortShareUrl(currentArticle);
+    const text = encodeURIComponent(`${title}\n${shortUrl}`);
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+  };
+
+  const handleMessengerShare = () => {
+    const title = isBn ? currentArticle.titleBn : currentArticle.titleEn;
+    const shortUrl = getShortShareUrl(currentArticle);
+    if (navigator.share) {
+      navigator.share({ title, text: title, url: shortUrl }).catch(() => {});
+      return;
+    }
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shortUrl)}`, '_blank', 'width=600,height=450');
   };
 
   const handlePrint = () => {
@@ -173,16 +195,23 @@ export default function ArticleDetailPage() {
     }
   };
 
+  if (isSingleArticleLoading) {
+    return <ArticleDetailSkeleton />;
+  }
+
   if (!currentArticle) {
     return (
       <div className="container" style={{ padding: '80px 20px', textAlign: 'center' }}>
         <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 12 }}>
           {isBn ? 'সংবাদটি পাওয়া যায়নি বা মুছে ফেলা হয়েছে' : 'Article Not Found'}
         </h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: 20 }}>
+          {isBn ? 'অন্যান্য তাজা সংবাদ পড়তে প্রচ্ছদে ফিরে যান।' : 'Please return to homepage to explore other news.'}
+        </p>
         <button
           onClick={goToHome}
           style={{
-            padding: '10px 20px',
+            padding: '10px 24px',
             backgroundColor: 'var(--primary-red)',
             color: '#FFF',
             border: 'none',
@@ -306,6 +335,15 @@ export default function ArticleDetailPage() {
               >
                 <FacebookIcon size={15} color="#fff" />
                 <span>Facebook</span>
+              </button>
+              <button
+                onClick={handleMessengerShare}
+                className="article-share-btn share-msgr"
+                style={{ background: '#0084FF', color: '#fff', border: 'none' }}
+                title="Messenger"
+              >
+                <i className="fa-brands fa-facebook-messenger" style={{ fontSize: 15 }}></i>
+                <span>Messenger</span>
               </button>
               <button
                 onClick={handleWhatsAppShare}

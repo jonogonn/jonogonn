@@ -14,13 +14,19 @@ export default function HeroLeadGrid() {
   const [isSliderPaused, setIsSliderPaused] = useState(false);
   const [slideProgress, setSlideProgress] = useState(0);
 
-  // Filter only published/approved articles for public homepage
-  const publishedArticles = (articles || []).filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status));
+  // Filter only published/approved articles for public homepage, sorted newest first
+  const publishedArticles = (articles || [])
+    .filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status))
+    .sort((a, b) => {
+      const timeA = new Date(a.publishedAt || a.published_at || a.createdAt || a.created_at || 0).getTime();
+      const timeB = new Date(b.publishedAt || b.published_at || b.createdAt || b.created_at || 0).getTime();
+      return timeB - timeA;
+    });
   const activeArticleList = publishedArticles;
 
-  // 1. Highlighted News Pool (Admin marked or fallback to lead/recent)
-  const highlightedNews = activeArticleList.filter((a) => a.isHighlighted);
-  const sliderItems = highlightedNews.length > 0 ? highlightedNews : activeArticleList.slice(0, 6);
+  // 1. Highlighted News Pool (Admin marked, max 5 for clean slider layout)
+  const highlightedNews = activeArticleList.filter((a) => a.isHighlighted || a.is_highlighted);
+  const sliderItems = (highlightedNews.length > 0 ? highlightedNews : activeArticleList).slice(0, 5);
 
   // Auto slide highlight carousel with animated progress bar
   useEffect(() => {
@@ -68,11 +74,19 @@ export default function HeroLeadGrid() {
     setSlideProgress(0);
   };
 
-  // 2. Newly Posted Sub-lead News (Uncapped, sorted recent)
-  const newlyPostedNews = activeArticleList;
+  const currentSlideId = currentSlide ? (currentSlide.id || currentSlide.postId || currentSlide.db_id) : null;
 
-  // 3. Most Read Stories - Sorted by views descending
-  const mostReadList = [...activeArticleList].sort((a, b) => (b.views || 0) - (a.views || 0));
+  // 2. Newly Posted Sub-lead News (Uncapped, sorted recent, excludes current lead story)
+  const newlyPostedFiltered = activeArticleList.filter(
+    (a) => (a.id || a.postId || a.db_id) !== currentSlideId
+  );
+  const newlyPostedNews = newlyPostedFiltered.length > 0 ? newlyPostedFiltered : activeArticleList;
+
+  // 3. Most Read Stories - Sorted by views descending, excludes current lead story
+  const mostReadFiltered = [...activeArticleList]
+    .filter((a) => (a.id || a.postId || a.db_id) !== currentSlideId)
+    .sort((a, b) => (b.views || 0) - (a.views || 0));
+  const mostReadList = mostReadFiltered.length > 0 ? mostReadFiltered : activeArticleList;
 
   // 3-Column dynamic ordering
   const defaultColOrder = ['leadSlider', 'newlyPosted', 'mostRead'];
@@ -156,14 +170,14 @@ export default function HeroLeadGrid() {
 
           <div className="hero-main-bottom-row">
             <div className="hero-main-meta">
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Clock size={14} color="var(--primary-red)" />
-                {isBn ? currentSlide.dateBn || currentSlide.dateEn : currentSlide.dateEn || currentSlide.dateBn}
+              <span className="hero-meta-item">
+                <Clock size={13} color="var(--primary-red)" />
+                <span>{isBn ? currentSlide.dateBn || currentSlide.dateEn : currentSlide.dateEn || currentSlide.dateBn}</span>
               </span>
-              <span>|</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <BookOpen size={14} color="var(--primary-red)" />
-                {isBn ? currentSlide.readTimeBn || '৪ মিনিট পড়তে' : currentSlide.readTimeEn || '4 min read'}
+              <span className="hero-meta-divider">|</span>
+              <span className="hero-meta-item">
+                <BookOpen size={13} color="var(--primary-red)" />
+                <span>{isBn ? currentSlide.readTimeBn || '৪ মিনিট পড়তে' : currentSlide.readTimeEn || '4 min read'}</span>
               </span>
             </div>
 

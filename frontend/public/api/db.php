@@ -72,14 +72,10 @@ if ($isLocal) {
     $candidateSets[] = ['node' => 'secondary', 'host' => $backupHost,    'port' => $backupPort,  'user' => $backupUser,  'pass' => $backupPass,  'dbname' => $backupDb];
 } else {
     // Production:
-    // 1. If running on Hosting 1: localhost connects to primary DB 1 in <1ms
+    // 1. If running on Hosting 1: localhost connects to primary DB in <1ms
     $candidateSets[] = ['node' => 'primary',   'host' => 'localhost',    'port' => 3306, 'user' => $primaryUser, 'pass' => $primaryPass, 'dbname' => $primaryDb];
-    // 2. If running on Hosting 2: localhost connects to backup DB 2 in <1ms
+    // 2. If running on Hosting 2: localhost connects to replica DB in <1ms
     $candidateSets[] = ['node' => 'secondary', 'host' => 'localhost',    'port' => 3306, 'user' => $backupUser,  'pass' => $backupPass,  'dbname' => $backupDb];
-    // 3. Remote Fallback to Hosting 2 (if Hosting 1's local MySQL is down)
-    $candidateSets[] = ['node' => 'secondary', 'host' => $backupHost,    'port' => $backupPort,  'user' => $backupUser,  'pass' => $backupPass,  'dbname' => $backupDb];
-    // 4. Remote Fallback to Hosting 1 (if Hosting 2's local MySQL is down)
-    $candidateSets[] = ['node' => 'primary',   'host' => $primaryHost,   'port' => $primaryPort, 'user' => $primaryUser, 'pass' => $primaryPass, 'dbname' => $primaryDb];
 }
 
 $attemptedLogs = [];
@@ -114,28 +110,6 @@ foreach ($candidateSets as $cand) {
             'error_message' => $e->getMessage()
         ];
         $dbError = $e->getMessage();
-    }
-}
-
-/**
- * Secondary DB Replicator Helper
- * Safely mirrors write queries to Secondary DB in background without blocking primary
- */
-function syncQueryToBackupDB($sql, $params = []) {
-    global $options, $backupHost, $backupPort, $backupDb, $backupUser, $backupPass, $activeDbNode;
-    // Only replicate if primary is currently the active node
-    if ($activeDbNode !== 'primary') {
-        return false;
-    }
-    try {
-        $dsn = "mysql:host={$backupHost};port={$backupPort};dbname={$backupDb};charset=utf8mb4";
-        $backupPdo = new PDO($dsn, $backupUser, $backupPass, $options);
-        $stmt = $backupPdo->prepare($sql);
-        return $stmt->execute($params);
-    } catch (Exception $e) {
-        // Silently log failure - does not break primary user request
-        @error_log("[DB2 Sync Note] " . $e->getMessage());
-        return false;
     }
 }
 

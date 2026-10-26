@@ -6,22 +6,65 @@ export default function BreakingTicker() {
   const { language, articles, breakingNews, openArticle } = useNews();
   const isBn = language === 'bn';
 
-  // 1. Breaking News Ticker Items (Horizontal Crawl - strictly published/approved articles)
-  const validArticles = (articles || []).filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status));
-  const tickerItems = validArticles.length > 0
-    ? validArticles
-    : breakingNews.map((b) => ({
-        id: b.id,
-        titleBn: b.textBn,
-        titleEn: b.textEn,
-        categoryBn: 'সর্বশেষ',
-        category: 'Latest'
-      }));
+  // Helper to parse article timestamp
+  const getArticleTimestamp = (art) => {
+    if (!art) return 0;
+    const dateStr = art.publishedAt || art.createdAt || art.dateEn || art.dateBn;
+    if (!dateStr) return 0;
+    let parsed = Date.parse(dateStr);
+    if (isNaN(parsed) && typeof dateStr === 'string') {
+      parsed = Date.parse(dateStr.replace(/-/g, '/'));
+    }
+    return !isNaN(parsed) ? parsed : 0;
+  };
 
-  // 2. Highlighted Headlines (Top Push-Slide Bar - strictly published/approved articles)
-  const publishedPool = validArticles;
-  const highlightedArticles = publishedPool.filter((a) => a.isHighlighted);
-  const highlightItems = highlightedArticles.length > 0 ? highlightedArticles : publishedPool.slice(0, 10);
+  // Valid published articles pool
+  const validArticles = (articles || []).filter((a) => a && (a.status === 'approved' || a.status === 'published' || !a.status));
+
+  // 1. Highlighted Headlines: strictly posts marked as isHighlighted by Admin
+  const highlightedArticles = validArticles.filter(
+    (a) => a.isHighlighted === true || a.is_highlighted === true || a.isHighlighted === 1 || a.is_highlighted === 1
+  );
+
+  const defaultHighlightFallback = [
+    {
+      id: 'default-highlight-1',
+      titleBn: 'জনগণ.নিউজ — জনগণের পক্ষে সত্য ও বস্তুনিষ্ঠ সংবাদের বিশ্বস্ত ডিজিটাল মাধ্যম',
+      titleEn: 'Jonogon News — Voice of the People, Authentic and Verified News',
+      categoryBn: 'হাইলাইটস',
+      category: 'Highlights'
+    }
+  ];
+
+  // Strictly show admin-marked highlights
+  const highlightItems = highlightedArticles.length > 0 ? highlightedArticles : defaultHighlightFallback;
+
+  // 2. Breaking News Ticker (সর্বশেষ সংবাদ): strictly news published within the last 24 hours
+  const now = Date.now();
+  const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
+  const last24HrArticles = validArticles
+    .filter((art) => {
+      const ts = getArticleTimestamp(art);
+      if (!ts) return false;
+      const diff = now - ts;
+      // Within last 24 hours (with 1 hr tolerance for clock variations)
+      return diff <= TWENTY_FOUR_HOURS_MS && diff >= -3600000;
+    })
+    .sort((a, b) => getArticleTimestamp(b) - getArticleTimestamp(a));
+
+  // If news exists within last 24 hours, display all 24hr headlines; otherwise fallback to newest published
+  const tickerItems = last24HrArticles.length > 0
+    ? last24HrArticles
+    : (validArticles.length > 0
+        ? [...validArticles].sort((a, b) => getArticleTimestamp(b) - getArticleTimestamp(a)).slice(0, 15)
+        : breakingNews.map((b) => ({
+            id: b.id,
+            titleBn: b.textBn,
+            titleEn: b.textEn,
+            categoryBn: 'সর্বশেষ',
+            category: 'Latest'
+          })));
 
   const [currentHighlightIdx, setCurrentHighlightIdx] = useState(0);
   const [slideDirection, setSlideDirection] = useState('up');

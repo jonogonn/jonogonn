@@ -69,6 +69,17 @@ export default function SubGroupSections({ subGroupIds = null, targetSubGroupId 
     return list;
   }, [categoryMasterGroups]);
 
+  // Sort all published articles newest first
+  const sortedArticles = useMemo(() => {
+    return (articles || [])
+      .filter((art) => art && (art.status === 'published' || art.status === 'approved' || !art.status))
+      .sort((a, b) => {
+        const dateA = new Date(a.publishedAt || a.published_at || a.createdAt || a.created_at || 0).getTime();
+        const dateB = new Date(b.publishedAt || b.published_at || b.createdAt || b.created_at || 0).getTime();
+        return dateB - dateA;
+      });
+  }, [articles]);
+
   // Helper to extract strictly matching news articles for each sub-group from DB articles (NO random unrelated fallbacks)
   const getSubGroupExactArticles = (subGrp) => {
     if (!subGrp || !Array.isArray(subGrp.items)) return [];
@@ -80,10 +91,7 @@ export default function SubGroupSections({ subGroupIds = null, targetSubGroupId 
     const titleBn = String(subGrp.titleBn || '').trim();
     const titleEn = String(subGrp.titleEn || '').toLowerCase().trim();
 
-    return (articles || []).filter((art) => {
-      // Must be published/approved (or default published if status not explicitly set)
-      if (art.status && art.status !== 'published' && art.status !== 'approved') return false;
-
+    return sortedArticles.filter((art) => {
       const artCat = String(art.category || art.categoryId || '').toLowerCase().trim();
       const artCatBn = String(art.categoryBn || '').trim();
       const artCatEn = String(art.categoryEn || '').toLowerCase().trim();
@@ -95,7 +103,7 @@ export default function SubGroupSections({ subGroupIds = null, targetSubGroupId 
         ? art.tags.map((t) => String(t).toLowerCase().trim())
         : [];
 
-      // 1. Direct match on primary category id or slug
+      // 1. Direct match on primary category id or slug (Strongest)
       if (artCat && (itemIds.includes(artCat) || itemSlugs.includes(artCat))) return true;
 
       // 2. Direct match on localized category name
@@ -108,14 +116,14 @@ export default function SubGroupSections({ subGroupIds = null, targetSubGroupId 
       // 4. Match within tags
       if (artTags.some((t) => itemIds.includes(t) || itemSlugs.includes(t))) return true;
 
-      // 5. Match within cardCategory (e.g. "জাতীয় ও নগর । বাংলাদেশ")
-      if (artCardCat && (itemNamesBn.some(n => artCardCat.includes(n)) || artCardCat.includes(titleBn))) return true;
+      // 5. Match within cardCategory (only if matching a specific item)
+      if (artCardCat && itemNamesBn.some((n) => n.length > 2 && artCardCat.includes(n))) return true;
 
       return false;
     });
   };
 
-  // Filter & Order subgroups: Hide sections if no posts exist in DB, display if >= 1 post exists
+  // Filter & Order subgroups: Hide sections if no posts exist in DB, display if >= 1 post exists, and avoid cross-section duplicates
   const displayedSubGroups = useMemo(() => {
     let subgroupSectionItems = (homepageSections || []).filter(
       (s) => s.type === 'subgroup' || s.id.startsWith('subgroup-')
@@ -134,14 +142,26 @@ export default function SubGroupSections({ subGroupIds = null, targetSubGroupId 
           .filter(Boolean)
       : (subGroupIds || targetSubGroupId ? [] : all24SubGroups);
 
-    // Attach exact articles from DB and strictly filter out any section with 0 articles
-    return baseList
-      .map((sg) => ({
-        ...sg,
-        articles: getSubGroupExactArticles(sg)
-      }))
-      .filter((sg) => sg.articles && sg.articles.length > 0);
-  }, [homepageSections, all24SubGroups, articles, subGroupIds, targetSubGroupId]);
+    const usedArticleIds = new Set();
+    const result = [];
+
+    for (const sg of baseList) {
+      const matched = getSubGroupExactArticles(sg);
+      if (matched.length > 0) {
+        // Prioritize articles not yet shown in earlier subgroups
+        const uniqueArts = matched.filter((a) => !usedArticleIds.has(a.id || a.postId || a.db_id));
+        const finalArts = uniqueArts.length > 0 ? uniqueArts : matched;
+
+        finalArts.slice(0, 9).forEach((a) => usedArticleIds.add(a.id || a.postId || a.db_id));
+        result.push({
+          ...sg,
+          articles: finalArts
+        });
+      }
+    }
+
+    return result;
+  }, [homepageSections, all24SubGroups, sortedArticles, subGroupIds, targetSubGroupId]);
 
   // Helper to get default columns order for a subgroup (from Admin Panel Edit 10)
   const getDefaultColumnsForSubGroup = (subGroupId, index) => {

@@ -22,6 +22,47 @@ export default function ComplaintBoxSection() {
   const { language, settings } = useNews();
   const isBn = language === 'bn';
 
+  // Dynamic Video Config from Admin Panel
+  const complaintVideo = settings?.complaintBoxVideo || {};
+  const rawVideoUrl =
+    (typeof complaintVideo === 'string' ? complaintVideo : complaintVideo?.youtubeUrl) ||
+    settings?.complaintBoxVideoUrl ||
+    'https://youtu.be/Hma2pA8rPe0';
+
+  const getYoutubeId = (url) => {
+    if (!url) return 'Hma2pA8rPe0';
+    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    return match ? match[1] : '';
+  };
+
+  const ytId = getYoutubeId(rawVideoUrl) || 'Hma2pA8rPe0';
+  const videoPoster =
+    (typeof complaintVideo === 'object' && complaintVideo?.posterUrl)
+      ? complaintVideo.posterUrl
+      : (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : '/complaint-video-poster.jpg');
+  const videoTitle = isBn
+    ? ((typeof complaintVideo === 'object' && complaintVideo?.titleBn) || 'জনগণের অভিযোগ ও অনুসন্ধানী প্রতিবেদন')
+    : ((typeof complaintVideo === 'object' && complaintVideo?.titleEn) || 'Public Grievance & Investigative Report');
+  const videoDuration = (typeof complaintVideo === 'object' && complaintVideo?.duration) || '২:১৮';
+
+  const getEmbedUrl = (url) => {
+    if (!url) return `https://www.youtube.com/embed/${ytId}?autoplay=1`;
+    if (url.includes('youtube.com/embed/')) {
+      return url.includes('autoplay') ? url : `${url}${url.includes('?') ? '&' : '?'}autoplay=1`;
+    }
+    const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+    if (shortMatch && shortMatch[1]) {
+      return `https://www.youtube.com/embed/${shortMatch[1]}?autoplay=1`;
+    }
+    const longMatch = url.match(/[?&]v=([a-zA-Z0-9_-]+)/);
+    if (longMatch && longMatch[1]) {
+      return `https://www.youtube.com/embed/${longMatch[1]}?autoplay=1`;
+    }
+    return `https://www.youtube.com/embed/${ytId}?autoplay=1`;
+  };
+
+  const embedUrl = getEmbedUrl(rawVideoUrl);
+
   // Modal States
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isOpeningPaper, setIsOpeningPaper] = useState(false);
@@ -171,7 +212,7 @@ export default function ComplaintBoxSection() {
               title={isBn ? 'ভিডিওটি দেখতে ক্লিক করুন' : 'Click to watch investigative report'}
             >
               <img
-                src="/complaint-video-poster.jpg"
+                src={videoPoster}
                 alt="Bangladesh Investigative Report"
                 className="complaint-video-poster-img"
               />
@@ -192,7 +233,7 @@ export default function ComplaintBoxSection() {
                   <Play size={14} fill="#FFFFFF" color="#FFFFFF" />
                 </button>
 
-                <div className="complaint-player-time">0:00 / 2:18</div>
+                <div className="complaint-player-time">0:00 / {videoDuration}</div>
 
                 <div className="complaint-player-track">
                   <div className="complaint-player-progress"></div>
@@ -545,7 +586,7 @@ export default function ComplaintBoxSection() {
           >
             <div className="complaint-video-modal-header">
               <h4 className="complaint-video-modal-title">
-                {isBn ? 'জনগণের অভিযোগ ও অনুসন্ধানী প্রতিবেদন' : 'Public Grievance & Investigative Report'}
+                {videoTitle}
               </h4>
               <button
                 type="button"
@@ -558,7 +599,7 @@ export default function ComplaintBoxSection() {
             </div>
             <div className="complaint-video-iframe-wrap">
               <iframe
-                src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1"
+                src={embedUrl}
                 title="Investigative Video"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen

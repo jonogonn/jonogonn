@@ -23,6 +23,12 @@ define('DB_BACKUP_USER', getenv('DB_BACKUP_USER') ?: 'jonogonn_admin_backup');
 define('DB_BACKUP_PASS', getenv('DB_BACKUP_PASSWORD') ?: (getenv('DB_BACKUP_PASS') ?: 'Jg#Db!2026@X7pL9'));
 
 // -------------------------------------------------------------
+// SECURE HTTPS REPLICA SYNC (Zero Port 3306 / Zero Leakage)
+// -------------------------------------------------------------
+define('REPLICA_SYNC_ENDPOINT', getenv('REPLICA_SYNC_ENDPOINT') ?: 'https://backup.jonogon.news/api/webhook_sync.php');
+define('REPLICA_SYNC_SECRET', getenv('REPLICA_SYNC_SECRET') ?: 'JgSec_89f41b26d06b4240da5140e159a2026');
+
+// -------------------------------------------------------------
 // 3. BACKBLAZE B2 CLOUD STORAGE (Media Assets: jonogon.news)
 // -------------------------------------------------------------
 define('B2_BUCKET_NAME', getenv('STORAGE_BUCKET_NAME') ?: (getenv('B2_BUCKET_NAME') ?: 'jonogon.news'));

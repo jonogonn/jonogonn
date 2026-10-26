@@ -6,30 +6,84 @@
  */
 
 let cachedWatermarkImage = null;
+let cachedWatermarkUrl = null;
 
 /**
- * Load official logo watermark image (with multi-candidate fallback)
+ * Get watermark configuration from localStorage or defaults
+ */
+export function getWatermarkSettings() {
+  if (typeof window === 'undefined') {
+    return {
+      enabled: true,
+      imageUrl: '/news-card-jonogon-watermark.png',
+      position: 'bottom-full',
+      scale: 100,
+      opacity: 100,
+      margin: 0
+    };
+  }
+  try {
+    const raw = localStorage.getItem('jonogon_settings');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.watermark) {
+        return {
+          enabled: parsed.watermark.enabled !== false,
+          imageUrl: parsed.watermark.imageUrl || '/news-card-jonogon-watermark.png',
+          position: parsed.watermark.position || 'bottom-full',
+          scale: typeof parsed.watermark.scale === 'number' ? parsed.watermark.scale : (parseInt(parsed.watermark.scale, 10) || 100),
+          opacity: typeof parsed.watermark.opacity === 'number' ? parsed.watermark.opacity : (parseInt(parsed.watermark.opacity, 10) || 100),
+          margin: typeof parsed.watermark.margin === 'number' ? parsed.watermark.margin : (parseInt(parsed.watermark.margin, 10) || 0)
+        };
+      }
+    }
+  } catch (e) {
+    // fallback
+  }
+  return {
+    enabled: true,
+    imageUrl: '/news-card-jonogon-watermark.png',
+    position: 'bottom-full',
+    scale: 100,
+    opacity: 100,
+    margin: 0
+  };
+}
+
+/**
+ * Load logo watermark image (with dynamic settings & multi-candidate fallback)
+ * @param {string} customUrl
  * @returns {Promise<HTMLImageElement|null>}
  */
-export function loadWatermarkImage() {
-  if (cachedWatermarkImage && cachedWatermarkImage.complete && cachedWatermarkImage.naturalWidth > 0) {
+export function loadWatermarkImage(customUrl = '') {
+  const currentSettings = getWatermarkSettings();
+  const targetUrl = customUrl || currentSettings.imageUrl || '/news-card-jonogon-watermark.png';
+
+  if (cachedWatermarkImage && cachedWatermarkUrl === targetUrl && cachedWatermarkImage.complete && cachedWatermarkImage.naturalWidth > 0) {
     return Promise.resolve(cachedWatermarkImage);
   }
 
   return new Promise((resolve) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const candidates = [
-      `${origin}/logo-watermark.png`,
-      `${origin}/janogon/logo-watermark.png`,
-      '/logo-watermark.png',
-      '/janogon/logo-watermark.png',
-      'logo-watermark.png',
-      './logo-watermark.png'
-    ];
+    const candidates = [];
+    if (targetUrl) {
+      candidates.push(targetUrl);
+      if (!targetUrl.startsWith('http') && !targetUrl.startsWith('data:')) {
+        candidates.push(`${origin}${targetUrl.startsWith('/') ? '' : '/'}${targetUrl}`);
+      }
+    }
+    candidates.push(
+      `${origin}/news-card-jonogon-watermark.png`,
+      `${origin}/janogon/news-card-jonogon-watermark.png`,
+      '/news-card-jonogon-watermark.png',
+      '/janogon/news-card-jonogon-watermark.png',
+      'news-card-jonogon-watermark.png'
+    );
+    const uniqueCandidates = [...new Set(candidates)];
     let candidateIndex = 0;
 
     const tryNext = () => {
-      if (candidateIndex >= candidates.length) {
+      if (candidateIndex >= uniqueCandidates.length) {
         resolve(null);
         return;
       }
@@ -38,6 +92,7 @@ export function loadWatermarkImage() {
       img.onload = () => {
         if (img.naturalWidth > 0) {
           cachedWatermarkImage = img;
+          cachedWatermarkUrl = targetUrl;
           resolve(img);
         } else {
           candidateIndex++;
@@ -48,7 +103,7 @@ export function loadWatermarkImage() {
         candidateIndex++;
         tryNext();
       };
-      img.src = candidates[candidateIndex];
+      img.src = uniqueCandidates[candidateIndex];
     };
 
     tryNext();
@@ -56,36 +111,98 @@ export function loadWatermarkImage() {
 }
 
 /**
- * Draw logo watermark onto an HTML5 Canvas context
+ * Draw official watermark onto an HTML5 Canvas context
+ * Supports position, scale, opacity, and margin controls
  * @param {CanvasRenderingContext2D} ctx 
  * @param {number} width Canvas width
  * @param {number} height Canvas height
- * @param {HTMLImageElement} watermarkImg Loaded logo-watermark image
- * @param {number} opacity Opacity (default 0.38, matching official sample)
+ * @param {HTMLImageElement} watermarkImg Loaded watermark image
+ * @param {object|number} options Configuration or opacity number
  */
-export function drawLogoWatermark(ctx, width, height, watermarkImg, opacity = 0.38) {
+export function drawLogoWatermark(ctx, width, height, watermarkImg, options = {}) {
   if (!ctx || !watermarkImg) return;
 
-  const wmNaturalW = watermarkImg.naturalWidth || watermarkImg.width || 400;
-  const wmNaturalH = watermarkImg.naturalHeight || watermarkImg.height || 349;
+  const storedConfig = getWatermarkSettings();
+  const config = typeof options === 'object' && options !== null
+    ? { ...storedConfig, ...options }
+    : { ...storedConfig, opacity: typeof options === 'number' ? options : storedConfig.opacity };
+
+  if (config.enabled === false) {
+    return;
+  }
+
+  const wmNaturalW = watermarkImg.naturalWidth || watermarkImg.width || 8711;
+  const wmNaturalH = watermarkImg.naturalHeight || watermarkImg.height || 691;
   const wmAspect = wmNaturalH / wmNaturalW;
 
-  // Proportional width: ~24% to 28% of the image width
-  let wmWidth = Math.round(width * 0.25);
-  if (width > 600) {
-    wmWidth = Math.max(160, Math.min(wmWidth, 420));
-  } else {
-    wmWidth = Math.max(100, Math.min(wmWidth, Math.round(width * 0.45)));
-  }
-  const wmHeight = Math.round(wmWidth * wmAspect);
+  const scaleFactor = Math.max(0.1, Math.min(1.5, (Number(config.scale) || 100) / 100));
+  const rawOpacity = Number(config.opacity);
+  const opacityVal = !isNaN(rawOpacity) ? (rawOpacity > 1 ? rawOpacity / 100 : rawOpacity) : 1.0;
+  const marginPx = Math.max(0, Number(config.margin) || 0);
+  const pos = config.position || 'bottom-full';
 
-  // Position: Center-Center of the image (exactly where the red arrow in user screenshot points)
-  const wmX = Math.round((width - wmWidth) / 2);
-  const wmY = Math.round((height - wmHeight) / 2);
+  let wmWidth = width;
+  let wmHeight = Math.round(width * wmAspect);
+
+  if (pos === 'bottom-full') {
+    wmWidth = Math.round(width * scaleFactor);
+    wmHeight = Math.round(wmWidth * wmAspect);
+    if (wmHeight > Math.round(height * 0.35)) {
+      wmHeight = Math.round(height * 0.25);
+      wmWidth = Math.round(wmHeight / wmAspect);
+    }
+  } else {
+    const baseW = Math.round(width * 0.40);
+    wmWidth = Math.round(baseW * scaleFactor);
+    wmHeight = Math.round(wmWidth * wmAspect);
+
+    if (wmWidth > width - marginPx * 2) {
+      wmWidth = Math.max(50, width - marginPx * 2);
+      wmHeight = Math.round(wmWidth * wmAspect);
+    }
+    if (wmHeight > height - marginPx * 2) {
+      wmHeight = Math.max(20, height - marginPx * 2);
+      wmWidth = Math.round(wmHeight / wmAspect);
+    }
+  }
+
+  let wmX = 0;
+  let wmY = 0;
+
+  switch (pos) {
+    case 'top-left':
+      wmX = marginPx;
+      wmY = marginPx;
+      break;
+    case 'top-right':
+      wmX = width - wmWidth - marginPx;
+      wmY = marginPx;
+      break;
+    case 'center':
+      wmX = Math.round((width - wmWidth) / 2);
+      wmY = Math.round((height - wmHeight) / 2);
+      break;
+    case 'bottom-left':
+      wmX = marginPx;
+      wmY = height - wmHeight - marginPx;
+      break;
+    case 'bottom-right':
+      wmX = width - wmWidth - marginPx;
+      wmY = height - wmHeight - marginPx;
+      break;
+    case 'bottom-center':
+      wmX = Math.round((width - wmWidth) / 2);
+      wmY = height - wmHeight - marginPx;
+      break;
+    case 'bottom-full':
+    default:
+      wmX = Math.round((width - wmWidth) / 2);
+      wmY = height - wmHeight - marginPx;
+      break;
+  }
 
   ctx.save();
-  // Matching user's screenshot watermark opacity: translucent (~0.38)
-  ctx.globalAlpha = opacity;
+  ctx.globalAlpha = Math.max(0.05, Math.min(1.0, opacityVal));
   ctx.drawImage(watermarkImg, wmX, wmY, wmWidth, wmHeight);
   ctx.restore();
 }
@@ -97,24 +214,28 @@ export function drawLogoWatermark(ctx, width, height, watermarkImg, opacity = 0.
  * @param {number} maxDimension Max width/height in px (default 1920)
  * @param {string} customSlug
  * @param {boolean} applyWatermark (default true)
- * @param {number} watermarkOpacity (default 0.38)
+ * @param {object|number} watermarkOptions Options or opacity
  * @returns {Promise<File>}
  */
-export async function convertImageToWebp(file, quality = 0.85, maxDimension = 1920, customSlug = '', applyWatermark = true, watermarkOpacity = 0.38) {
+export async function convertImageToWebp(file, quality = 0.85, maxDimension = 1920, customSlug = '', applyWatermark = true, watermarkOptions = null) {
   if (!file) return file;
+
+  const wmSettings = getWatermarkSettings();
+  const shouldApplyWatermark = applyWatermark && (wmSettings.enabled !== false);
 
   // Pre-load watermark if requested
   let watermarkImg = null;
-  if (applyWatermark) {
+  if (shouldApplyWatermark) {
     try {
-      watermarkImg = await loadWatermarkImage();
+      const customUrl = watermarkOptions?.imageUrl || wmSettings.imageUrl;
+      watermarkImg = await loadWatermarkImage(customUrl);
     } catch (e) {
       console.warn('Could not load watermark:', e);
     }
   }
 
   // If already WebP and no watermark is required, keep as is
-  if (!applyWatermark && file.type === 'image/webp' && file.size < 1024 * 1024 && !customSlug) {
+  if (!shouldApplyWatermark && file.type === 'image/webp' && file.size < 1024 * 1024 && !customSlug) {
     return file;
   }
 
@@ -151,8 +272,8 @@ export async function convertImageToWebp(file, quality = 0.85, maxDimension = 19
           ctx.drawImage(img, 0, 0, width, height);
 
           // Apply logo watermark
-          if (watermarkImg && applyWatermark) {
-            drawLogoWatermark(ctx, width, height, watermarkImg, watermarkOpacity);
+          if (watermarkImg && shouldApplyWatermark) {
+            drawLogoWatermark(ctx, width, height, watermarkImg, watermarkOptions || wmSettings);
           }
 
           canvas.toBlob(
@@ -222,7 +343,7 @@ export async function uploadImageToStorage(rawFile, options = {}) {
   // 1. Client-Side WebP Conversion & Watermark Embedding
   let fileToUpload = rawFile;
   const applyWatermark = options.skipWatermark !== true;
-  const watermarkOpacity = typeof options.watermarkOpacity === 'number' ? options.watermarkOpacity : 0.38;
+  const watermarkOpacity = typeof options.watermarkOpacity === 'number' ? options.watermarkOpacity : 1.0;
   try {
     emitProgress(25, applyWatermark ? 'ছবিতে অফিসিয়াল ওয়াটারমার্ক ও WebP অপ্টিমাইজ হচ্ছে...' : 'WebP অপ্টিমাইজেশন সম্পন্ন...');
     fileToUpload = await convertImageToWebp(rawFile, 0.85, 1920, targetSlug, applyWatermark, watermarkOpacity);

@@ -12,7 +12,15 @@ import {
   MapPin,
   RefreshCw
 } from 'lucide-react';
-import { FacebookIcon, XIcon, PinterestIcon, InstagramIcon, YoutubeIcon } from '../Icons/SocialIcons';
+import {
+  FacebookIcon,
+  XIcon,
+  InstagramIcon,
+  YoutubeIcon,
+  TikTokIcon,
+  TelegramIcon,
+  LinkedInIcon
+} from '../Icons/SocialIcons';
 
 export default function WeatherFollowSidebar() {
   const { language, settings, liveWeather, isWeatherLoading, refreshWeather, userDistrict } = useNews();
@@ -169,65 +177,38 @@ export default function WeatherFollowSidebar() {
         </div>
 
         <div className="follow-buttons-grid">
-          {/* Facebook */}
-          <a
-            href={settings?.facebook || 'https://facebook.com'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="follow-circle-card facebook-card"
-            title="Facebook Page"
-          >
-            <div className="follow-circle-icon fb-bg">
-              <FacebookIcon size={18} color="#FFFFFF" />
-            </div>
-            <span className="follow-count-num">248.1K</span>
-            <span className="follow-action-label">{isBn ? 'পছন্দ' : 'Like'}</span>
-          </a>
-
-          {/* X (Twitter) */}
-          <a
-            href="https://x.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="follow-circle-card x-card"
-            title="X (Twitter)"
-          >
-            <div className="follow-circle-icon x-bg">
-              <XIcon size={16} color="#FFFFFF" />
-            </div>
-            <span className="follow-count-num">69.1K</span>
-            <span className="follow-action-label">{isBn ? 'অনুসরণ' : 'Follow'}</span>
-          </a>
-
-          {/* Pinterest / YouTube */}
-          <a
-            href="https://pinterest.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="follow-circle-card pinterest-card"
-            title="Pinterest"
-          >
-            <div className="follow-circle-icon pin-bg">
-              <PinterestIcon size={17} color="#FFFFFF" />
-            </div>
-            <span className="follow-count-num">134K</span>
-            <span className="follow-action-label">{isBn ? 'পিন' : 'Pin'}</span>
-          </a>
-
-          {/* Instagram */}
-          <a
-            href="https://instagram.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="follow-circle-card instagram-card"
-            title="Instagram"
-          >
-            <div className="follow-circle-icon insta-bg">
-              <InstagramIcon size={17} color="#FFFFFF" />
-            </div>
-            <span className="follow-count-num">54.3K</span>
-            <span className="follow-action-label">{isBn ? 'অনুসরণ' : 'Follow'}</span>
-          </a>
+          {[
+            { key: 'facebook', name: 'Facebook', url: settings?.facebook, Icon: FacebookIcon, bgClass: 'fb-bg', count: '248K', actionBn: 'পছন্দ', actionEn: 'Like' },
+            { key: 'youtube', name: 'YouTube', url: settings?.youtube, Icon: YoutubeIcon, bgClass: 'yt-bg', count: '105K', actionBn: 'সাবস্ক্রাইব', actionEn: 'Subscribe' },
+            { key: 'instagram', name: 'Instagram', url: settings?.instagram, Icon: InstagramIcon, bgClass: 'insta-bg', count: '54K', actionBn: 'অনুসরণ', actionEn: 'Follow' },
+            { key: 'tiktok', name: 'TikTok', url: settings?.tiktok, Icon: TikTokIcon, bgClass: 'tiktok-bg', count: '89K', actionBn: 'অনুসরণ', actionEn: 'Follow' },
+            { key: 'telegram', name: 'Telegram', url: settings?.telegram, Icon: TelegramIcon, bgClass: 'tg-bg', count: '32K', actionBn: 'যুক্ত হন', actionEn: 'Join' },
+            { key: 'linkedin', name: 'LinkedIn', url: settings?.linkedin, Icon: LinkedInIcon, bgClass: 'linkedin-bg', count: '18K', actionBn: 'কানেক্ট', actionEn: 'Connect' },
+            { key: 'twitter', name: 'X', url: settings?.twitter, Icon: XIcon, bgClass: 'x-bg', count: '69K', actionBn: 'অনুসরণ', actionEn: 'Follow' }
+          ]
+            .filter((item) => Boolean(item.url))
+            .slice(0, 4)
+            .map((item) => {
+              const IconComp = item.Icon;
+              return (
+                <a
+                  key={item.key}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="follow-circle-card"
+                  title={item.name}
+                >
+                  <div className={`follow-circle-icon ${item.bgClass}`}>
+                    <IconComp size={18} color="#FFFFFF" />
+                  </div>
+                  <span className="follow-count-num">{item.count}</span>
+                  <span className="follow-action-label">
+                    {isBn ? item.actionBn : item.actionEn}
+                  </span>
+                </a>
+              );
+            })}
         </div>
       </div>
     </div>

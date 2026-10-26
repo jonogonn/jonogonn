@@ -161,6 +161,36 @@ export async function fetchArticlesFromMariaDb(options = {}) {
   return null;
 }
 
+export async function fetchSingleArticleFromMariaDb(idOrSlug) {
+  if (!idOrSlug) return null;
+  const q = `id=${encodeURIComponent(idOrSlug)}&full=1`;
+  const endpoints = getNewsEndpoints(q);
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result && result.success && Array.isArray(result.data) && result.data.length > 0) {
+          const art = result.data[0];
+          const cleanUrl = normalizeImageUrl(art.imageUrl || art.featuredImage);
+          return {
+            ...art,
+            imageUrl: cleanUrl,
+            featuredImage: cleanUrl,
+            thumbnail_image: cleanUrl
+          };
+        }
+      }
+    } catch (err) {
+      // continue
+    }
+  }
+  return null;
+}
+
 export async function syncModuleToMariaDb(module, data) {
   const endpoints = getSyncEndpoints();
   for (const endpoint of endpoints) {

@@ -19,15 +19,23 @@ export default function ArticleModal() {
 
   if (!selectedArticle) return null;
 
+  const getShortShareUrl = (art) => {
+    if (!art) return typeof window !== 'undefined' ? window.location.href : '';
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://jonogon.news';
+    const id = art.db_id || art.id || art.slug;
+    return `${origin}/news/${id}`;
+  };
+
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
+    const shortUrl = getShortShareUrl(selectedArticle);
+    navigator.clipboard.writeText(shortUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
 
   const handleFacebookShare = () => {
-    const url = encodeURIComponent(window.location.href);
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank', 'width=600,height=400');
+    const shortUrl = getShortShareUrl(selectedArticle);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shortUrl)}`, '_blank', 'width=600,height=400');
   };
 
   const relatedArticles = articles

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNews } from '../context/NewsContext';
+import { uploadImageToStorage } from '../utils/imageUploader';
 import {
   Inbox,
   Search,
@@ -18,7 +19,16 @@ import {
   X,
   Check,
   Filter,
-  MoreVertical
+  MoreVertical,
+  Video,
+  Play,
+  Save,
+  Upload,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Image as ImageIcon,
+  Loader2
 } from 'lucide-react';
 
 const CATEGORY_NAMES = {
@@ -32,9 +42,54 @@ const CATEGORY_NAMES = {
 };
 
 export default function ComplaintsManager({ triggerSaveToast }) {
-  const { adminLanguage, language, adminTheme, theme } = useNews();
+  const { adminLanguage, language, adminTheme, theme, settings, updateSiteSettings, showSuccess, showError } = useNews();
   const isBn = (adminLanguage || language) === 'bn';
   const isLight = (adminTheme || theme) === 'light';
+
+  // Complaint Box Video Link Management
+  const [complaintVideoUrl, setComplaintVideoUrl] = useState(
+    settings?.complaintBoxVideo?.youtubeUrl || settings?.complaintBoxVideoUrl || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+  );
+  const [isSavingVideo, setIsSavingVideo] = useState(false);
+
+  useEffect(() => {
+    const currentUrl = settings?.complaintBoxVideo?.youtubeUrl || settings?.complaintBoxVideoUrl;
+    if (currentUrl) {
+      setComplaintVideoUrl(currentUrl);
+    }
+  }, [settings?.complaintBoxVideo, settings?.complaintBoxVideoUrl]);
+
+  const handleSaveVideoSettings = async (e) => {
+    if (e) e.preventDefault();
+    setIsSavingVideo(true);
+    try {
+      const trimmedUrl = (complaintVideoUrl || '').trim();
+      const updatedComplaintBoxVideo = {
+        ...(settings?.complaintBoxVideo || {}),
+        youtubeUrl: trimmedUrl
+      };
+
+      if (updateSiteSettings) {
+        await updateSiteSettings({
+          complaintBoxVideo: updatedComplaintBoxVideo,
+          complaintBoxVideoUrl: trimmedUrl
+        });
+      }
+
+      if (triggerSaveToast) {
+        triggerSaveToast(isBn ? 'ভিডিও লিংক সফলভাবে সংরক্ষিত হয়েছে!' : 'Video link saved successfully!');
+      } else if (showSuccess) {
+        showSuccess(isBn ? 'ভিডিও লিংক সফলভাবে সংরক্ষিত হয়েছে!' : 'Video link saved successfully!');
+      }
+    } catch (err) {
+      console.error('Failed to save complaint box video URL:', err);
+      if (showError) {
+        showError(isBn ? 'ভিডিও লিংক সংরক্ষণ ব্যর্থ হয়েছে' : 'Failed to save video link');
+      }
+    } finally {
+      setIsSavingVideo(false);
+    }
+  };
 
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -367,6 +422,101 @@ export default function ComplaintsManager({ triggerSaveToast }) {
             {resolvedCount}
           </div>
         </div>
+      </div>
+
+      {/* 2.5. Complaint Box Video Link Setting */}
+      <div
+        className="admin-card"
+        style={{
+          borderRadius: 10,
+          marginBottom: 20,
+          padding: '16px 20px',
+          border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.1)',
+          backgroundColor: isLight ? '#FFFFFF' : '#161B26',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+        }}
+      >
+        <form onSubmit={handleSaveVideoSettings}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <Video size={20} color="var(--primary-red)" />
+            <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: isLight ? '#0F172A' : '#FFFFFF' }}>
+              {isBn ? 'অভিযোগ বক্স ভিডিও লিংক' : 'Complaint Box Video Link'}
+            </h3>
+          </div>
+          <p style={{ margin: '0 0 12px 0', fontSize: '0.8rem', color: isLight ? '#64748B' : '#94A3B8' }}>
+            {isBn
+              ? 'ওয়েবসাইটের অভিযোগ বক্সে প্রদর্শনের জন্য ইউটিউব ভিডিও লিংক পেস্ট করে সংরক্ষণ করুন।'
+              : 'Paste your YouTube video link to display in the Complaint Box.'}
+          </p>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ flex: '1 1 300px', display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input
+                type="url"
+                required
+                className="admin-input"
+                value={complaintVideoUrl}
+                onChange={(e) => setComplaintVideoUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=... বা https://youtu.be/..."
+                style={{ flex: 1, height: 42, borderRadius: 6, padding: '0 12px' }}
+              />
+              {complaintVideoUrl && (
+                <a
+                  href={complaintVideoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="admin-btn-secondary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '0 12px',
+                    height: 42,
+                    borderRadius: 6,
+                    fontSize: '0.8rem',
+                    textDecoration: 'none'
+                  }}
+                  title={isBn ? 'ভিডিও দেখুন' : 'Open Video'}
+                >
+                  <ExternalLink size={14} />
+                </a>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSavingVideo}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '0 22px',
+                height: 42,
+                backgroundColor: 'var(--primary-red)',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: 6,
+                fontSize: '0.86rem',
+                fontWeight: 800,
+                cursor: isSavingVideo ? 'not-allowed' : 'pointer',
+                opacity: isSavingVideo ? 0.7 : 1,
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {isSavingVideo ? (
+                <>
+                  <Loader2 size={16} className="spin-anim" />
+                  <span>{isBn ? 'সংরক্ষণ হচ্ছে...' : 'Saving...'}</span>
+                </>
+              ) : (
+                <>
+                  <Save size={16} />
+                  <span>{isBn ? 'সংরক্ষণ করুন' : 'Save'}</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* 3. Search and Filters Bar */}

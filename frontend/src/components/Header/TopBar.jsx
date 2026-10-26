@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNews } from '../../context/NewsContext';
 import { CloudSun, Sun, Moon, Cloud, CloudRain, CloudLightning, ShieldAlert } from 'lucide-react';
-import { FacebookIcon, YoutubeIcon } from '../Icons/SocialIcons';
+import {
+  FacebookIcon,
+  YoutubeIcon,
+  InstagramIcon,
+  TikTokIcon,
+  TelegramIcon,
+  LinkedInIcon,
+  XIcon
+} from '../Icons/SocialIcons';
 
 export default function TopBar() {
   const {
@@ -139,7 +147,7 @@ export default function TopBar() {
 
           {/* Social Icons */}
           <div className="topbar-social">
-            {settings.facebook && (
+            {settings?.facebook && (
               <a
                 href={settings.facebook}
                 target="_blank"
@@ -151,7 +159,7 @@ export default function TopBar() {
                 <FacebookIcon size={14} />
               </a>
             )}
-            {settings.youtube && (
+            {settings?.youtube && (
               <a
                 href={settings.youtube}
                 target="_blank"
@@ -161,6 +169,66 @@ export default function TopBar() {
                 className="topbar-social-icon"
               >
                 <YoutubeIcon size={14} />
+              </a>
+            )}
+            {settings?.instagram && (
+              <a
+                href={settings.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Instagram"
+                aria-label="Instagram Profile"
+                className="topbar-social-icon"
+              >
+                <InstagramIcon size={14} />
+              </a>
+            )}
+            {settings?.tiktok && (
+              <a
+                href={settings.tiktok}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="TikTok"
+                aria-label="TikTok Profile"
+                className="topbar-social-icon"
+              >
+                <TikTokIcon size={14} />
+              </a>
+            )}
+            {settings?.telegram && (
+              <a
+                href={settings.telegram}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Telegram"
+                aria-label="Telegram Channel"
+                className="topbar-social-icon"
+              >
+                <TelegramIcon size={14} />
+              </a>
+            )}
+            {settings?.linkedin && (
+              <a
+                href={settings.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="LinkedIn"
+                aria-label="LinkedIn Page"
+                className="topbar-social-icon"
+              >
+                <LinkedInIcon size={14} />
+              </a>
+            )}
+            {settings?.twitter && (
+              <a
+                href={settings.twitter}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="X (Twitter)"
+                aria-label="X Profile"
+                className="topbar-social-icon"
+              >
+                <XIcon size={13} />
               </a>
             )}
           </div>
