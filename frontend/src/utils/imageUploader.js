@@ -355,21 +355,26 @@ export async function uploadImageToStorage(rawFile, options = {}) {
   // 2. Upload via backend /api/upload.php using XMLHttpRequest for real progress
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
   const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
-  const endpoints = [
-    '/janogon/api/upload.php',
-    '/api/upload.php',
-    'api/upload.php'
-  ];
-  if (isLocal) {
-    endpoints.push('http://localhost/janogon/api/upload.php');
-    endpoints.push('http://127.0.0.1/janogon/api/upload.php');
-  } else {
-    endpoints.push('https://jonogon.news/api/upload.php');
+
+  let subDir = '';
+  if (pathname.includes('/janogon.news')) subDir = '/janogon.news';
+  else if (pathname.includes('/janogon')) subDir = '/janogon';
+
+  const endpoints = [];
+  if (subDir) {
+    endpoints.push(`${subDir}/api/upload.php`);
   }
+  endpoints.push('/api/upload.php', 'api/upload.php');
   if (origin) {
-    endpoints.unshift(`${origin}/janogon/api/upload.php`);
+    if (subDir) endpoints.push(`${origin}${subDir}/api/upload.php`);
     endpoints.push(`${origin}/api/upload.php`);
+    endpoints.push(`${origin}/janogon.news/api/upload.php`);
+    endpoints.push(`${origin}/janogon/api/upload.php`);
+  }
+  if (!isLocal) {
+    endpoints.push('https://jonogon.news/api/upload.php');
   }
   const uniqueEndpoints = [...new Set(endpoints)];
 
@@ -427,7 +432,7 @@ export async function uploadImageToStorage(rawFile, options = {}) {
         if (!silent && typeof window !== 'undefined') {
           window.dispatchEvent(
             new CustomEvent('site_upload_complete', {
-              detail: { progress: 100, statusText: 'সফলভাবে ক্লাউডে আপলোড হয়েছে!', fileName }
+              detail: { progress: 100, statusText: 'সফলভাবে আপলোড হয়েছে!', fileName }
             })
           );
         }
@@ -445,18 +450,13 @@ export async function uploadImageToStorage(rawFile, options = {}) {
   if (!silent && typeof window !== 'undefined') {
     window.dispatchEvent(
       new CustomEvent('site_upload_error', {
-        detail: { message: 'সার্ভার আপলোড ব্যাহত, লোকাল প্রিভিউ ব্যবহার করা হচ্ছে' }
+        detail: { message: 'সার্ভার আপলোড ব্যাহত: ' + (lastError?.message || 'ত্রুটি') }
       })
     );
   }
 
-  // 3. Fallback: Return persistent DataURL (so preview stays visible without broken blob)
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target.result);
-    reader.onerror = () => resolve('');
-    reader.readAsDataURL(fileToUpload);
-  });
+  // 3. Strictly reject: Never return raw Base64 strings to prevent DB bloat
+  throw (lastError || new Error('ছবি সার্ভারে আপলোড হতে ব্যর্থ হয়েছে।'));
 }
 
 export default uploadImageToStorage;

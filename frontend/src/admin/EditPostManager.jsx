@@ -308,11 +308,6 @@ export default function EditPostManager({ triggerSaveToast, onNavigateToApprove,
             <Edit size={22} color="var(--primary-red)" />
             <span>{isBn ? 'পোস্ট সম্পাদনা ও খসড়া তালিকা' : 'Edit Post & Drafts'}</span>
           </h2>
-          <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-            {isBn
-              ? 'এখানে কেবলমাত্র খসড়া ও সংশোধনাধীন পোস্টগুলো সম্পাদনা করুন। "অনুমোদনের আবেদন" বাটনে ক্লিক করলে তা সরাসরি Approve Post ট্যাবে স্থানান্তরিত হবে।'
-              : 'Edit your drafts and revisions. Requesting approval will move them directly to the Approve Post tab.'}
-          </p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

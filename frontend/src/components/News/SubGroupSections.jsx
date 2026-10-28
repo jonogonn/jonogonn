@@ -229,6 +229,10 @@ export default function SubGroupSections({ subGroupIds = null, targetSubGroupId 
                       alt={isBn ? art.titleBn : art.titleEn}
                       className="subgroup-small-thumb"
                       loading="lazy"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=300&q=80';
+                      }}
                     />
                   </div>
                   <div className="subgroup-small-content">
@@ -266,6 +270,10 @@ export default function SubGroupSections({ subGroupIds = null, targetSubGroupId 
                       alt={isBn ? heroArticle.titleBn : heroArticle.titleEn}
                       className="subgroup-hero-img"
                       loading="lazy"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&q=80';
+                      }}
                     />
                     <div className="subgroup-hero-badge-overlay">
                       <span className="subgroup-hero-cat-tag">

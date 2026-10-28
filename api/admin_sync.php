@@ -78,7 +78,7 @@ if ($method === 'GET') {
         }
 
         // 2. Homepage Sections
-        if (!$type || $type === 'sections' || $type === 'all') {
+        if (!$type || $type === 'sections' || $type === 'homepageSections' || $type === 'homepage_sections' || $type === 'all') {
             $secStmt = $pdo->query("SELECT * FROM `homepage_sections` ORDER BY `order_index` ASC, `id` ASC");
             $secRows = $secStmt ? $secStmt->fetchAll(PDO::FETCH_ASSOC) : [];
             $homepageSections = [];
@@ -169,7 +169,7 @@ if ($method === 'GET') {
         }
 
         // 4. Emergency Services
-        if (!$type || $type === 'emergency' || $type === 'all') {
+        if (!$type || $type === 'emergency' || $type === 'emergencyServices' || $type === 'emergency_services' || $type === 'all') {
             $emgStmt = $pdo->query("SELECT * FROM `emergency_services` ORDER BY `order_index` ASC");
             $emgRows = $emgStmt ? $emgStmt->fetchAll(PDO::FETCH_ASSOC) : [];
             $emergencyServices = [];
@@ -191,10 +191,44 @@ if ($method === 'GET') {
             $results['emergencyServices'] = $emergencyServices;
         }
 
-        // 5. Ads Config
+        // 5. Ads Config & Ad Slots
         if (!$type || $type === 'ads' || $type === 'all') {
             $adsStmt = $pdo->query("SELECT * FROM `ads_config` ORDER BY `id` ASC");
-            $results['adsConfig'] = $adsStmt ? $adsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $adsRows = $adsStmt ? $adsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            $results['adsConfig'] = $adsRows;
+
+            // Build adSlots dictionary for NewsContext and AdsManager
+            $adSlotsObj = [];
+            foreach ($adsRows as $ar) {
+                $sId = $ar['slot_id'] ?: ($ar['ad_slot'] ?: '');
+                if (!$sId) continue;
+                $adSlotsObj[$sId] = [
+                    'enabled' => !empty($ar['is_active']),
+                    'mode' => !empty($ar['banner_image_url']) || !empty($ar['image_url']) ? 'image' : 'code',
+                    'imageUrl' => $ar['banner_image_url'] ?: ($ar['image_url'] ?: ''),
+                    'targetUrl' => $ar['target_url'] ?: '',
+                    'code' => $ar['custom_html'] ?: ($ar['ad_code'] ?: ($ar['slot_code'] ?: '')),
+                    'fallbackText' => $ar['slot_name_bn'] ?: $sId
+                ];
+            }
+
+            // Also merge adSlots from site_settings if available
+            try {
+                $setAdSlots = $pdo->query("SELECT `setting_value` FROM `site_settings` WHERE `setting_key` = 'adSlots' LIMIT 1")->fetchColumn();
+                if ($setAdSlots) {
+                    $decodedSlots = json_decode($setAdSlots, true);
+                    if (is_array($decodedSlots)) {
+                        $adSlotsObj = array_merge($adSlotsObj, $decodedSlots);
+                    }
+                }
+                $cId = $pdo->query("SELECT `setting_value` FROM `site_settings` WHERE `setting_key` = 'adSenseClientId' OR `setting_key` = 'adsenseClientId' LIMIT 1")->fetchColumn();
+                $aEnabled = $pdo->query("SELECT `setting_value` FROM `site_settings` WHERE `setting_key` = 'adSenseEnabled' LIMIT 1")->fetchColumn();
+                $results['adSenseClientId'] = $cId ?: 'ca-pub-9876543210987654';
+                $results['adsenseClientId'] = $results['adSenseClientId'];
+                $results['adSenseEnabled'] = ($aEnabled !== false && $aEnabled !== null) ? (bool)$aEnabled : true;
+            } catch (Throwable $e) {}
+
+            $results['adSlots'] = $adSlotsObj;
         }
 
         // 6. Site Settings
@@ -282,25 +316,34 @@ if ($method === 'POST') {
 
         // 2. Save Homepage Sections
         if ($module === 'sections' || $module === 'homepageSections' || $module === 'homepage_sections') {
-            if (is_array($data)) {
-                $pdo->beginTransaction();
-                $pdo->exec("DELETE FROM `homepage_sections`");
-                $secStmt = $pdo->prepare("
-                    INSERT INTO `homepage_sections` (
-                        `section_id`, `title_bn`, `name_bn`, `title_en`, `name_en`, `is_visible`, `order_index`, `layout_type`, `config_json`
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ");
-                foreach ($data as $idx => $s) {
-                    $secId = $s['id'] ?? ('sec-' . $idx);
-                    $titleBn = $s['nameBn'] ?? ($s['title_bn'] ?? '');
-                    $titleEn = $s['nameEn'] ?? ($s['title_en'] ?? '');
-                    $visible = !empty($s['isVisible']) ? 1 : 0;
-                    $layout = $s['type'] ?? ($s['layout_type'] ?? 'main');
-                    $configJson = json_encode($s, JSON_UNESCAPED_UNICODE);
-                    $secStmt->execute([$secId, $titleBn, $titleBn, $titleEn, $titleEn, $visible, $idx, $layout, $configJson]);
-                }
-                $pdo->commit();
+            $sectionsList = isset($data['homepageSections']) ? $data['homepageSections'] : (isset($data['sections']) ? $data['sections'] : $data);
+            if (!is_array($sectionsList) || count($sectionsList) < 7) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'হোমপেজ সেকশন ডাটা অসম্পূর্ণ (কমপক্ষে ৭টি সেকশন প্রয়োজন)। ডাটাবেজের মূল সেকশনসমূহ সুরক্ষিত রাখা হয়েছে।'
+                ], JSON_UNESCAPED_UNICODE);
+                exit;
             }
+
+            $pdo->beginTransaction();
+            $pdo->exec("DELETE FROM `homepage_sections`");
+            $secStmt = $pdo->prepare("
+                INSERT INTO `homepage_sections` (
+                    `section_id`, `title_bn`, `name_bn`, `title_en`, `name_en`, `is_visible`, `order_index`, `layout_type`, `config_json`
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            foreach ($sectionsList as $idx => $s) {
+                $secId = $s['id'] ?? ('sec-' . $idx);
+                $titleBn = $s['nameBn'] ?? ($s['title_bn'] ?? '');
+                $titleEn = $s['nameEn'] ?? ($s['title_en'] ?? '');
+                $visible = (!isset($s['isVisible']) || !empty($s['isVisible'])) ? 1 : 0;
+                $layout = $s['type'] ?? ($s['layout_type'] ?? 'main');
+                $configJson = json_encode($s, JSON_UNESCAPED_UNICODE);
+                $secStmt->execute([$secId, $titleBn, $titleBn, $titleEn, $titleEn, $visible, $idx, $layout, $configJson]);
+            }
+            $pdo->commit();
+
             echo json_encode(['success' => true, 'message' => 'হোমপেজ লেআউট সেকশনগুলো MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
             exit;
         }
@@ -560,7 +603,24 @@ if ($method === 'POST') {
 
         // 5. Save Emergency Helplines
         if ($module === 'emergency' || $module === 'emergencyServices' || $module === 'emergency_services') {
-            if (is_array($data)) {
+            // Handle explicit delete request
+            if (isset($payload['action']) && $payload['action'] === 'delete' && !empty($payload['id'])) {
+                $delStmt = $pdo->prepare("DELETE FROM `emergency_services` WHERE `service_id` = ? OR `id` = ?");
+                $delStmt->execute([$payload['id'], $payload['id']]);
+                echo json_encode(['success' => true, 'message' => 'জরুরি সেবা সফলভাবে মুছে ফেলা হয়েছে।'], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+
+            $items = [];
+            if (isset($data['emergencyServices']) && is_array($data['emergencyServices'])) {
+                $items = $data['emergencyServices'];
+            } elseif (isset($data['data']) && is_array($data['data'])) {
+                $items = $data['data'];
+            } elseif (is_array($data)) {
+                $items = (isset($data[0]) || empty($data)) ? $data : [$data];
+            }
+
+            if (!empty($items)) {
                 $emgStmt = $pdo->prepare("
                     INSERT INTO `emergency_services` (
                         `service_id`, `name_bn`, `name_en`, `phone`, `number`, `district`,
@@ -582,28 +642,42 @@ if ($method === 'POST') {
                         `order_index` = VALUES(`order_index`),
                         `is_active` = VALUES(`is_active`)
                 ");
-                foreach ($data as $idx => $e) {
-                    $srvId = $e['id'] ?? ($e['service_id'] ?? ('srv-' . $idx));
+
+                $syncedIds = [];
+                foreach ($items as $idx => $e) {
+                    if (!is_array($e)) continue;
+                    $srvId = $e['id'] ?? ($e['service_id'] ?? ('srv-' . ($idx + 1)));
                     $nameBn = $e['nameBn'] ?? ($e['name_bn'] ?? '');
-                    $nameEn = $e['nameEn'] ?? ($e['name_en'] ?? '');
+                    $nameEn = $e['nameEn'] ?? ($e['name_en'] ?? $nameBn);
                     $num = $e['number'] ?? ($e['phone'] ?? '');
                     $catBn = $e['categoryBn'] ?? ($e['category_bn'] ?? 'জরুরি সেবা');
                     $catEn = $e['categoryEn'] ?? ($e['category_en'] ?? 'Emergency');
                     $descBn = $e['descriptionBn'] ?? ($e['description_bn'] ?? '');
-                    $descEn = $e['descriptionEn'] ?? ($e['description_en'] ?? '');
+                    $descEn = $e['descriptionEn'] ?? ($e['description_en'] ?? $descBn);
                     $web = $e['websiteUrl'] ?? ($e['website_url'] ?? '');
                     $icon = $e['icon'] ?? 'phone';
                     $order = (int)($e['orderIndex'] ?? ($e['order_index'] ?? $idx));
-                    $active = !empty($e['isActive']) || !empty($e['is_active']) ? 1 : 1;
+                    $active = (!isset($e['isActive']) || !empty($e['isActive'])) && (!isset($e['is_active']) || !empty($e['is_active'])) ? 1 : 0;
 
-                    $emgStmt->execute([
-                        $srvId, $nameBn, $nameEn, $num, $num, 'সারাদেশ',
-                        $catBn, $catBn, $catEn, $descBn, $descEn,
-                        $web, $icon, $order, $active
-                    ]);
+                    if ($srvId && $nameBn) {
+                        $emgStmt->execute([
+                            $srvId, $nameBn, $nameEn, $num, $num, 'সারাদেশ',
+                            $catBn, $catBn, $catEn, $descBn, $descEn,
+                            $web, $icon, $order, $active
+                        ]);
+                        $syncedIds[] = $srvId;
+                    }
+                }
+
+                // If syncing a full batch of at least 3 items, delete rows from DB that were removed on frontend
+                if (count($syncedIds) >= 3) {
+                    $inPlaceholders = implode(',', array_fill(0, count($syncedIds), '?'));
+                    $cleanStmt = $pdo->prepare("DELETE FROM `emergency_services` WHERE `service_id` NOT IN ($inPlaceholders)");
+                    $cleanStmt->execute($syncedIds);
                 }
             }
-            echo json_encode(['success' => true, 'message' => 'জরুরি সেবা ডাটা MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
+
+            echo json_encode(['success' => true, 'message' => 'জরুরি সেবা ডাটা MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।'], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
@@ -634,24 +708,57 @@ if ($method === 'POST') {
         // 7. Save Ads Config
         if ($module === 'ads' || $module === 'adsConfig' || $module === 'ads_config') {
             if (is_array($data)) {
+                // If adSenseEnabled or adSenseClientId are present, persist directly to site_settings
+                if (isset($data['adSenseEnabled'])) {
+                    $pdo->prepare("INSERT INTO `site_settings` (`setting_key`, `setting_value`) VALUES ('adSenseEnabled', ?) ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)")
+                        ->execute([$data['adSenseEnabled'] ? '1' : '0']);
+                }
+                if (!empty($data['adSenseClientId']) || !empty($data['adsenseClientId'])) {
+                    $cId = !empty($data['adSenseClientId']) ? $data['adSenseClientId'] : $data['adsenseClientId'];
+                    $pdo->prepare("INSERT INTO `site_settings` (`setting_key`, `setting_value`) VALUES ('adSenseClientId', ?) ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)")
+                        ->execute([$cId]);
+                }
+                if (!empty($data['adSlots']) && is_array($data['adSlots'])) {
+                    $pdo->prepare("INSERT INTO `site_settings` (`setting_key`, `setting_value`) VALUES ('adSlots', ?) ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)")
+                        ->execute([json_encode($data['adSlots'], JSON_UNESCAPED_UNICODE)]);
+                }
+
+                $slotsToProcess = !empty($data['adSlots']) && is_array($data['adSlots']) ? $data['adSlots'] : $data;
+
                 $adsStmt = $pdo->prepare("
-                    INSERT INTO `ads_config` (`ad_slot`, `ad_code`, `image_url`, `target_url`, `is_active`)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO `ads_config` (
+                        `slot_id`, `ad_slot`, `slot_name_bn`, `slot_name_en`, `ad_code`, `custom_html`, `banner_image_url`, `image_url`, `target_url`, `is_active`
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
+                        `ad_slot` = VALUES(`ad_slot`),
+                        `slot_name_bn` = VALUES(`slot_name_bn`),
+                        `slot_name_en` = VALUES(`slot_name_en`),
                         `ad_code` = VALUES(`ad_code`),
+                        `custom_html` = VALUES(`custom_html`),
+                        `banner_image_url` = VALUES(`banner_image_url`),
                         `image_url` = VALUES(`image_url`),
                         `target_url` = VALUES(`target_url`),
                         `is_active` = VALUES(`is_active`)
                 ");
-                foreach ($data as $slotKey => $slotVal) {
-                    $adCode = is_array($slotVal) ? ($slotVal['code'] ?? '') : '';
-                    $imageUrl = is_array($slotVal) ? ($slotVal['imageUrl'] ?? '') : '';
-                    $targetUrl = is_array($slotVal) ? ($slotVal['targetUrl'] ?? '') : '';
-                    $isActive = is_array($slotVal) ? (!empty($slotVal['enabled']) ? 1 : 0) : 1;
-                    $adsStmt->execute([$slotKey, $adCode, $imageUrl, $targetUrl, $isActive]);
+
+                foreach ($slotsToProcess as $slotKey => $slotVal) {
+                    if ($slotKey === 'adSenseEnabled' || $slotKey === 'adSenseClientId' || $slotKey === 'adsenseClientId') continue;
+                    if (!is_array($slotVal)) continue;
+
+                    $slotId = $slotKey;
+                    $adCode = $slotVal['code'] ?? ($slotVal['ad_code'] ?? ($slotVal['custom_html'] ?? ''));
+                    $imageUrl = $slotVal['imageUrl'] ?? ($slotVal['banner_image_url'] ?? ($slotVal['image_url'] ?? ''));
+                    $targetUrl = $slotVal['targetUrl'] ?? ($slotVal['target_url'] ?? '');
+                    $isActive = !empty($slotVal['enabled']) || !empty($slotVal['is_active']) ? 1 : 0;
+                    $nameBn = $slotVal['altText'] ?? ($slotVal['fallbackText'] ?? ($slotVal['nameBn'] ?? $slotId));
+                    $nameEn = $slotVal['nameEn'] ?? $slotId;
+
+                    $adsStmt->execute([
+                        $slotId, $slotId, $nameBn, $nameEn, $adCode, $adCode, $imageUrl, $imageUrl, $targetUrl, $isActive
+                    ]);
                 }
             }
-            echo json_encode(['success' => true, 'message' => 'বিজ্ঞাপন কনফিগারেশন MariaDB-তে সংরক্ষিত হয়েছে।']);
+            echo json_encode(['success' => true, 'message' => 'বিজ্ঞাপন কনফিগারেশন MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
             exit;
         }
 
@@ -667,7 +774,7 @@ if ($method === 'POST') {
         echo json_encode(['success' => true, 'message' => "Module '$module' updated."]);
         exit;
 
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
         exit;

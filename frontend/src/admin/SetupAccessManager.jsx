@@ -1043,43 +1043,10 @@ export default function SetupAccessManager({ triggerSaveToast }) {
                   color: 'var(--text-primary)'
                 }}
               >
-                {isBn ? 'টিম ও এক্সেস কন্ট্রোল (Setup Access)' : 'Team Access & Permissions'}
+                {isBn ? 'টিম ও এক্সেস কন্ট্রোল' : 'Team Access & Permissions'}
               </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                  {isBn ? 'Supabase ক্লাউড কানেকশন:' : 'Supabase Cloud Database:'}
-                </span>
-                <span
-                  style={{
-                    fontSize: '0.72rem',
-                    fontWeight: 800,
-                    padding: '2px 8px',
-                    borderRadius: 10,
-                    backgroundColor: supabaseConnected ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                    color: supabaseConnected ? '#10B981' : '#EF4444',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      backgroundColor: supabaseConnected ? '#10B981' : '#EF4444'
-                    }}
-                  />
-                  {supabaseConnected ? 'Live RLS Connected (mxzsmulbandttegciiiy)' : 'Offline Local Mode'}
-                </span>
-              </div>
             </div>
           </div>
-          <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-muted)' }}>
-            {isBn
-              ? 'টিম সদস্যদের নাম, ক্রেডেনশিয়াল (ইউজারনেম/পাসওয়ার্ড), সরাসরি হোয়াটসঅ্যাপ যোগাযোগ এবং ১৪টি সাইডবার ট্যাবের এক্সেস পারমিশন নিয়ন্ত্রণ করুন।'
-              : 'Manage team access credentials, direct WhatsApp contacts, and granular sidebar tab permissions.'}
-          </p>
         </div>
 
         {/* Action Buttons */}

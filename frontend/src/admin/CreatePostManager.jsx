@@ -1133,7 +1133,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
 
   // Compile Blocks to HTML
   const compileBlocksToHtml = () => {
-    return blocks
+    const html = blocks
       .map((b) => {
         switch (b.type) {
           case 'heading': {
@@ -1141,7 +1141,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
             return `<${TagName} class="post-heading ${TagName}">${b.content || ''}</${TagName}>`;
           }
           case 'image': {
-            const imgSrc = b.previewUrl || b.url || '';
+            const imgSrc = b.url || (b.previewUrl && !b.previewUrl.startsWith('data:') && !b.previewUrl.startsWith('blob:') ? b.previewUrl : '');
             return imgSrc
               ? `<figure class="post-figure" style="margin: 20px 0; text-align: center; width: 100%;"><img src="${imgSrc}" alt="${b.caption || 'Image'}" class="post-image" style="width: 100%; height: auto; max-width: 100%; object-fit: contain; border-radius: 8px; display: block; margin: 0 auto;" />${
                   b.caption ? `<figcaption class="post-caption" style="font-size: 0.84rem; color: #888888; margin-top: 8px; font-style: italic; text-align: center;">${b.caption}</figcaption>` : ''
@@ -1189,6 +1189,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
         }
       })
       .join('\n');
+    return html.replace(/\s+onerror=(["']).*?\1/gi, '');
   };
 
   // Submit Post for Review (জমা দিন — Direct publish disallowed)
@@ -1198,6 +1199,20 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
       return;
     }
 
+    const hasUploadingImages = blocks.some((b) => b.type === 'image' && b.isUploading);
+    if (hasUploadingImages) {
+      showError(isBn ? 'ছবি সার্ভারে আপলোড সম্পন্ন হওয়া পর্যন্ত অপেক্ষা করুন।' : 'Please wait for images to finish uploading.');
+      return;
+    }
+
+    const cleanedBlocks = blocks.map((b) => {
+      if (b.type === 'image') {
+        const cleanUrl = b.url || (b.previewUrl && !b.previewUrl.startsWith('data:') && !b.previewUrl.startsWith('blob:') ? b.previewUrl : '');
+        return { ...b, url: cleanUrl, previewUrl: cleanUrl, isUploading: false };
+      }
+      return b;
+    });
+
     const compiledHtml = compileBlocksToHtml();
 
     const postPayload = {
@@ -1205,7 +1220,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
       titleEn: mainTitle,
       kicker: kicker || '',
       slug: slug || `post-${Date.now()}`,
-      blocks: blocks,
+      blocks: cleanedBlocks,
       category: primaryCatId,
       categoryBn: primaryCatObj?.nameBn || 'বাংলাদেশ',
       categoryEn: primaryCatObj?.nameEn || 'Bangladesh',
@@ -1277,6 +1292,20 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
       return;
     }
 
+    const hasUploadingImages = blocks.some((b) => b.type === 'image' && b.isUploading);
+    if (hasUploadingImages) {
+      showError(isBn ? 'ছবি সার্ভারে আপলোড সম্পন্ন হওয়া পর্যন্ত অপেক্ষা করুন।' : 'Please wait for images to finish uploading.');
+      return;
+    }
+
+    const cleanedBlocks = blocks.map((b) => {
+      if (b.type === 'image') {
+        const cleanUrl = b.url || (b.previewUrl && !b.previewUrl.startsWith('data:') && !b.previewUrl.startsWith('blob:') ? b.previewUrl : '');
+        return { ...b, url: cleanUrl, previewUrl: cleanUrl, isUploading: false };
+      }
+      return b;
+    });
+
     const compiledHtml = compileBlocksToHtml();
 
     const postPayload = {
@@ -1284,7 +1313,7 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
       titleEn: mainTitle,
       kicker: kicker || '',
       slug: slug || `post-${Date.now()}`,
-      blocks: blocks,
+      blocks: cleanedBlocks,
       category: primaryCatId,
       categoryBn: primaryCatObj?.nameBn || 'বাংলাদেশ',
       categoryEn: primaryCatObj?.nameEn || 'Bangladesh',
@@ -1951,7 +1980,8 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
                             <img
                               src={block.url || block.previewUrl}
                               onError={(e) => {
-                                if (block.previewUrl && e.currentTarget.src !== block.previewUrl) {
+                                e.currentTarget.onerror = null;
+                                if (block.previewUrl && !block.previewUrl.startsWith('data:') && !block.previewUrl.startsWith('blob:') && e.currentTarget.src !== block.previewUrl) {
                                   e.currentTarget.src = block.previewUrl;
                                 }
                               }}

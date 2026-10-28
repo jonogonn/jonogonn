@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNews } from '../context/NewsContext';
 import { uploadImageToStorage } from '../utils/imageUploader';
+import { fetchComplaintsFromMariaDb, getComplaintsEndpoints } from '../utils/mariaDbSync';
 import {
   Inbox,
   Search,
@@ -166,12 +167,11 @@ export default function ComplaintsManager({ triggerSaveToast }) {
     setLoading(true);
     let items = [];
 
-    // 1. Try MariaDB API
+    // 1. Try MariaDB API via resilient endpoints
     try {
-      const res = await fetch('/api/complaints.php');
-      const data = await res.json();
-      if (data && data.success && Array.isArray(data.complaints) && data.complaints.length > 0) {
-        items = data.complaints;
+      const dbItems = await fetchComplaintsFromMariaDb();
+      if (Array.isArray(dbItems) && dbItems.length > 0) {
+        items = dbItems;
       }
     } catch (e) {
       console.warn('Complaints API offline, loading from localStorage:', e);
@@ -218,16 +218,22 @@ export default function ComplaintsManager({ triggerSaveToast }) {
 
     // MariaDB sync
     try {
-      await fetch('/api/complaints.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'update_status',
-          id: complaintId,
-          status: newStatus,
-          admin_notes: notes
-        })
-      });
+      const endpoints = getComplaintsEndpoints();
+      for (const ep of endpoints) {
+        try {
+          const res = await fetch(ep, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'update_status',
+              id: complaintId,
+              status: newStatus,
+              admin_notes: notes
+            })
+          });
+          if (res.ok) break;
+        } catch (e) {}
+      }
     } catch (e) {}
 
     if (selectedComplaint && selectedComplaint.id === complaintId) {
@@ -254,9 +260,15 @@ export default function ComplaintsManager({ triggerSaveToast }) {
 
     // API delete
     try {
-      await fetch(`/api/complaints.php?id=${encodeURIComponent(complaintId)}`, {
-        method: 'DELETE'
-      });
+      const endpoints = getComplaintsEndpoints();
+      for (const ep of endpoints) {
+        try {
+          const res = await fetch(`${ep}?id=${encodeURIComponent(complaintId)}`, {
+            method: 'DELETE'
+          });
+          if (res.ok) break;
+        } catch (e) {}
+      }
     } catch (e) {}
 
     if (selectedComplaint && selectedComplaint.id === complaintId) {
@@ -342,17 +354,12 @@ export default function ComplaintsManager({ triggerSaveToast }) {
   return (
     <div className="admin-complaints-manager">
       {/* 1. Header Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div className="admin-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
             <Inbox size={26} color="var(--primary-red)" />
             <span>{isBn ? 'নাগরিক অভিযোগ বক্স' : 'Citizen Complaints Box'}</span>
-          </h1>
-          <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: isLight ? '#64748B' : '#94A3B8' }}>
-            {isBn
-              ? 'ওয়েবসাইটের অভিযোগ বক্স সেকশনের মাধ্যমে নাগরিকদের দাখিলকৃত সকল গোপন ও উন্মুক্ত অভিযোগ'
-              : 'All public & anonymous complaints submitted by citizens through the Complaint Box'}
-          </p>
+          </h2>
         </div>
 
         <button
@@ -1088,10 +1095,23 @@ export default function ComplaintsManager({ triggerSaveToast }) {
                   {selectedComplaint.description}
                 </div>
 
-                {selectedComplaint.fileName && (
-                  <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', color: '#3B82F6', fontWeight: 700 }}>
-                    <FileText size={15} />
-                    <span>{isBn ? `সংযুক্ত ফাইল: ${selectedComplaint.fileName}` : `Attached File: ${selectedComplaint.fileName}`}</span>
+                {(selectedComplaint.fileUrl || selectedComplaint.fileName) && (
+                  <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.84rem', color: '#2563EB', fontWeight: 700 }}>
+                      <FileText size={16} />
+                      <span>{isBn ? `সংযুক্ত প্রমাণাদি: ${selectedComplaint.fileName || 'ফাইল'}` : `Attached Evidence: ${selectedComplaint.fileName || 'File'}`}</span>
+                    </div>
+                    {String(selectedComplaint.fileUrl || selectedComplaint.fileName).startsWith('http') && (
+                      <a
+                        href={selectedComplaint.fileUrl || selectedComplaint.fileName}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 6, backgroundColor: '#2563EB', color: '#fff', fontSize: '0.78rem', fontWeight: 700, textDecoration: 'none' }}
+                      >
+                        <ExternalLink size={13} />
+                        <span>{isBn ? 'প্রমাণ ফাইল দেখুন' : 'Open Evidence'}</span>
+                      </a>
+                    )}
                   </div>
                 )}
               </div>

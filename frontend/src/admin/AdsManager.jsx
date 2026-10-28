@@ -193,13 +193,13 @@ export default function AdsManager({ triggerSaveToast }) {
           adSenseEnabled,
           adsenseClientId,
           adSlots: next
-        }).catch((err) => console.warn('MariaDB ad image sync notice:', err));
+        }).catch((err) => console.warn('Ad image sync notice:', err));
         updateSiteSettings({ adSlots: next });
         return next;
       });
 
       if (triggerSaveToast) {
-        triggerSaveToast(isBn ? 'ব্যানার ছবি আপলোড ও MariaDB-তে সিঙ্ক সম্পন্ন!' : 'Banner image uploaded and synced to MariaDB!');
+        triggerSaveToast(isBn ? 'ব্যানার ছবি আপলোড সম্পন্ন!' : 'Banner image uploaded!');
       }
     } catch (err) {
       console.error('Ad image upload error:', err);
@@ -259,55 +259,24 @@ export default function AdsManager({ triggerSaveToast }) {
   const currentConfig = adSlots[currentSlot.id] || {};
 
   return (
-    <div className="admin-card ads-manager-root">
+    <div className="ads-manager-root">
       {/* Top Banner Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+      <div className="admin-card" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(230, 0, 18, 0.12)', color: 'var(--primary-red)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <DollarSign size={24} />
             </div>
             <div>
-              <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.65rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+              <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.65rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
                 {isBn ? 'ব্যানার ও বিজ্ঞাপন ব্যবস্থাপনা' : 'Ads & Banner Management'}
-              </h1>
-              <p style={{ margin: '2px 0 0 0', color: 'var(--text-muted)', fontSize: '0.86rem' }}>
-                {isBn
-                  ? 'গুগল এডসেন্স আসার পূর্ব পর্যন্ত নিজের ব্যানার ছবি আপলোড করুন ও লিংক সেট করুন।'
-                  : 'Upload your own banner images with custom links until Google AdSense arrives.'}
-              </p>
+              </h2>
             </div>
           </div>
         </div>
 
-        {/* MariaDB Status & Global Save Button */}
+        {/*Global Save Button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '6px 12px',
-              borderRadius: 20,
-              backgroundColor: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              color: '#10B981',
-              fontSize: '0.78rem',
-              fontWeight: 700
-            }}
-          >
-            <Database size={14} />
-            <span>{isDbLoading ? (isBn ? 'MariaDB লোড হচ্ছে...' : 'Loading MariaDB...') : (isBn ? 'MariaDB সংযুক্ত' : 'MariaDB Connected')}</span>
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                backgroundColor: '#10B981',
-                boxShadow: '0 0 6px #10B981'
-              }}
-            />
-          </div>
 
           <button
             type="button"
@@ -319,7 +288,7 @@ export default function AdsManager({ triggerSaveToast }) {
             {isSavingDb ? (
               <>
                 <RefreshCw size={18} className="animate-spin" />
-                <span>{isBn ? 'MariaDB-তে সংরক্ষণ হচ্ছে...' : 'Saving to MariaDB...'}</span>
+                <span>{isBn ? 'সংরক্ষণ হচ্ছে...' : 'Saving...'}</span>
               </>
             ) : (
               <>

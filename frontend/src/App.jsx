@@ -118,7 +118,7 @@ export default function App() {
 
     // Dynamic Modular Editorial Homepage driven by homepageSections order
     const effectiveSections = (
-      homepageSections && homepageSections.length > 0
+      homepageSections && homepageSections.length >= 7
         ? homepageSections
         : defaultHomepageSections
     ).filter((sec) => sec.isVisible !== false);

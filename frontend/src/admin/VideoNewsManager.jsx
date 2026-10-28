@@ -155,17 +155,12 @@ export default function VideoNewsManager({ triggerSaveToast }) {
   return (
     <div className="admin-video-news-manager">
       {/* Header Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+      <div className="admin-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
             <Video size={26} color="var(--primary-red)" />
             <span>{isBn ? 'ভিডিও সংবাদ ব্যবস্থাপনা' : 'Video News Management'}</span>
-          </h1>
-          <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: isLight ? '#64748B' : '#94A3B8' }}>
-            {isBn
-              ? `মোট ${(videoNews || []).length}টি ভিডিও সংবাদ হোমপেজের ভিডিও সংবাদ সেকশনে প্রদর্শিত হচ্ছে`
-              : `${(videoNews || []).length} total video news items displayed on Homepage Video News section`}
-          </p>
+          </h2>
         </div>
 
         <button

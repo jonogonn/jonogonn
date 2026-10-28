@@ -28,7 +28,8 @@ function ensureComplaintsTable($pdo) {
             `phone` VARCHAR(50) DEFAULT NULL,
             `description` TEXT NOT NULL,
             `is_anonymous` TINYINT(1) DEFAULT 1,
-            `file_name` VARCHAR(255) DEFAULT NULL,
+            `file_name` TEXT DEFAULT NULL,
+            `file_url` TEXT DEFAULT NULL,
             `status` ENUM('pending', 'reviewing', 'resolved', 'rejected') DEFAULT 'pending',
             `admin_notes` TEXT DEFAULT NULL,
             `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -37,7 +38,19 @@ function ensureComplaintsTable($pdo) {
             INDEX (`district`),
             INDEX (`created_at`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    } catch (Exception $e) {}
+
+        // Auto-check and migrate columns if already exists with older schema
+        try {
+            $colStmt = $pdo->query("SHOW COLUMNS FROM `jonogon_complaints` LIKE 'file_url'");
+            if (!$colStmt || !$colStmt->fetch()) {
+                $pdo->exec("ALTER TABLE `jonogon_complaints` ADD COLUMN `file_url` TEXT DEFAULT NULL AFTER `file_name`");
+            }
+        } catch (Throwable $ignore) {}
+
+        try {
+            $pdo->exec("ALTER TABLE `jonogon_complaints` MODIFY COLUMN `file_name` TEXT DEFAULT NULL");
+        } catch (Throwable $ignore) {}
+    } catch (Throwable $e) {}
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -81,23 +94,24 @@ if ($method === 'GET') {
         $complaints = array_map(function($r) {
             return [
                 'id' => $r['id'],
-                'title' => htmlspecialchars_decode($r['title'], ENT_QUOTES),
-                'category' => $r['category'],
-                'district' => $r['district'],
-                'name' => $r['name'] ? htmlspecialchars_decode($r['name'], ENT_QUOTES) : '',
-                'phone' => $r['phone'] ? htmlspecialchars_decode($r['phone'], ENT_QUOTES) : '',
-                'description' => htmlspecialchars_decode($r['description'], ENT_QUOTES),
-                'isAnonymous' => (bool)$r['is_anonymous'],
-                'fileName' => $r['file_name'],
-                'status' => $r['status'],
-                'adminNotes' => $r['admin_notes'],
-                'createdAt' => $r['created_at']
+                'title' => htmlspecialchars_decode($r['title'] ?? '', ENT_QUOTES),
+                'category' => $r['category'] ?? 'corruption',
+                'district' => $r['district'] ?? 'dhaka',
+                'name' => !empty($r['name']) ? htmlspecialchars_decode($r['name'], ENT_QUOTES) : '',
+                'phone' => !empty($r['phone']) ? htmlspecialchars_decode($r['phone'], ENT_QUOTES) : '',
+                'description' => htmlspecialchars_decode($r['description'] ?? '', ENT_QUOTES),
+                'isAnonymous' => (bool)($r['is_anonymous'] ?? 1),
+                'fileName' => $r['file_name'] ?? '',
+                'fileUrl' => !empty($r['file_url']) ? $r['file_url'] : ($r['file_name'] ?? ''),
+                'status' => $r['status'] ?? 'pending',
+                'adminNotes' => $r['admin_notes'] ?? '',
+                'createdAt' => $r['created_at'] ?? date('Y-m-d H:i:s')
             ];
         }, $rows);
 
         echo json_encode(['success' => true, 'complaints' => $complaints], JSON_UNESCAPED_UNICODE);
         exit;
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => $e->getMessage(), 'complaints' => []]);
         exit;
@@ -108,6 +122,12 @@ if ($method === 'GET') {
 // 2. POST: CREATE OR UPDATE STATUS / ADMIN NOTES
 // -------------------------------------------------------------------------
 if ($method === 'POST') {
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Database connection unavailable']);
+        exit;
+    }
+
     $raw = file_get_contents('php://input');
     $input = json_decode($raw, true) ?: $_POST;
 
@@ -130,7 +150,7 @@ if ($method === 'POST') {
             $stmt->execute([$newStatus, $notes, $id]);
             echo json_encode(['success' => true, 'message' => 'অভিযোগের স্ট্যাটাস আপডেট হয়েছে।']);
             exit;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
             exit;
@@ -146,7 +166,8 @@ if ($method === 'POST') {
     $phone = trim($input['phone'] ?? '');
     $description = trim($input['description'] ?? '');
     $isAnonymous = !empty($input['isAnonymous']) ? 1 : 0;
-    $fileName = trim($input['fileName'] ?? '');
+    $fileName = trim($input['fileName'] ?? ($input['file_name'] ?? ''));
+    $fileUrl = trim($input['fileUrl'] ?? ($input['file_url'] ?? $fileName));
 
     if (!$title || !$description) {
         http_response_code(400);
@@ -156,11 +177,11 @@ if ($method === 'POST') {
 
     try {
         $stmt = $pdo->prepare("INSERT INTO `jonogon_complaints` 
-            (`id`, `title`, `category`, `district`, `name`, `phone`, `description`, `is_anonymous`, `file_name`, `status`, `created_at`) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+            (`id`, `title`, `category`, `district`, `name`, `phone`, `description`, `is_anonymous`, `file_name`, `file_url`, `status`, `created_at`) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
             ON DUPLICATE KEY UPDATE 
-            `title`=VALUES(`title`), `description`=VALUES(`description`), `status`=VALUES(`status`)");
-        $stmt->execute([$id, $title, $category, $district, $name, $phone, $description, $isAnonymous, $fileName]);
+            `title`=VALUES(`title`), `description`=VALUES(`description`), `status`=VALUES(`status`), `file_name`=VALUES(`file_name`), `file_url`=VALUES(`file_url`)");
+        $stmt->execute([$id, $title, $category, $district, $name, $phone, $description, $isAnonymous, $fileName, $fileUrl]);
 
         echo json_encode([
             'success' => true,
@@ -168,7 +189,7 @@ if ($method === 'POST') {
             'message' => 'অভিযোগ সফলভাবে গ্রহণ করা হয়েছে।'
         ], JSON_UNESCAPED_UNICODE);
         exit;
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         exit;
@@ -179,6 +200,12 @@ if ($method === 'POST') {
 // 3. DELETE COMPLAINT
 // -------------------------------------------------------------------------
 if ($method === 'DELETE') {
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Database connection unavailable']);
+        exit;
+    }
+
     $id = trim($_GET['id'] ?? '');
     if (!$id) {
         http_response_code(400);
@@ -191,7 +218,7 @@ if ($method === 'DELETE') {
         $stmt->execute([$id]);
         echo json_encode(['success' => true, 'message' => 'অভিযোগ মুছে ফেলা হয়েছে।']);
         exit;
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         exit;

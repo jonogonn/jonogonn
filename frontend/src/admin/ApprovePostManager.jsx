@@ -331,7 +331,7 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
   return (
     <div className="admin-approve-post-manager">
       {/* Header Banner */}
-      <div
+      <div className="admin-card"
         style={{
           display: 'flex',
           flexWrap: 'wrap',
@@ -342,15 +342,10 @@ export default function ApprovePostManager({ triggerSaveToast, onNavigateToEdit,
         }}
       >
         <div>
-          <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <ShieldCheck size={26} color="#10B981" />
-            <span>{isBn ? 'পোস্ট অনুমোদন ও প্রকাশনা কেন্দ্র (Approve Post)' : 'Approve Post & Publishing'}</span>
-          </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: 3 }}>
-            {isBn
-              ? 'এখানে পর্যালোচনার জন্য জমাকৃত পোস্টগুলো পড়ুন ও অনুমোদন করুন। অনুমোদনের পর পোস্ট লাইভ হবে এবং সোশ্যাল মিডিয়া পোস্টার .JPG ডাউনলোড করা যাবে।'
-              : 'Review submitted posts, approve them for live publishing, and download high-resolution .JPG social cards.'}
-          </p>
+            <span>{isBn ? 'পোস্ট অনুমোদন ও প্রকাশনা কেন্দ্র' : 'Approve Post & Publishing'}</span>
+          </h2>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

@@ -416,13 +416,16 @@ export function NewsProvider({ children }) {
         if (data.siteSettings && typeof data.siteSettings === 'object' && Object.keys(data.siteSettings).length > 0) {
           setSettings((prev) => {
             const merged = { ...prev, ...data.siteSettings };
-            if (data.adSlots && typeof data.adSlots === 'object') {
-              merged.adSlots = { ...(merged.adSlots || {}), ...data.adSlots };
+            const incomingAdSlots = data.adSlots || data.siteSettings.adSlots;
+            if (incomingAdSlots && typeof incomingAdSlots === 'object') {
+              merged.adSlots = { ...(merged.adSlots || {}), ...incomingAdSlots };
             }
-            if (data.adSenseEnabled !== undefined) merged.adSenseEnabled = data.adSenseEnabled;
-            if (data.adSenseClientId) {
-              merged.adSenseClientId = data.adSenseClientId;
-              merged.adsenseClientId = data.adSenseClientId;
+            if (data.adSenseEnabled !== undefined) merged.adSenseEnabled = Boolean(data.adSenseEnabled);
+            if (data.siteSettings.adSenseEnabled !== undefined) merged.adSenseEnabled = Boolean(data.siteSettings.adSenseEnabled);
+            const incomingClientId = data.adSenseClientId || data.siteSettings.adSenseClientId || data.siteSettings.adsenseClientId;
+            if (incomingClientId) {
+              merged.adSenseClientId = incomingClientId;
+              merged.adsenseClientId = incomingClientId;
             }
             safeSetLocalStorage('jonogon_settings', merged);
             return merged;
@@ -440,7 +443,7 @@ export function NewsProvider({ children }) {
             const merged = {
               ...prev,
               adSlots: { ...(prev.adSlots || {}), ...data.adSlots },
-              ...(data.adSenseEnabled !== undefined ? { adSenseEnabled: data.adSenseEnabled } : {}),
+              ...(data.adSenseEnabled !== undefined ? { adSenseEnabled: Boolean(data.adSenseEnabled) } : {}),
               ...(data.adSenseClientId ? { adSenseClientId: data.adSenseClientId, adsenseClientId: data.adSenseClientId } : {})
             };
             safeSetLocalStorage('jonogon_settings', merged);
@@ -458,9 +461,19 @@ export function NewsProvider({ children }) {
           setCategories(data.categories);
           safeSetLocalStorage('jonogon_categories', data.categories);
         }
-        if (Array.isArray(data.homepageSections) && data.homepageSections.length > 0) {
-          setHomepageSections(data.homepageSections);
-          safeSetLocalStorage('jonogon_homepage_sections', data.homepageSections);
+        if (Array.isArray(data.homepageSections) && data.homepageSections.length >= 7) {
+          const cleanList = [];
+          data.homepageSections.forEach((s) => {
+            const def = defaultHomepageSections.find((d) => d.id === s.id);
+            cleanList.push(def ? { ...def, ...s } : s);
+          });
+          defaultHomepageSections.forEach((def) => {
+            if (!cleanList.some((m) => m.id === def.id)) {
+              cleanList.push(def);
+            }
+          });
+          setHomepageSections(cleanList);
+          safeSetLocalStorage('jonogon_homepage_sections', cleanList);
         }
         if (Array.isArray(data.podcasts) && data.podcasts.length > 0) {
           setPodcasts(data.podcasts);
@@ -1972,42 +1985,56 @@ export function NewsProvider({ children }) {
   };
 
   // Emergency Services Actions
-  const addEmergencyService = (service) => {
+  const addEmergencyService = async (service) => {
     const itemWithId = {
       ...service,
-      id: `srv-${Date.now()}`,
+      id: service.id || `srv-${Date.now()}`,
       nameBn: service.nameBn ? String(service.nameBn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() : '',
       nameEn: service.nameEn ? String(service.nameEn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() : ''
     };
-    setEmergencyServices((prev) => {
-      const nextList = [itemWithId, ...prev];
-      safeSetLocalStorage('jonogon_emergency_services', nextList);
-      syncModuleToMariaDb('emergencyServices', nextList).catch(() => {});
-      return nextList;
-    });
+    const nextList = [itemWithId, ...(emergencyServices || []).filter((s) => s.id !== itemWithId.id)];
+    setEmergencyServices(nextList);
+    safeSetLocalStorage('jonogon_emergency_services', nextList);
+    try {
+      const res = await syncModuleToMariaDb('emergencyServices', nextList);
+      return res;
+    } catch (e) {
+      console.warn('Emergency services sync notice:', e);
+      return { success: false };
+    }
   };
 
-  const updateEmergencyService = (id, updatedData) => {
+  const updateEmergencyService = async (id, updatedData) => {
     const cleaned = {
       ...updatedData,
       ...(updatedData.nameBn ? { nameBn: String(updatedData.nameBn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() } : {}),
       ...(updatedData.nameEn ? { nameEn: String(updatedData.nameEn).replace(/\s*[\(\[\{][০-৯0-9\s-]+[\)\]\}]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim() } : {})
     };
-    setEmergencyServices((prev) => {
-      const nextList = prev.map((s) => (s.id === id ? { ...s, ...cleaned } : s));
-      safeSetLocalStorage('jonogon_emergency_services', nextList);
-      syncModuleToMariaDb('emergencyServices', nextList).catch(() => {});
-      return nextList;
-    });
+    const nextList = (emergencyServices || []).map((s) => (s.id === id ? { ...s, ...cleaned } : s));
+    setEmergencyServices(nextList);
+    safeSetLocalStorage('jonogon_emergency_services', nextList);
+    try {
+      const res = await syncModuleToMariaDb('emergencyServices', nextList);
+      return res;
+    } catch (e) {
+      console.warn('Emergency services update sync notice:', e);
+      return { success: false };
+    }
   };
 
-  const deleteEmergencyService = (id) => {
-    setEmergencyServices((prev) => {
-      const nextList = prev.filter((s) => s.id !== id);
-      safeSetLocalStorage('jonogon_emergency_services', nextList);
-      syncModuleToMariaDb('emergencyServices', nextList).catch(() => {});
-      return nextList;
-    });
+  const deleteEmergencyService = async (id) => {
+    const nextList = (emergencyServices || []).filter((s) => s.id !== id);
+    setEmergencyServices(nextList);
+    safeSetLocalStorage('jonogon_emergency_services', nextList);
+    try {
+      // Also send explicit delete
+      await syncModuleToMariaDb('emergencyServices', { action: 'delete', id });
+      const res = await syncModuleToMariaDb('emergencyServices', nextList);
+      return res;
+    } catch (e) {
+      console.warn('Emergency services delete sync notice:', e);
+      return { success: false };
+    }
   };
 
   // ==========================================

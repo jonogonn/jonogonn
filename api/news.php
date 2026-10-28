@@ -78,10 +78,138 @@ function getAndEnsureNewsTable($pdo) {
     return 'news_posts';
 }
 
+function getActiveB2DownloadToken() {
+    static $cachedToken = null;
+    if ($cachedToken) return $cachedToken;
+
+    $cacheFile = __DIR__ . '/.b2_token_cache.json';
+    if (file_exists($cacheFile)) {
+        $cache = json_decode(@file_get_contents($cacheFile), true);
+        if ($cache && !empty($cache['downloadToken']) && !empty($cache['expiresAt']) && $cache['expiresAt'] > time() + 3600) {
+            $cachedToken = $cache['downloadToken'];
+            return $cachedToken;
+        }
+    }
+
+    if (function_exists('b2AuthorizeAccountHelper') && defined('B2_BUCKET_ID')) {
+        $auth = b2AuthorizeAccountHelper();
+        if ($auth && !empty($auth['apiUrl']) && !empty($auth['authorizationToken'])) {
+            $apiUrl = $auth['apiUrl'];
+            $authToken = $auth['authorizationToken'];
+            $ch = curl_init("$apiUrl/b2api/v2/b2_get_download_authorization");
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+                'bucketId' => B2_BUCKET_ID,
+                'fileNamePrefix' => 'uploads/',
+                'validDurationInSeconds' => 604800
+            ]));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "Authorization: $authToken",
+                "Content-Type: application/json"
+            ]);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            $res = curl_exec($ch);
+            curl_close($ch);
+            if ($res) {
+                $j = json_decode($res, true);
+                if (!empty($j['authorizationToken'])) {
+                    $cachedToken = $j['authorizationToken'];
+                    @file_put_contents($cacheFile, json_encode([
+                        'downloadToken' => $cachedToken,
+                        'expiresAt' => time() + 600000
+                    ]));
+                    return $cachedToken;
+                }
+            }
+        }
+    }
+    return null;
+}
+
 function normalizeNewsImageUrl($url) {
     if (!$url || !is_string($url)) return '';
     $url = trim($url);
+
+    // B2 private bucket links convert to public upload CDN
+    if (strpos($url, 'backblazeb2.com') !== false) {
+        if (preg_match('#uploads/\d{4}/\d{2}/[^?&"\'\s]+#', $url, $m)) {
+            return 'https://jonogon.news/' . $m[0];
+        }
+    }
+
     return $url;
+}
+
+/**
+ * Strips any base64 image data from HTML/JSON/fields to prevent database bloat.
+ * If Backblaze B2 is configured, uploads directly to B2 Cloud Storage and returns the B2 URL.
+ * Never stores any files on local server disk!
+ */
+function sanitizeAndCleanBase64Images($dataStr, $slug = 'post') {
+    if (empty($dataStr) || !is_string($dataStr)) return $dataStr;
+
+    // Remove redundant onerror with base64/this.src
+    if (stripos($dataStr, 'onerror') !== false) {
+        $dataStr = preg_replace('/\\\\*onerror=\\\\"if\\(this\\.src!==.*?\\\\"\\\\*/is', '', $dataStr);
+        $dataStr = preg_replace('/\\\\*onerror=\\\\"[^\\\\"]*\\\\"\\\\*/is', '', $dataStr);
+        $dataStr = preg_replace('/\s+onerror=(["\']).*?\1/is', '', $dataStr);
+        $dataStr = preg_replace('/\s+onerror=[^\s>]+/is', '', $dataStr);
+    }
+
+    if (strpos($dataStr, 'data:image/') === false) {
+        return $dataStr;
+    }
+
+    $b2Configured = defined('B2_KEY_ID') && !empty(B2_KEY_ID) && defined('B2_APPLICATION_KEY') && !empty(B2_APPLICATION_KEY);
+
+    $cleanSlug = preg_replace('/[^a-zA-Z0-9_-]/', '-', $slug);
+    $cleanSlug = trim(preg_replace('/-+/', '-', $cleanSlug), '-');
+    $shortSlug = substr($cleanSlug ?: 'news', 0, 40);
+
+    $pattern = '/data:image\/([a-zA-Z0-9\+\-]+);base64,([A-Za-z0-9+\/=\s]+)/';
+
+    $result = preg_replace_callback($pattern, function($matches) use ($b2Configured, $shortSlug) {
+        if (!$b2Configured) {
+            return '';
+        }
+
+        $ext = strtolower($matches[1]);
+        if ($ext === 'jpeg') $ext = 'jpg';
+        if (!in_array($ext, ['webp', 'jpg', 'png', 'gif'])) {
+            $ext = 'webp';
+        }
+
+        $raw = preg_replace('/\s+/', '', $matches[2]);
+        $binary = base64_decode($raw);
+        if (!$binary) {
+            return '';
+        }
+
+        $tempFileName = $shortSlug . '-cloud-' . time() . '-' . rand(1000, 9999) . '.' . $ext;
+        $tempPath = sys_get_temp_dir() . '/' . $tempFileName;
+        @file_put_contents($tempPath, $binary);
+
+        $cloudUrl = '';
+        if (function_exists('uploadToBackblazeB2')) {
+            $storageKey = 'uploads/' . date('Y/m') . '/' . $tempFileName;
+            $mime = ($ext === 'webp') ? 'image/webp' : ($ext === 'png' ? 'image/png' : 'image/jpeg');
+            $res = uploadToBackblazeB2($tempPath, $storageKey, $mime);
+            if ($res && !empty($res['publicUrl'])) {
+                $cloudUrl = $res['publicUrl'];
+            }
+        }
+
+        // Clean up temp file immediately - no local disk storage
+        if (file_exists($tempPath)) {
+            @unlink($tempPath);
+        }
+
+        return $cloudUrl;
+    }, $dataStr);
+
+    return $result;
 }
 
 // -------------------------------------------------------------
@@ -435,9 +563,15 @@ if ($method === 'POST') {
 
         $inputContent = trim((string)($data['contentBn'] ?? ($data['content_bn'] ?? ($data['content'] ?? ''))));
         $contentBn = $inputContent !== '' ? $inputContent : ($existing['content_bn'] ?? ($existing['content'] ?? ''));
+        $contentBn = sanitizeAndCleanBase64Images($contentBn, $slug);
 
         $inputContentEn = trim((string)($data['contentEn'] ?? ($data['content_en'] ?? '')));
         $contentEn = $inputContentEn !== '' ? $inputContentEn : ($existing['content_en'] ?? '');
+        $contentEn = sanitizeAndCleanBase64Images($contentEn, $slug);
+
+        if ($blocks) {
+            $blocks = sanitizeAndCleanBase64Images($blocks, $slug);
+        }
 
         $categories = is_array($data['categories'] ?? null) ? json_encode($data['categories'], JSON_UNESCAPED_UNICODE) : ($existing['categories'] ?? null);
         $categoryId = $data['category'] ?? ($data['categoryId'] ?? ($data['category_id'] ?? ($existing['category_id'] ?? 'bangladesh')));
@@ -446,7 +580,11 @@ if ($method === 'POST') {
         $cardCategory = $data['cardCategory'] ?? ($data['card_category'] ?? ($existing['card_category'] ?? 'সারাদেশ । বাংলাদেশ'));
         $cardCaption = $data['imageCaption'] ?? ($data['cardCaption'] ?? ($data['card_caption'] ?? ($existing['image_caption'] ?? 'ছবি: সংগৃহীত')));
         $featuredImage = $data['imageUrl'] ?? ($data['featuredImage'] ?? ($data['featured_image'] ?? ($existing['featured_image'] ?? '')));
+        $featuredImage = sanitizeAndCleanBase64Images($featuredImage, $slug);
         $galleryImages = is_array($data['galleryImages'] ?? null) ? json_encode($data['galleryImages'], JSON_UNESCAPED_UNICODE) : ($existing['gallery_images'] ?? null);
+        if ($galleryImages) {
+            $galleryImages = sanitizeAndCleanBase64Images($galleryImages, $slug);
+        }
         $author = $data['author'] ?? ($existing['author'] ?? 'জনগণ নিউজ ডেস্ক');
         $authorId = $data['authorId'] ?? ($data['author_id'] ?? ($existing['author_id'] ?? 'user-1'));
         $authorAvatar = $data['authorAvatar'] ?? ($data['author_avatar'] ?? ($existing['author_avatar'] ?? ''));
@@ -591,42 +729,7 @@ if ($method === 'POST') {
             }
         } catch (Exception $relayEx) {}
 
-        // Also update/mirror into legacy news table if it exists
-        try {
-            $checkNewsTable = $pdo->query("SHOW TABLES LIKE 'news'");
-            if ($checkNewsTable && $checkNewsTable->rowCount() > 0 && $tableName !== 'news') {
-                $newsColsStmt = $pdo->query("SHOW COLUMNS FROM `news`");
-                $newsColsMap = [];
-                while ($nc = $newsColsStmt->fetch(PDO::FETCH_ASSOC)) {
-                    $newsColsMap[strtolower($nc['Field'])] = true;
-                }
-                $validNewsFields = [];
-                foreach ($fieldsPayload as $k => $v) {
-                    if (isset($newsColsMap[strtolower($k)])) {
-                        $validNewsFields[$k] = $v;
-                    }
-                }
-                $checkExistingNews = $pdo->prepare("SELECT `id` FROM `news` WHERE `post_id` = ? OR `slug` = ? LIMIT 1");
-                $checkExistingNews->execute([$postId, $slug]);
-                $exNews = $checkExistingNews->fetch();
-                if ($exNews) {
-                    $nSets = [];
-                    $nVals = [];
-                    foreach ($validNewsFields as $k => $v) {
-                        if ($k !== 'id') {
-                            $nSets[] = "`{$k}` = ?";
-                            $nVals[] = $v;
-                        }
-                    }
-                    $nVals[] = $exNews['id'];
-                    $pdo->prepare("UPDATE `news` SET " . implode(', ', $nSets) . " WHERE `id` = ?")->execute($nVals);
-                } else {
-                    $nCols = array_keys($validNewsFields);
-                    $nPlc = array_fill(0, count($nCols), '?');
-                    $pdo->prepare("INSERT INTO `news` (" . implode(', ', array_map(fn($k) => "`$k`", $nCols)) . ") VALUES (" . implode(', ', $nPlc) . ")")->execute(array_values($validNewsFields));
-                }
-            }
-        } catch (Exception $mirrorEx) {}
+
 
         echo json_encode([
             'success' => true,

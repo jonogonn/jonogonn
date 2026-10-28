@@ -263,6 +263,75 @@ function provisionDatabaseSchema($pdo) {
                 $pdo->exec("ALTER TABLE `news_posts` ADD COLUMN `editor_approved` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`");
             }
         } catch (Exception $e) {}
+
+        try {
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `jonogon_complaints` (
+                    `id` VARCHAR(64) PRIMARY KEY,
+                    `title` VARCHAR(255) NOT NULL,
+                    `category` VARCHAR(64) DEFAULT 'corruption',
+                    `district` VARCHAR(64) DEFAULT 'dhaka',
+                    `name` VARCHAR(150) DEFAULT NULL,
+                    `phone` VARCHAR(50) DEFAULT NULL,
+                    `description` TEXT NOT NULL,
+                    `is_anonymous` TINYINT(1) DEFAULT 1,
+                    `file_name` TEXT DEFAULT NULL,
+                    `file_url` TEXT DEFAULT NULL,
+                    `status` ENUM('pending', 'reviewing', 'resolved', 'rejected') DEFAULT 'pending',
+                    `admin_notes` TEXT DEFAULT NULL,
+                    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (`category`),
+                    INDEX (`status`),
+                    INDEX (`district`),
+                    INDEX (`created_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+        } catch (Exception $e) {}
+
+        // Auto-repair missing PRIMARY KEY & AUTO_INCREMENT on older schemas
+        $repairTables = [
+            ['categories', 'id', 'slug'],
+            ['category_master_groups', 'id', 'group_id'],
+            ['homepage_sections', 'id', 'section_id'],
+            ['emergency_services', 'id', 'service_id'],
+            ['ads_config', 'id', 'slot_id'],
+            ['breaking_news', 'id', null],
+            ['media_gallery', 'id', null],
+            ['admin_activity_logs', 'id', null],
+            ['article_comments', 'id', null]
+        ];
+
+        foreach ($repairTables as $rt) {
+            $tbl = $rt[0];
+            $idCol = $rt[1];
+            $uCol = $rt[2];
+            try {
+                $cols = $pdo->query("SHOW COLUMNS FROM `{$tbl}` LIKE '{$idCol}'")->fetch(PDO::FETCH_ASSOC);
+                if ($cols) {
+                    $isAi = strpos($cols['Extra'], 'auto_increment') !== false;
+                    $isPk = $cols['Key'] === 'PRI';
+                    if (!$isPk) {
+                        try {
+                            $pdo->exec("SET @r = 0; UPDATE `{$tbl}` SET `{$idCol}` = (@r := @r + 1) WHERE `{$idCol}` = 0 OR `{$idCol}` IS NULL;");
+                            $pdo->exec("ALTER TABLE `{$tbl}` ADD PRIMARY KEY (`{$idCol}`);");
+                        } catch (Throwable $ignore) {}
+                    }
+                    if (!$isAi) {
+                        try {
+                            $pdo->exec("ALTER TABLE `{$tbl}` MODIFY COLUMN `{$idCol}` INT(11) NOT NULL AUTO_INCREMENT;");
+                        } catch (Throwable $ignore) {}
+                    }
+                }
+                if ($uCol) {
+                    try {
+                        $uChk = $pdo->query("SHOW KEYS FROM `{$tbl}` WHERE Column_name = '{$uCol}' AND Non_unique = 0")->fetch();
+                        if (!$uChk) {
+                            $pdo->exec("ALTER TABLE `{$tbl}` ADD UNIQUE KEY `idx_{$uCol}` (`{$uCol}`);");
+                        }
+                    } catch (Throwable $ignore) {}
+                }
+            } catch (Throwable $ignore) {}
+        }
     } catch (Exception $e) {}
 }
 

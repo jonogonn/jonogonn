@@ -337,17 +337,12 @@ export default function MainMenuManager({ triggerSaveToast }) {
   return (
     <div className="main-menu-manager-wrap">
       {/* Top Title & Header Actions */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 14 }}>
+      <div className="admin-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 14 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 10 }}>
             <Menu size={26} color="var(--primary-red)" />
             <span>{isBn ? 'মেইন মেনু ও ক্যাটাগরি পরিচালনা' : 'Main Menu & Categories'}</span>
-          </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            {isBn
-              ? 'মাস্টার গ্রুপের অবস্থান পরিবর্তন, সাব-গ্রুপ স্থানান্তর ও ক্যাটাগরি পরিচালনা করুন'
-              : 'Reorder master groups, transfer sub-groups, and manage all category topics'}
-          </p>
+          </h2>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

@@ -435,7 +435,7 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
       />
 
       {/* Header Banner */}
-      <div
+      <div className="admin-card"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -462,14 +462,9 @@ export default function HomepageSectionManager({ triggerSaveToast }) {
               <Layers size={20} />
             </div>
             <div>
-              <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.65rem', fontWeight: 800, margin: 0 }}>
+              <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.65rem', fontWeight: 800, margin: 0 }}>
                 {isBn ? 'হোমপেজ সেকশন কন্ট্রোল প্যানেল' : 'Homepage Sections Manager'}
-              </h1>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '3px 0 0 0' }}>
-                {isBn
-                  ? `হোমপেজের সকল ${toBnNumber(totalCount)}টি সেকশনের অবস্থান (উপরে-নিচে মুভ), দৃশ্যমানতা ও ৩-কলাম লেআউট নিয়ন্ত্রণ করুন`
-                  : `Manage ordering, visibility and 3-column layout of all ${totalCount} homepage sections`}
-              </p>
+              </h2>
             </div>
           </div>
         </div>

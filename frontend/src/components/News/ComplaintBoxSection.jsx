@@ -17,6 +17,8 @@ import {
   Lock
 } from 'lucide-react';
 import { bangladeshDistricts } from '../../data/initialData';
+import { submitComplaintToMariaDb } from '../../utils/mariaDbSync';
+import { uploadImageToStorage } from '../../utils/imageUploader';
 
 export default function ComplaintBoxSection() {
   const { language, settings } = useNews();
@@ -69,6 +71,7 @@ export default function ComplaintBoxSection() {
   const [isClosingModal, setIsClosingModal] = useState(false);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [trackingId, setTrackingId] = useState('');
 
   // Form State
@@ -119,37 +122,61 @@ export default function ComplaintBoxSection() {
     }, 240);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.title || !formData.description) return;
+    if (isSubmitting) return;
 
+    setIsSubmitting(true);
     const newTrackingId = `JONOGON-${Math.floor(100000 + Math.random() * 900000)}`;
-    setTrackingId(newTrackingId);
 
-    // Save to local storage
-    const existing = JSON.parse(localStorage.getItem('jonogon_complaints') || '[]');
+    let attachedFileUrl = '';
+    const attachedFileName = fileName || '';
+
+    // If an image evidence was selected, upload to Backblaze B2 first
+    if (formData.file) {
+      try {
+        if (formData.file.type && formData.file.type.startsWith('image/')) {
+          attachedFileUrl = await uploadImageToStorage(formData.file, {
+            slug: `complaint-${newTrackingId.toLowerCase()}`,
+            skipWatermark: true,
+            silent: true
+          });
+        }
+      } catch (uploadErr) {
+        console.warn('Evidence file upload warning:', uploadErr);
+      }
+    }
+
     const newComplaint = {
       id: newTrackingId,
       ...formData,
-      fileName: fileName,
+      fileName: attachedFileUrl || attachedFileName,
+      fileUrl: attachedFileUrl || attachedFileName,
       file: undefined,
       createdAt: new Date().toISOString(),
       status: 'pending'
     };
+
+    // 1. Save to local storage for immediate offline/client cache
     try {
+      const existing = JSON.parse(localStorage.getItem('jonogon_complaints') || '[]');
       localStorage.setItem('jonogon_complaints', JSON.stringify([newComplaint, ...existing]));
     } catch (e) {}
 
-    // Also sync to MariaDB backend
+    // 2. Submit to MariaDB backend via resilient multi-endpoint fallback
     try {
-      fetch('/api/complaints.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newComplaint)
-      }).catch(() => {});
-    } catch (err) {}
-
-    setIsSubmitted(true);
+      const res = await submitComplaintToMariaDb(newComplaint);
+      if (!res.success) {
+        console.warn('Backend sync returned warning:', res.error);
+      }
+    } catch (err) {
+      console.warn('Backend complaint sync failed:', err);
+    } finally {
+      setTrackingId(newTrackingId);
+      setIsSubmitting(false);
+      setIsSubmitted(true);
+    }
   };
 
   const resetForm = () => {
@@ -164,6 +191,7 @@ export default function ComplaintBoxSection() {
       file: null
     });
     setFileName('');
+    setIsSubmitting(false);
     setIsSubmitted(false);
   };
 
@@ -563,9 +591,9 @@ export default function ComplaintBoxSection() {
                     <button type="button" onClick={closeFormModal} className="complaint-btn-secondary">
                       {isBn ? 'বাতিল' : 'Cancel'}
                     </button>
-                    <button type="submit" className="complaint-btn-primary">
+                    <button type="submit" className="complaint-btn-primary" disabled={isSubmitting}>
                       <Send size={16} />
-                      <span>{isBn ? 'অভিযোগ জমা দিন' : 'Submit Grievance'}</span>
+                      <span>{isSubmitting ? (isBn ? 'অভিযোগ জমা হচ্ছে...' : 'Submitting...') : (isBn ? 'অভিযোগ জমা দিন' : 'Submit Grievance')}</span>
                     </button>
                   </div>
                 </form>

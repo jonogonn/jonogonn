@@ -167,17 +167,12 @@ export default function CommentsManager({ triggerSaveToast }) {
   return (
     <div className="admin-comments-manager">
       {/* Header Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div className='admin-card' style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
             <MessageSquare size={26} color="var(--primary-red)" />
             <span>{isBn ? 'পাঠক মন্তব্য ব্যবস্থাপনা' : 'Reader Comments Management'}</span>
-          </h1>
-          <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: isLight ? '#64748B' : '#94A3B8' }}>
-            {isBn
-              ? 'নিউজ পোর্টালের প্রকাশিত সংবাদের নিচে পাঠকদের জমাকৃত সকল মন্তব্য ও অনুমোদন'
-              : 'All reader comments submitted on published articles with approval control'}
-          </p>
+          </h2>
         </div>
 
         <button

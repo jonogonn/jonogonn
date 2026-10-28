@@ -443,8 +443,8 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
         ? `আপনি কি নিশ্চিত যে "${item.original_name || item.file_name || 'এই ছবিটি'}" মুছে ফেলতে চান?`
         : `Are you sure you want to delete "${item.original_name || item.file_name || 'this image'}"?`,
       subMessage: isBn
-        ? 'এটি Backblaze B2 ক্লাউড স্টোরেজ এবং MariaDB ডাটাবেজ থেকে স্থায়ীভাবে মুছে ফেলা হবে।'
-        : 'This will be permanently deleted from Backblaze B2 cloud storage and MariaDB database.',
+        ? 'এটি স্থায়ীভাবে মুছে ফেলা হবে।'
+        : 'This will be permanently deleted',
       confirmText: isBn ? 'হ্যাঁ, মুছে ফেলুন' : 'Yes, Delete',
       cancelText: isBn ? 'বাতিল' : 'Cancel',
       type: 'danger'
@@ -498,8 +498,8 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
         ? `আপনি কি নিশ্চিত যে নির্বাচিত ${count}টি ছবি একসাথে মুছে ফেলতে চান?`
         : `Are you sure you want to delete ${count} selected images at once?`,
       subMessage: isBn
-        ? 'নির্বাচিত ছবিগুলো Backblaze B2 ক্লাউড এবং MariaDB ডাটাবেজ থেকে চিরতরে মুছে যাবে।'
-        : 'The selected images will be permanently removed from Backblaze B2 and MariaDB.',
+        ? 'নির্বাচিত ছবিগুলো চিরতরে মুছে যাবে।'
+        : 'The selected images will be permanently removed.',
       confirmText: isBn ? `হ্যাঁ, ${count}টি ছবি মুছুন` : `Yes, Delete ${count} Images`,
       cancelText: isBn ? 'বাতিল' : 'Cancel',
       type: 'danger'
@@ -597,13 +597,8 @@ export default function MediaGalleryManager({ triggerSaveToast }) {
             }}
           >
             <ImageIcon size={26} color="var(--primary-red)" />
-            <span>{isBn ? 'মিডিয়া গ্যালারি ও ক্লাউড অ্যাসেট সেন্টার' : 'Media Gallery & Asset Manager'}</span>
+            <span>{isBn ? 'মিডিয়া গ্যালারি' : 'Media Gallery'}</span>
           </h2>
-          <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-muted)' }}>
-            {isBn
-              ? 'নিউজ পোর্টালে ব্যবহৃত সকল অপ্টিমাইজড WebP ছবি পরিচালনা, প্রিভিউ ও সম্পূর্ণ মিডিয়া অফলাইন আর্কাইভ ব্যাকআপ।'
-              : 'Manage, optimize, preview, and download complete offline backups of all portal media assets.'}
-          </p>
         </div>
 
         {/* Action Buttons */}

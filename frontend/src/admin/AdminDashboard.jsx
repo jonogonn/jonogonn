@@ -76,6 +76,7 @@ import ComplaintsManager from './ComplaintsManager';
 import CommentsManager from './CommentsManager';
 import ConfirmModal from '../components/Modals/ConfirmModal';
 import { getPodcastThumbnail } from '../components/News/PodcastSection';
+import { syncModuleToMariaDb } from '../utils/mariaDbSync';
 
 // Clean bracketed numbers from emergency service name e.g. "জাতীয় জরুরি সেবা (৯৯৯)" -> "জাতীয় জরুরি সেবা"
 const cleanServiceName = (name) => {
@@ -133,6 +134,7 @@ export default function AdminDashboard() {
     addEmergencyService,
     updateEmergencyService,
     deleteEmergencyService,
+    refreshAllModulesFromDb,
     showError,
     showAlert
   } = useNews();
@@ -542,7 +544,7 @@ export default function AdminDashboard() {
   };
 
   // Submit Emergency Service
-  const handleSaveService = (e) => {
+  const handleSaveService = async (e) => {
     e.preventDefault();
     const descBnWords = countWords(serviceForm.descriptionBn);
     const descEnWords = countWords(serviceForm.descriptionEn);
@@ -559,11 +561,11 @@ export default function AdminDashboard() {
       descriptionEn: serviceForm.descriptionEn || serviceForm.descriptionBn
     };
     if (editingService) {
-      updateEmergencyService(editingService.id, payload);
-      triggerSaveToast(isBn ? 'জরুরি সেবা তথ্য সফলভাবে আপডেট হয়েছে!' : 'Emergency service updated successfully!');
+      await updateEmergencyService(editingService.id, payload);
+      triggerSaveToast(isBn ? 'জরুরি সেবা তথ্য MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে!' : 'Emergency service saved to MariaDB successfully!');
     } else {
-      addEmergencyService(payload);
-      triggerSaveToast(isBn ? 'নতুন জরুরি সেবা সফলভাবে যোগ হয়েছে!' : 'Emergency service added successfully!');
+      await addEmergencyService(payload);
+      triggerSaveToast(isBn ? 'নতুন জরুরি সেবা MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে!' : 'Emergency service saved to MariaDB successfully!');
     }
     setEditingService(null);
     setIsCreatingService(false);
@@ -2044,14 +2046,11 @@ export default function AdminDashboard() {
           {/* TAB 7: PODCASTS & VIDEOS */}
           {activeTab === 'podcasts' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div className="admin-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <div>
-                  <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, margin: 0 }}>
-                    {isBn ? 'পডকাস্ট ও ভিডিও পর্বসমূহ' : 'Podcast & Video Management'}
-                  </h1>
-                  <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    {isBn ? `মোট ${podcasts.length}টি পর্ব MariaDB ডাটাবেজে সংরক্ষিত রয়েছে` : `${podcasts.length} total episodes saved in MariaDB`}
-                  </p>
+                  <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, margin: 0 }}>
+                    {isBn ? 'পডকাস্ট' : 'Podcast'}
+                  </h2>
                 </div>
                 <button
                   type="button"
@@ -2164,7 +2163,7 @@ export default function AdminDashboard() {
                               onClick={() => {
                                 openConfirm({
                                   title: isBn ? 'পডকাস্ট মুছে ফেলার নিশ্চিতকরণ' : 'Confirm Delete Podcast',
-                                  message: isBn ? 'আপনি কি এই পর্বটি ডাটাবেজ থেকে মুছে ফেলতে চান?' : 'Delete this podcast from MariaDB?',
+                                  message: isBn ? 'আপনি কি এই পর্বটি মুছে ফেলতে চান?' : 'Delete this podcast?',
                                   confirmText: isBn ? 'মুছে ফেলুন' : 'Delete',
                                   onConfirm: async () => {
                                     await deletePodcast(pod.id);
@@ -2564,31 +2563,67 @@ export default function AdminDashboard() {
           {/* TAB 8: EMERGENCY SERVICES */}
           {activeTab === 'emergency' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800 }}>
+              <div className="admin-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+                <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 800, margin: 0 }}>
                   {isBn ? 'জরুরি সেবা পরিচালনা' : 'Emergency Services Management'}
-                </h1>
-                <button
-                  className="admin-btn-primary"
-                  onClick={() => {
-                    setEditingService(null);
-                    setServiceForm({
-                      nameBn: '',
-                      nameEn: '',
-                      number: '',
-                      categoryBn: 'জরুরি সেবা',
-                      categoryEn: 'Emergency',
-                      descriptionBn: '',
-                      descriptionEn: '',
-                      websiteUrl: '',
-                      icon: 'phone'
-                    });
-                    setIsCreatingService(true);
-                  }}
-                >
-                  <Plus size={18} />
-                  <span>{isBn ? 'নতুন সেবা যোগ করুন' : 'Add New Service'}</span>
-                </button>
+                </h2>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="admin-btn-secondary"
+                    onClick={async () => {
+                      await refreshAllModulesFromDb();
+                      triggerSaveToast(isBn ? 'ডাটাবেজ থেকে জরুরি সেবা রিলোড সম্পন্ন!' : 'Reloaded emergency services from MariaDB!');
+                    }}
+                    title={isBn ? 'ডাটাবেজ থেকে সর্বশেষ তথ্য লোড করুন' : 'Reload from Database'}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <RefreshCw size={15} />
+                    <span>{isBn ? 'ডাটাবেজ রিফ্রেশ' : 'Reload from DB'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="admin-btn-primary"
+                    onClick={async () => {
+                      const res = await syncModuleToMariaDb('emergencyServices', emergencyServices);
+                      if (res && res.success) {
+                        triggerSaveToast(isBn ? 'সবগুলো জরুরি সেবা MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে!' : 'All emergency services saved to MariaDB successfully!');
+                      } else {
+                        triggerSaveToast(isBn ? 'ডাটাবেজ সিঙ্ক সম্পন্ন!' : 'Database sync completed!');
+                      }
+                    }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, backgroundColor: '#10b981', borderColor: '#10b981' }}
+                    title={isBn ? 'সকল জরুরি সেবা MariaDB ডাটাবেজে সেভ করুন' : 'Save all to MariaDB'}
+                  >
+                    <Save size={15} />
+                    <span>{isBn ? 'সব ডাটাবেজে সেভ করুন' : 'Save All to MariaDB'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="admin-btn-primary"
+                    onClick={() => {
+                      setEditingService(null);
+                      setServiceForm({
+                        nameBn: '',
+                        nameEn: '',
+                        number: '',
+                        categoryBn: 'জরুরি সেবা',
+                        categoryEn: 'Emergency',
+                        descriptionBn: '',
+                        descriptionEn: '',
+                        websiteUrl: '',
+                        icon: 'phone'
+                      });
+                      setIsCreatingService(true);
+                    }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <Plus size={16} />
+                    <span>{isBn ? 'নতুন সেবা যোগ করুন' : 'Add New Service'}</span>
+                  </button>
+                </div>
               </div>
 
               {/* Cards Grid: Always visible */}
@@ -2664,7 +2699,10 @@ export default function AdminDashboard() {
                             title: isBn ? 'জরুরি সেবা মুছে ফেলুন' : 'Delete Emergency Service',
                             message: isBn ? 'আপনি কি এই সেবাটি মুছে ফেলতে চান?' : 'Delete this service?',
                             confirmText: isBn ? 'মুছে ফেলুন' : 'Delete',
-                            onConfirm: () => deleteEmergencyService(srv.id)
+                            onConfirm: async () => {
+                              await deleteEmergencyService(srv.id);
+                              triggerSaveToast(isBn ? 'জরুরি সেবা সফলভাবে মুছে ফেলা হয়েছে!' : 'Emergency service deleted successfully!');
+                            }
                           });
                         }}
                         title={isBn ? 'মুছে ফেলুন' : 'Delete'}

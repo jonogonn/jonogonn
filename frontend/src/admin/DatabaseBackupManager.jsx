@@ -224,11 +224,6 @@ export default function DatabaseBackupManager({ triggerSaveToast }) {
               >
                 {isBn ? 'ডাটাবেজ ও ক্লাউড ব্যাকআপ সেন্টার' : 'Database & Cloud Export Center'}
               </h2>
-              <p style={{ margin: '3px 0 0 0', fontSize: '0.86rem', color: 'var(--text-muted)' }}>
-                {isBn
-                  ? 'এক ক্লিকে cPanel MariaDB ডাটাবেজ, Supabase স্কিমা এবং Backblaze B2 ক্লাউড স্টোরেজের ফাইল ডাউনলোড করুন।'
-                  : '1-click export and download for cPanel MariaDB SQL, Supabase SQL schema, and Backblaze B2 assets.'}
-              </p>
             </div>
           </div>
         </div>

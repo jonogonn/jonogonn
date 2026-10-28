@@ -70,12 +70,7 @@ if ($action === 'proxy_image') {
             curl_close($ch);
 
             if ($httpCode === 200 && $imgData) {
-                // Save locally if local folder exists
-                if (!empty($localFilePath)) {
-                    $dir = dirname($localFilePath);
-                    if (!is_dir($dir)) @mkdir($dir, 0755, true);
-                    @file_put_contents($localFilePath, $imgData);
-                }
+                // Stream directly without storing on local server disk
                 header('Content-Type: ' . $cType);
                 header('Access-Control-Allow-Origin: *');
                 header('Cache-Control: public, max-age=31536000');

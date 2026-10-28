@@ -217,8 +217,8 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
 
         showSuccess(
           isBn
-            ? `MariaDB ডাটাবেজ (news_post) থেকে মোট ${normalized.length} টি সংবাদ সফলভাবে সিঙ্ক হয়েছে!`
-            : `Synced ${normalized.length} posts from MariaDB database!`
+            ? `মোট ${normalized.length} টি সংবাদ সফলভাবে সিঙ্ক হয়েছে!`
+            : `Synced ${normalized.length} posts `
         );
       } else {
         if (triggerSaveToast) triggerSaveToast(isBn ? 'ডাটাবেজ পোস্ট আপ-টু-ডেট রয়েছে।' : 'Database posts are up-to-date.');
@@ -567,11 +567,6 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
             <Globe size={26} color="#10B981" />
             <span>{isBn ? 'প্রকাশিত ও ডাটাবেজের সকল পোস্ট (Publish Post)' : 'Published & Database Posts'}</span>
           </h2>
-          <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-muted)' }}>
-            {isBn
-              ? 'MariaDB ডাটাবেজে সংরক্ষিত সকল সংবাদ পর্যবেক্ষণ, লাইভ প্রকাশনা নিয়ন্ত্রণ, সার্চ এবং বিশ্লেষণ।'
-              : 'Complete view of all posts in the database with status management, analytics, and live inspection.'}
-          </p>
         </div>
 
         {/* Action Buttons */}
@@ -582,7 +577,7 @@ export default function PublishPostManager({ triggerSaveToast, onNavigateToCreat
             disabled={isRefreshing}
             onClick={handleRefreshDb}
             style={{ fontSize: '0.85rem', padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            title={isBn ? 'MariaDB ডাটাবেজ থেকে রিলোড করুন' : 'Refresh from Database'}
+            title={isBn ? 'রিলোড করুন' : 'Refresh'}
           >
             <RefreshCw size={15} className={isRefreshing ? 'spin-anim' : ''} />
             <span>{isRefreshing ? (isBn ? 'সিঙ্ক হচ্ছে...' : 'Syncing...') : (isBn ? 'ডাটাবেজ সিঙ্ক' : 'Sync DB')}</span>

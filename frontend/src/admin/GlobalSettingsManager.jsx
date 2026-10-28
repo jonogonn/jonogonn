@@ -520,11 +520,10 @@ export default function GlobalSettingsManager({ triggerSaveToast }) {
           flexWrap: 'wrap',
           gap: 16,
           padding: '20px 24px',
-          borderLeft: '4px solid var(--primary-red)'
         }}
       >
         <div>
-          <h1
+          <h2
             style={{
               fontFamily: 'var(--font-headline)',
               fontSize: '1.7rem',
@@ -538,12 +537,7 @@ export default function GlobalSettingsManager({ triggerSaveToast }) {
           >
             <Sliders size={26} color="var(--primary-red)" />
             <span>{isBn ? 'গ্লোবাল ওয়েবসাইট সেটিংস ও কন্ট্রোল সেন্টার' : 'Global Website Settings & Master Control'}</span>
-          </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', margin: '6px 0 0 0', maxWidth: 840 }}>
-            {isBn
-              ? 'ওয়েবসাইট লোড পপআপ, ব্র্যান্ডিং, আমাদের সম্পর্কে, বিজ্ঞাপন নীতিমালা, যোগাযোগের ঠিকানা ও সমস্ত আইনি পেজের বিবরণ এখান থেকে পরিচালনা করুন।'
-              : 'Configure website load popups, brand identity, about us, advertising policies, contact info and all legal terms from one unified dashboard.'}
-          </p>
+          </h2>
         </div>
 
         <button

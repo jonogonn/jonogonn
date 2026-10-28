@@ -12,43 +12,69 @@ function isLocalEnvironment() {
 function getNewsEndpoints(query = '') {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-  const isJanogon = pathname.includes('/janogon');
-  const isLocal = isLocalEnvironment();
   const q = query ? (query.startsWith('?') ? query : `?${query}`) : '';
 
+  let subDir = '';
+  const match = pathname.match(/^\/([^/]+)/);
+  if (match && (match[1].includes('janogon') || match[1].includes('jonogon'))) {
+    subDir = `/${match[1]}`;
+  }
+
   const list = [];
-  if (isJanogon || isLocal) {
-    list.push(`/janogon/api/news.php${q}`);
-    if (origin) list.push(`${origin}/janogon/api/news.php${q}`);
-    list.push(`http://127.0.0.1/janogon/api/news.php${q}`);
+  if (subDir) {
+    if (origin) list.push(`${origin}${subDir}/api/news.php${q}`);
+    list.push(`${subDir}/api/news.php${q}`);
+  }
+  if (origin) {
+    list.push(`${origin}/api/news.php${q}`);
+  }
+  list.push(`/api/news.php${q}`);
+  list.push(`./api/news.php${q}`);
+  list.push(`api/news.php${q}`);
+
+  if (isLocalEnvironment()) {
+    list.push(`http://localhost/janogon.news/api/news.php${q}`);
+    list.push(`http://127.0.0.1/janogon.news/api/news.php${q}`);
     list.push(`http://localhost/janogon/api/news.php${q}`);
-    list.push(`/api/news.php${q}`);
+    list.push(`http://127.0.0.1/janogon/api/news.php${q}`);
   } else {
-    list.push(`/api/news.php${q}`);
-    if (origin) list.push(`${origin}/api/news.php${q}`);
     list.push(`https://jonogon.news/api/news.php${q}`);
   }
+
   return [...new Set(list)];
 }
 
 function getSyncEndpoints() {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-  const isJanogon = pathname.includes('/janogon');
-  const isLocal = isLocalEnvironment();
+
+  let subDir = '';
+  const match = pathname.match(/^\/([^/]+)/);
+  if (match && (match[1].includes('janogon') || match[1].includes('jonogon'))) {
+    subDir = `/${match[1]}`;
+  }
 
   const list = [];
-  if (isJanogon || isLocal) {
-    list.push('/janogon/api/admin_sync.php');
-    if (origin) list.push(`${origin}/janogon/api/admin_sync.php`);
-    list.push('http://127.0.0.1/janogon/api/admin_sync.php');
+  if (subDir) {
+    if (origin) list.push(`${origin}${subDir}/api/admin_sync.php`);
+    list.push(`${subDir}/api/admin_sync.php`);
+  }
+  if (origin) {
+    list.push(`${origin}/api/admin_sync.php`);
+  }
+  list.push('/api/admin_sync.php');
+  list.push('./api/admin_sync.php');
+  list.push('api/admin_sync.php');
+
+  if (isLocalEnvironment()) {
+    list.push('http://localhost/janogon.news/api/admin_sync.php');
+    list.push('http://127.0.0.1/janogon.news/api/admin_sync.php');
     list.push('http://localhost/janogon/api/admin_sync.php');
-    list.push('/api/admin_sync.php');
+    list.push('http://127.0.0.1/janogon/api/admin_sync.php');
   } else {
-    list.push('/api/admin_sync.php');
-    if (origin) list.push(`${origin}/api/admin_sync.php`);
     list.push('https://jonogon.news/api/admin_sync.php');
   }
+
   return [...new Set(list)];
 }
 
@@ -524,4 +550,96 @@ export async function saveCommentToMariaDb(commentPayload) {
   }
 
   return { success: false, error: lastError?.message || 'Failed to submit comment' };
+}
+
+// -------------------------------------------------------------
+// CITIZEN COMPLAINTS (অভিযোগ বক্স) SYNC & STORAGE HELPERS
+// -------------------------------------------------------------
+export function getComplaintsEndpoints(query = '') {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const q = query ? (query.startsWith('?') ? query : `?${query}`) : '';
+
+  let subDir = '';
+  const match = pathname.match(/^\/([^/]+)/);
+  if (match && (match[1].includes('janogon') || match[1].includes('jonogon'))) {
+    subDir = `/${match[1]}`;
+  }
+
+  const list = [];
+  if (subDir) {
+    if (origin) list.push(`${origin}${subDir}/api/complaints.php${q}`);
+    list.push(`${subDir}/api/complaints.php${q}`);
+  }
+  if (origin) {
+    list.push(`${origin}/api/complaints.php${q}`);
+  }
+  list.push(`/api/complaints.php${q}`);
+  list.push(`./api/complaints.php${q}`);
+  list.push(`api/complaints.php${q}`);
+
+  if (isLocalEnvironment()) {
+    list.push(`http://localhost/janogon.news/api/complaints.php${q}`);
+    list.push(`http://127.0.0.1/janogon.news/api/complaints.php${q}`);
+    list.push(`http://localhost/janogon/api/complaints.php${q}`);
+    list.push(`http://127.0.0.1/janogon/api/complaints.php${q}`);
+  } else {
+    list.push(`https://jonogon.news/api/complaints.php${q}`);
+  }
+
+  return [...new Set(list)];
+}
+
+export async function fetchComplaintsFromMariaDb(status = '') {
+  const q = status && status !== 'all' ? `status=${encodeURIComponent(status)}` : '';
+  const endpoints = getComplaintsEndpoints(q);
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result && result.success && Array.isArray(result.complaints)) {
+          return result.complaints;
+        }
+      }
+    } catch (err) {}
+  }
+  return [];
+}
+
+export async function submitComplaintToMariaDb(complaintPayload) {
+  const endpoints = getComplaintsEndpoints();
+  let lastError = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(complaintPayload)
+      });
+
+      let result = null;
+      try {
+        result = await response.json();
+      } catch (jsonErr) {}
+
+      if (response.ok && result?.success) {
+        return { success: true, id: result.id, message: result.message, result };
+      } else {
+        const errorMsg = result?.message || `অভিযোগ জমা দিতে ব্যর্থ হয়েছে (Status: ${response.status})`;
+        lastError = new Error(errorMsg);
+      }
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  return { success: false, error: lastError?.message || 'Failed to submit complaint to server' };
 }
