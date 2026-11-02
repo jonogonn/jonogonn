@@ -287,7 +287,8 @@ if ($requestMethod === 'POST') {
             }
         }
 
-        $proxyUrl = '/' . ltrim($storageKey, '/');
+        $fileSubPath = preg_replace('#^uploads/#', '', $storageKey);
+        $proxyUrl = '/api/uploads_proxy.php?file=' . $fileSubPath;
 
         echo json_encode([
             'success' => true,

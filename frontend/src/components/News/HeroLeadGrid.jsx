@@ -6,6 +6,19 @@ import { HeroLeadSkeleton } from '../UI/NewsSkeletonLoader';
 
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
 
+const safeImgError = (e) => {
+  const cur = e.target.src || '';
+  if (cur.includes('/uploads/') && !cur.includes('uploads_proxy.php')) {
+    const m = cur.match(/uploads\/(.+)$/);
+    if (m) {
+      e.target.src = '/api/uploads_proxy.php?file=' + m[1];
+      return;
+    }
+  }
+  e.target.onerror = null;
+  e.target.src = FALLBACK_NEWS_IMG;
+};
+
 export default function HeroLeadGrid() {
   const { language, articles, isArticlesLoading, openArticle, homepageSections, sectionColumnsOrder } = useNews();
   const isBn = language === 'bn';
@@ -113,10 +126,7 @@ export default function HeroLeadGrid() {
               alt=""
               className="hero-main-image hero-unique-slide-anim"
               loading="eager"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = FALLBACK_NEWS_IMG;
-              }}
+              onError={safeImgError}
             />
 
             {/* Subtle Gradient & Texture Vignette for cinematic look */}
@@ -235,10 +245,7 @@ export default function HeroLeadGrid() {
                   alt=""
                   className="sub-lead-img"
                   loading="lazy"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = FALLBACK_NEWS_IMG;
-                  }}
+                  onError={safeImgError}
                 />
               </div>
               <div className="sub-lead-content">
@@ -269,10 +276,7 @@ export default function HeroLeadGrid() {
                   alt=""
                   className="sub-lead-img"
                   loading="lazy"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = FALLBACK_NEWS_IMG;
-                  }}
+                  onError={safeImgError}
                 />
               </div>
               <div className="sub-lead-content">
@@ -320,10 +324,7 @@ export default function HeroLeadGrid() {
                     alt=""
                     className="ranking-thumb-img"
                     loading="lazy"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = FALLBACK_NEWS_IMG;
-                    }}
+                    onError={safeImgError}
                   />
                 </div>
                 <div className="ranking-info">
@@ -354,10 +355,7 @@ export default function HeroLeadGrid() {
                     alt=""
                     className="ranking-thumb-img"
                     loading="lazy"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = FALLBACK_NEWS_IMG;
-                    }}
+                    onError={safeImgError}
                   />
                 </div>
                 <div className="ranking-info">

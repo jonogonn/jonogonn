@@ -5,6 +5,19 @@ import { LatestNewsSkeleton } from '../UI/NewsSkeletonLoader';
 
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
 
+const safeImgError = (e) => {
+  const cur = e.target.src || '';
+  if (cur.includes('/uploads/') && !cur.includes('uploads_proxy.php')) {
+    const m = cur.match(/uploads\/(.+)$/);
+    if (m) {
+      e.target.src = '/api/uploads_proxy.php?file=' + m[1];
+      return;
+    }
+  }
+  e.target.onerror = null;
+  e.target.src = FALLBACK_NEWS_IMG;
+};
+
 export default function LatestNewsGrid() {
   const { language, articles, isArticlesLoading, openArticle, setActiveCategory, homepageSections } = useNews();
   const isBn = language === 'bn';
@@ -108,10 +121,7 @@ export default function LatestNewsGrid() {
                   alt={isBn ? item.titleBn : item.titleEn}
                   className="news-card-img"
                   loading="lazy"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = FALLBACK_NEWS_IMG;
-                  }}
+                  onError={safeImgError}
                 />
               </div>
               <div className="news-card-body">
@@ -143,10 +153,7 @@ export default function LatestNewsGrid() {
                   alt={isBn ? item.titleBn : item.titleEn}
                   className="news-card-img"
                   loading="lazy"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = FALLBACK_NEWS_IMG;
-                  }}
+                  onError={safeImgError}
                 />
               </div>
               <div className="news-card-body">

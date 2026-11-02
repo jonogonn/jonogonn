@@ -139,20 +139,15 @@ export function normalizeImageUrl(url) {
   if (!url || typeof url !== 'string') return '';
   let trimmed = url.trim();
 
-  // If Backblaze B2 link, convert to clean /uploads/ path
-  if (trimmed.includes('backblazeb2.com')) {
-    const match = trimmed.match(/uploads\/\d{4}\/\d{2}\/[^?&"'\s]+/);
-    if (match) {
-      trimmed = `/${match[0]}`;
-    }
+  // If already proxy URL, return as is
+  if (trimmed.includes('uploads_proxy.php')) {
+    return trimmed;
   }
 
-  // If URL has jonogon.news/uploads, make it relative /uploads/
-  if (trimmed.includes('jonogon.news/uploads/')) {
-    const match = trimmed.match(/uploads\/\d{4}\/\d{2}\/[^?&"'\s]+/);
-    if (match) {
-      trimmed = `/${match[0]}`;
-    }
+  // Extract uploads relative path: YYYY/MM/filename.webp
+  const match = trimmed.match(/uploads\/(\d{4}\/\d{2}\/[^?&"'\s]+)/);
+  if (match) {
+    return `/api/uploads_proxy.php?file=${match[1]}`;
   }
 
   return trimmed;
@@ -161,8 +156,9 @@ export function normalizeImageUrl(url) {
 export function normalizeHtmlContent(html) {
   if (!html || typeof html !== 'string') return '';
   return html
-    .replace(/https?:\/\/[^"'\s>]*backblazeb2\.com\/[^"'\s>]*\/uploads\/(\d{4}\/\d{2}\/[^"'\s?&>]+)(?:\?[^"'\s>]*)?/gi, '/uploads/$1')
-    .replace(/https?:\/\/(?:www\.)?jonogon\.news\/uploads\//gi, '/uploads/');
+    .replace(/https?:\/\/[^"'\s>]*backblazeb2\.com\/[^"'\s>]*\/uploads\/(\d{4}\/\d{2}\/[^"'\s?&>]+)(?:\?[^"'\s>]*)?/gi, '/api/uploads_proxy.php?file=$1')
+    .replace(/https?:\/\/(?:www\.)?jonogon\.news\/uploads\/(\d{4}\/\d{2}\/[^"'\s?&>]+)/gi, '/api/uploads_proxy.php?file=$1')
+    .replace(/(["'])\/uploads\/(\d{4}\/\d{2}\/[^"'\s?&>]+)\1/gi, '$1/api/uploads_proxy.php?file=$2$1');
 }
 
 export async function fetchArticlesFromMariaDb(options = {}) {

@@ -132,16 +132,14 @@ function normalizeNewsImageUrl($url) {
     if (!$url || !is_string($url)) return '';
     $url = trim($url);
 
-    // B2 private bucket links convert to clean /uploads/ URL
-    if (strpos($url, 'backblazeb2.com') !== false) {
-        if (preg_match('#uploads/\d{4}/\d{2}/[^?&"\'\s]+#', $url, $m)) {
-            return '/' . $m[0];
-        }
+    // If already a proxy URL, return as is
+    if (strpos($url, 'uploads_proxy.php') !== false) {
+        return $url;
     }
 
-    // Strip full jonogon.news domain from uploads path to keep it root-relative
-    if (preg_match('#https?://(?:www\.)?jonogon\.news/(uploads/\d{4}/\d{2}/[^?&"\'\s]+)#', $url, $m)) {
-        return '/' . $m[1];
+    // Match YYYY/MM/filename.webp from any Backblaze, uploads/, or domain URL
+    if (preg_match('#(?:uploads/)?(\d{4}/\d{2}/[^?&"\'\s]+)#', $url, $m)) {
+        return '/api/uploads_proxy.php?file=' . $m[1];
     }
 
     return $url;
@@ -150,12 +148,13 @@ function normalizeNewsImageUrl($url) {
 function normalizeNewsContentHtml($html) {
     if (!$html || !is_string($html)) return $html;
 
-    // Convert any direct Backblaze B2 image URLs into clean /uploads/ proxy URLs
+    // Convert any direct Backblaze B2 image URLs into clean /api/uploads_proxy.php URLs
     $pattern = '#https?://[^"\'\s>]*backblazeb2\.com/[^"\'\s>]*/uploads/(\d{4}/\d{2}/[^"\'\s?&>]+)(?:\?[^"\'\s>]*)?#i';
-    $html = preg_replace($pattern, '/uploads/$1', $html);
+    $html = preg_replace($pattern, '/api/uploads_proxy.php?file=$1', $html);
 
     // Also strip full jonogon.news domain from /uploads/ inside HTML
-    $html = preg_replace('#https?://(?:www\.)?jonogon\.news/uploads/#i', '/uploads/', $html);
+    $html = preg_replace('#https?://(?:www\.)?jonogon\.news/uploads/(\d{4}/\d{2}/[^"\'\s?&>]+)#i', '/api/uploads_proxy.php?file=$1', $html);
+    $html = preg_replace('#(["\'])/uploads/(\d{4}/\d{2}/[^"\'\s?&>]+)\1#i', '$1/api/uploads_proxy.php?file=$2$1', $html);
 
     return $html;
 }
