@@ -55,3 +55,8 @@ desktop.ini
 # Backblaze B2 Token Cache
 **/.b2_token_cache.json
 .b2_token_cache.json
+
+# Social Counters Cache
+.social_cache.json
+api/.social_cache.json
+frontend/public/api/.social_cache.json
