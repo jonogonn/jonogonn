@@ -26,6 +26,21 @@ export default defineConfig({
         target: 'http://127.0.0.1/janogon.news',
         changeOrigin: true,
         secure: false
+      },
+      '/uploads': {
+        target: 'http://127.0.0.1/janogon',
+        changeOrigin: true,
+        secure: false
+      },
+      '/janogon.news/uploads': {
+        target: 'http://127.0.0.1',
+        changeOrigin: true,
+        secure: false
+      },
+      '/janogon/uploads': {
+        target: 'http://127.0.0.1',
+        changeOrigin: true,
+        secure: false
       }
     }
   },

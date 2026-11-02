@@ -137,13 +137,28 @@ export async function deleteArticleFromMariaDb(postIdOrId) {
 
 export function normalizeImageUrl(url) {
   if (!url || typeof url !== 'string') return '';
-  const trimmed = url.trim();
+  let trimmed = url.trim();
+
+  // If Backblaze B2 link, convert to clean /uploads/ path
   if (trimmed.includes('backblazeb2.com')) {
     const match = trimmed.match(/uploads\/\d{4}\/\d{2}\/[^?&"'\s]+/);
     if (match) {
-      return `https://jonogon.news/${match[0]}`;
+      trimmed = `/${match[0]}`;
     }
   }
+
+  // If running locally on localhost / dev server and URL has jonogon.news/uploads, make it relative /uploads/
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
+    if (isLocal && trimmed.includes('jonogon.news/uploads/')) {
+      const match = trimmed.match(/uploads\/\d{4}\/\d{2}\/[^?&"'\s]+/);
+      if (match) {
+        trimmed = `/${match[0]}`;
+      }
+    }
+  }
+
   return trimmed;
 }
 

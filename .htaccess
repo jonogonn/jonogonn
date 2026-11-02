@@ -1,22 +1,26 @@
 # Jonogon News - Apache / LiteSpeed Configuration
-# Ensures API endpoints execute as PHP, Social Previews work on /news/*, and SPA client routes work smoothly.
+# Ensures API endpoints execute as PHP, /uploads/ streams from B2/Cloudflare, Social Previews work on /news/*, and SPA routes work smoothly.
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
-  # 1. Allow direct execution of /api/ PHP endpoints and /uploads/
-  RewriteCond %{REQUEST_URI} ^/(api|uploads)/ [NC]
+  # 1. Allow direct execution of /api/ PHP endpoints
+  RewriteCond %{REQUEST_URI} ^/(?:.+/)?api/ [NC]
   RewriteRule ^ - [L]
 
-  # 2. Allow direct access to real existing files and folders (e.g. assets, images)
+  # 2. Allow direct access to real existing files and folders (e.g. assets, existing images)
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # 3. Dynamic Social Previews & Fast Hydration for News articles (Facebook, WhatsApp, Messenger, etc.)
+  # 3. Dynamic B2 Streamer & Cloudflare Cache for /uploads/ images when not on local disk
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^(?:.*/)?uploads/(.+)$ api/uploads_proxy.php?file=$1 [QSA,L]
+
+  # 4. Dynamic Social Previews & Fast Hydration for News articles (Facebook, WhatsApp, Messenger, etc.)
   RewriteRule ^(?:.*/)?(news|article|p)/([^/]+)/?$ share.php?slug=$2 [QSA,L]
 
-  # 4. Route all other requests to index.html for React SPA (if index.html exists)
+  # 5. Route all other requests to index.html for React SPA (if index.html exists)
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule ^ index.html [L]
