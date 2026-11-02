@@ -8,14 +8,15 @@
   RewriteCond %{REQUEST_URI} ^/(?:.+/)?api/ [NC]
   RewriteRule ^ - [L]
 
-  # 2. Allow direct access to real existing files and folders (e.g. assets, existing images)
+  # 2. Dynamic B2 Streamer & Cloudflare Cache for /uploads/ when the specific file is not on disk
+  RewriteCond %{REQUEST_URI} (?:^|/)uploads/(.+) [NC]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^(?:.*/)?uploads/(.+)$ api/uploads_proxy.php?file=$1 [QSA,L]
+
+  # 3. Allow direct access to real existing files and folders (e.g. assets, existing images)
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
-
-  # 3. Dynamic B2 Streamer & Cloudflare Cache for /uploads/ images when not on local disk
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteRule ^(?:.*/)?uploads/(.+)$ api/uploads_proxy.php?file=$1 [QSA,L]
 
   # 4. Dynamic Social Previews & Fast Hydration for News articles (Facebook, WhatsApp, Messenger, etc.)
   RewriteRule ^(?:.*/)?(news|article|p)/([^/]+)/?$ share.php?slug=$2 [QSA,L]
