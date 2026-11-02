@@ -1,0 +1,6 @@
+# Janogon News - Fallback streamer for missing uploads
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^(.+)$ ../api/uploads_proxy.php?file=$1 [QSA,L]
+</IfModule>

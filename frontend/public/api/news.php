@@ -132,14 +132,32 @@ function normalizeNewsImageUrl($url) {
     if (!$url || !is_string($url)) return '';
     $url = trim($url);
 
-    // B2 private bucket links convert to public upload CDN
+    // B2 private bucket links convert to clean /uploads/ URL
     if (strpos($url, 'backblazeb2.com') !== false) {
         if (preg_match('#uploads/\d{4}/\d{2}/[^?&"\'\s]+#', $url, $m)) {
-            return 'https://jonogon.news/' . $m[0];
+            return '/' . $m[0];
         }
     }
 
+    // Strip full jonogon.news domain from uploads path to keep it root-relative
+    if (preg_match('#https?://(?:www\.)?jonogon\.news/(uploads/\d{4}/\d{2}/[^?&"\'\s]+)#', $url, $m)) {
+        return '/' . $m[1];
+    }
+
     return $url;
+}
+
+function normalizeNewsContentHtml($html) {
+    if (!$html || !is_string($html)) return $html;
+
+    // Convert any direct Backblaze B2 image URLs into clean /uploads/ proxy URLs
+    $pattern = '#https?://[^"\'\s>]*backblazeb2\.com/[^"\'\s>]*/uploads/(\d{4}/\d{2}/[^"\'\s?&>]+)(?:\?[^"\'\s>]*)?#i';
+    $html = preg_replace($pattern, '/uploads/$1', $html);
+
+    // Also strip full jonogon.news domain from /uploads/ inside HTML
+    $html = preg_replace('#https?://(?:www\.)?jonogon\.news/uploads/#i', '/uploads/', $html);
+
+    return $html;
 }
 
 /**
@@ -371,9 +389,9 @@ if ($method === 'GET') {
                 'titleEn' => $row['title_en'] ?? ($row['title_bn'] ?? ($row['title'] ?? '')),
                 'kicker' => $row['kicker'] ?? '',
                 'subtitle' => $row['subtitle'] ?? '',
-                'content' => $row['content_bn'] ?? ($row['content'] ?? ''),
-                'contentBn' => $row['content_bn'] ?? ($row['content'] ?? ''),
-                'contentEn' => $row['content_en'] ?? '',
+                'content' => normalizeNewsContentHtml($row['content_bn'] ?? ($row['content'] ?? '')),
+                'contentBn' => normalizeNewsContentHtml($row['content_bn'] ?? ($row['content'] ?? '')),
+                'contentEn' => normalizeNewsContentHtml($row['content_en'] ?? ''),
                 'excerpt' => $row['excerpt_bn'] ?? ($row['excerpt'] ?? ''),
                 'excerptBn' => $row['excerpt_bn'] ?? ($row['excerpt'] ?? ''),
                 'excerptEn' => $row['excerpt_en'] ?? '',
@@ -563,14 +581,14 @@ if ($method === 'POST') {
 
         $inputContent = trim((string)($data['contentBn'] ?? ($data['content_bn'] ?? ($data['content'] ?? ''))));
         $contentBn = $inputContent !== '' ? $inputContent : ($existing['content_bn'] ?? ($existing['content'] ?? ''));
-        $contentBn = sanitizeAndCleanBase64Images($contentBn, $slug);
+        $contentBn = normalizeNewsContentHtml(sanitizeAndCleanBase64Images($contentBn, $slug));
 
         $inputContentEn = trim((string)($data['contentEn'] ?? ($data['content_en'] ?? '')));
         $contentEn = $inputContentEn !== '' ? $inputContentEn : ($existing['content_en'] ?? '');
-        $contentEn = sanitizeAndCleanBase64Images($contentEn, $slug);
+        $contentEn = normalizeNewsContentHtml(sanitizeAndCleanBase64Images($contentEn, $slug));
 
         if ($blocks) {
-            $blocks = sanitizeAndCleanBase64Images($blocks, $slug);
+            $blocks = normalizeNewsContentHtml(sanitizeAndCleanBase64Images($blocks, $slug));
         }
 
         $categories = is_array($data['categories'] ?? null) ? json_encode($data['categories'], JSON_UNESCAPED_UNICODE) : ($existing['categories'] ?? null);

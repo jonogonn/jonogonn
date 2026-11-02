@@ -287,11 +287,14 @@ if ($requestMethod === 'POST') {
             }
         }
 
+        $proxyUrl = '/' . ltrim($storageKey, '/');
+
         echo json_encode([
             'success' => true,
             'message' => 'ছবি সফলভাবে .webp ফরম্যাটে রূপান্তরিত ও সংরক্ষিত হয়েছে!',
-            'url' => $publicUrl,
-            'imageUrl' => $publicUrl,
+            'url' => $proxyUrl,
+            'imageUrl' => $proxyUrl,
+            'b2Url' => $publicUrl,
             'storage_key' => $storageKey,
             'provider' => $provider,
             'format' => $finalFormat,

@@ -1141,7 +1141,14 @@ export default function CreatePostManager({ initialPostId = null, initialPost = 
             return `<${TagName} class="post-heading ${TagName}">${b.content || ''}</${TagName}>`;
           }
           case 'image': {
-            const imgSrc = b.url || (b.previewUrl && !b.previewUrl.startsWith('data:') && !b.previewUrl.startsWith('blob:') ? b.previewUrl : '');
+            let imgSrc = b.url || (b.previewUrl && !b.previewUrl.startsWith('data:') && !b.previewUrl.startsWith('blob:') ? b.previewUrl : '');
+            if (imgSrc.includes('backblazeb2.com')) {
+              const match = imgSrc.match(/uploads\/\d{4}\/\d{2}\/[^?&"'\s]+/);
+              if (match) imgSrc = `/${match[0]}`;
+            } else if (imgSrc.includes('jonogon.news/uploads/')) {
+              const match = imgSrc.match(/uploads\/\d{4}\/\d{2}\/[^?&"'\s]+/);
+              if (match) imgSrc = `/${match[0]}`;
+            }
             return imgSrc
               ? `<figure class="post-figure" style="margin: 20px 0; text-align: center; width: 100%;"><img src="${imgSrc}" alt="${b.caption || 'Image'}" class="post-image" style="width: 100%; height: auto; max-width: 100%; object-fit: contain; border-radius: 8px; display: block; margin: 0 auto;" />${
                   b.caption ? `<figcaption class="post-caption" style="font-size: 0.84rem; color: #888888; margin-top: 8px; font-style: italic; text-align: center;">${b.caption}</figcaption>` : ''

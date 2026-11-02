@@ -51,3 +51,7 @@ desktop.ini
 *.sql
 **/*.sql
 
+
+# Backblaze B2 Token Cache
+**/.b2_token_cache.json
+.b2_token_cache.json

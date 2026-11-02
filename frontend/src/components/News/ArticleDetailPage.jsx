@@ -397,9 +397,12 @@ export default function ArticleDetailPage() {
               className="article-body-text"
               style={{ fontSize: `${fontSize}rem` }}
               dangerouslySetInnerHTML={{
-                __html: isBn
+                __html: (isBn
                   ? currentArticle.contentBn || currentArticle.excerptBn || ''
                   : currentArticle.contentEn || currentArticle.excerptEn || ''
+                )
+                  .replace(/https?:\/\/[^"'\s>]*backblazeb2\.com\/[^"'\s>]*\/uploads\/(\d{4}\/\d{2}\/[^"'\s?&>]+)(?:\?[^"'\s>]*)?/gi, '/uploads/$1')
+                  .replace(/https?:\/\/(?:www\.)?jonogon\.news\/uploads\//gi, '/uploads/')
               }}
             />
 

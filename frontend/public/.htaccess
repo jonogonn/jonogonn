@@ -3,15 +3,15 @@
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  RewriteBase /
 
   # 1. Allow direct execution of /api/ PHP endpoints
   RewriteCond %{REQUEST_URI} ^/(?:.+/)?api/ [NC]
   RewriteRule ^ - [L]
 
   # 2. Dynamic B2 Streamer & Cloudflare Cache for /uploads/ when the specific file is not on disk
-  RewriteCond %{REQUEST_URI} (?:^|/)uploads/(.+) [NC]
   RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteRule ^(?:.*/)?uploads/(.+)$ api/uploads_proxy.php?file=$1 [QSA,L]
+  RewriteRule ^(?:janogon/)?uploads/(.+)$ api/uploads_proxy.php?file=$1 [QSA,L]
 
   # 3. Allow direct access to real existing files and folders (e.g. assets, existing images)
   RewriteCond %{REQUEST_FILENAME} -f [OR]

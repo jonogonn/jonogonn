@@ -147,19 +147,22 @@ export function normalizeImageUrl(url) {
     }
   }
 
-  // If running locally on localhost / dev server and URL has jonogon.news/uploads, make it relative /uploads/
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
-    if (isLocal && trimmed.includes('jonogon.news/uploads/')) {
-      const match = trimmed.match(/uploads\/\d{4}\/\d{2}\/[^?&"'\s]+/);
-      if (match) {
-        trimmed = `/${match[0]}`;
-      }
+  // If URL has jonogon.news/uploads, make it relative /uploads/
+  if (trimmed.includes('jonogon.news/uploads/')) {
+    const match = trimmed.match(/uploads\/\d{4}\/\d{2}\/[^?&"'\s]+/);
+    if (match) {
+      trimmed = `/${match[0]}`;
     }
   }
 
   return trimmed;
+}
+
+export function normalizeHtmlContent(html) {
+  if (!html || typeof html !== 'string') return '';
+  return html
+    .replace(/https?:\/\/[^"'\s>]*backblazeb2\.com\/[^"'\s>]*\/uploads\/(\d{4}\/\d{2}\/[^"'\s?&>]+)(?:\?[^"'\s>]*)?/gi, '/uploads/$1')
+    .replace(/https?:\/\/(?:www\.)?jonogon\.news\/uploads\//gi, '/uploads/');
 }
 
 export async function fetchArticlesFromMariaDb(options = {}) {
@@ -186,11 +189,16 @@ export async function fetchArticlesFromMariaDb(options = {}) {
         if (result && result.success && Array.isArray(result.data)) {
           return result.data.map((art) => {
             const cleanUrl = normalizeImageUrl(art.imageUrl || art.featuredImage);
+            const cleanContentBn = normalizeHtmlContent(art.contentBn || art.content);
+            const cleanContentEn = normalizeHtmlContent(art.contentEn);
             return {
               ...art,
               imageUrl: cleanUrl,
               featuredImage: cleanUrl,
-              thumbnail_image: cleanUrl
+              thumbnail_image: cleanUrl,
+              content: cleanContentBn,
+              contentBn: cleanContentBn,
+              contentEn: cleanContentEn
             };
           });
         }
@@ -217,11 +225,16 @@ export async function fetchSingleArticleFromMariaDb(idOrSlug) {
         if (result && result.success && Array.isArray(result.data) && result.data.length > 0) {
           const art = result.data[0];
           const cleanUrl = normalizeImageUrl(art.imageUrl || art.featuredImage);
+          const cleanContentBn = normalizeHtmlContent(art.contentBn || art.content);
+          const cleanContentEn = normalizeHtmlContent(art.contentEn);
           return {
             ...art,
             imageUrl: cleanUrl,
             featuredImage: cleanUrl,
-            thumbnail_image: cleanUrl
+            thumbnail_image: cleanUrl,
+            content: cleanContentBn,
+            contentBn: cleanContentBn,
+            contentEn: cleanContentEn
           };
         }
       }
