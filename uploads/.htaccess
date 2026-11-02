@@ -1,7 +1,7 @@
-# Janogon News - Fallback streamer for missing uploads
+# Janogon News - Fallback streamer for missing uploads via Cloudflare / B2
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  RewriteBase /
   RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteRule ^(.+)$ ../api/uploads_proxy.php?file=$1 [QSA,L]
+  RewriteRule ^(.*)$ /api/uploads_proxy.php?file=$1 [QSA,L]
 </IfModule>
-

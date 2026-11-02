@@ -375,6 +375,15 @@ export default function ArticleDetailPage() {
                   src={currentArticle.imageUrl}
                   alt={isBn ? currentArticle.titleBn : currentArticle.titleEn}
                   className="article-featured-image"
+                  onError={(e) => {
+                    const currentSrc = e.currentTarget.src || '';
+                    if (currentSrc.includes('/uploads/') && !currentSrc.includes('uploads_proxy.php')) {
+                      const match = currentSrc.match(/uploads\/(.+)$/);
+                      if (match) {
+                        e.currentTarget.src = `/api/uploads_proxy.php?file=${encodeURIComponent(match[1])}`;
+                      }
+                    }
+                  }}
                 />
                 <div className="article-image-caption">
                   {isBn ? currentArticle.titleBn : currentArticle.titleEn} | ছবি: জনগণ নিউজ
@@ -397,12 +406,17 @@ export default function ArticleDetailPage() {
               className="article-body-text"
               style={{ fontSize: `${fontSize}rem` }}
               dangerouslySetInnerHTML={{
-                __html: (isBn
-                  ? currentArticle.contentBn || currentArticle.excerptBn || ''
-                  : currentArticle.contentEn || currentArticle.excerptEn || ''
-                )
-                  .replace(/https?:\/\/[^"'\s>]*backblazeb2\.com\/[^"'\s>]*\/uploads\/(\d{4}\/\d{2}\/[^"'\s?&>]+)(?:\?[^"'\s>]*)?/gi, '/uploads/$1')
-                  .replace(/https?:\/\/(?:www\.)?jonogon\.news\/uploads\//gi, '/uploads/')
+                __html: (() => {
+                  let raw = isBn
+                    ? currentArticle.contentBn || currentArticle.excerptBn || ''
+                    : currentArticle.contentEn || currentArticle.excerptEn || '';
+                  raw = raw
+                    .replace(/https?:\/\/[^"'\s>]*backblazeb2\.com\/[^"'\s>]*\/uploads\/(\d{4}\/\d{2}\/[^"'\s?&>]+)(?:\?[^"'\s>]*)?/gi, '/uploads/$1')
+                    .replace(/https?:\/\/(?:www\.)?jonogon\.news\/uploads\//gi, '/uploads/');
+                  return raw.replace(/<img\s+([^>]*?)src=(["'])\/uploads\/([^"'\s]+)\2([^>]*)>/gi, (m, pre, q, file, post) => {
+                    return `<img ${pre}src=${q}/uploads/${file}${q} onerror="if(!this.dataset.p){this.dataset.p='1';this.src='/api/uploads_proxy.php?file=' + encodeURIComponent('${file}');}"${post}>`;
+                  });
+                })()
               }}
             />
 

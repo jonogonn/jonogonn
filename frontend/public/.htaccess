@@ -9,9 +9,9 @@
   RewriteCond %{REQUEST_URI} ^/(?:.+/)?api/ [NC]
   RewriteRule ^ - [L]
 
-  # 2. Dynamic B2 Streamer & Cloudflare Cache for /uploads/ when the specific file is not on disk
+  # 2. Dynamic B2 Streamer & Cloudflare Cache for /uploads/
   RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteRule ^(?:janogon/)?uploads/(.+)$ api/uploads_proxy.php?file=$1 [QSA,L]
+  RewriteRule ^(?:janogon/)?uploads/(.+)$ /api/uploads_proxy.php?file=$1 [QSA,L]
 
   # 3. Allow direct access to real existing files and folders (e.g. assets, existing images)
   RewriteCond %{REQUEST_FILENAME} -f [OR]
@@ -19,7 +19,7 @@
   RewriteRule ^ - [L]
 
   # 4. Dynamic Social Previews & Fast Hydration for News articles (Facebook, WhatsApp, Messenger, etc.)
-  RewriteRule ^(?:.*/)?(news|article|p)/([^/]+)/?$ share.php?slug=$2 [QSA,L]
+  RewriteRule ^(?:.*/)?(news|article|p)/([^/]+)/?$ /share.php?slug=$2 [QSA,L]
 
   # 5. Route all other requests to index.html for React SPA (if index.html exists)
   RewriteCond %{REQUEST_FILENAME} !-f
