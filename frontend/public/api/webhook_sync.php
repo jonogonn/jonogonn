@@ -1,15 +1,28 @@
 <?php
 /**
- * Janogon News (জনগণ.নিউজ) - Secure HTTPS Bi-Directional Webhook Receiver
+ * Janogon News (জনগণ.নিউজ) - Universal MariaDB Webhook Receiver
  * Path: /api/webhook_sync.php
  * 
- * Secure endpoint on BOTH Hosting Servers that receives updates from the other peer.
- * Modules supported:
- * 1. save_news / delete_news / bulk_sync
- * 2. save_setting / save_settings_batch (founderBn, site_settings, contact, branding, etc.)
- * 3. save_sections (homepage modular layout)
- * 4. save_categories (categories & master groups)
- * 5. save_podcasts / save_video_news / save_emergency
+ * Supports dynamic and atomic synchronization for ALL 19 Tables:
+ * 1. admin_activity_logs
+ * 2. ads_config
+ * 3. article_comments
+ * 4. backup_logs
+ * 5. breaking_news
+ * 6. categories
+ * 7. category_master_groups
+ * 8. emergency_services
+ * 9. homepage_sections
+ * 10. jonogon_complaints
+ * 11. media_gallery
+ * 12. media_uploads
+ * 13. news
+ * 14. news_posts
+ * 15. podcasts
+ * 16. site_settings
+ * 17. top-news
+ * 18. top_news
+ * 19. video_news
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -33,7 +46,7 @@ if (empty($secret)) {
 $reqTimestamp = (int)($_SERVER['HTTP_X_SYNC_TIMESTAMP'] ?? 0);
 $reqSignature = trim($_SERVER['HTTP_X_SYNC_SIGNATURE'] ?? '');
 
-// Replay attack prevention: window of 10 minutes
+// Replay window of 10 minutes
 if (abs(time() - $reqTimestamp) > 600 || empty($reqSignature)) {
     http_response_code(403);
     echo json_encode(['error' => 'Forbidden']);
@@ -71,9 +84,83 @@ if (!$pdo) {
     exit;
 }
 
+// Whitelist of valid project tables
+$allowedTables = [
+    'admin_activity_logs', 'ads_config', 'article_comments', 'backup_logs',
+    'breaking_news', 'categories', 'category_master_groups', 'emergency_services',
+    'homepage_sections', 'jonogon_complaints', 'media_gallery', 'media_uploads',
+    'news', 'news_posts', 'podcasts', 'site_settings', 'top-news', 'top_news', 'video_news'
+];
+
 try {
     // -------------------------------------------------------------
-    // 1. SITE SETTINGS SYNC (founderBn, branding, footer, social)
+    // UNIVERSAL HANDLER 1: DYNAMIC ROWS REPLICATION (ANY TABLE)
+    // -------------------------------------------------------------
+    if ($action === 'sync_table_rows' && !empty($data['table']) && !empty($data['rows']) && is_array($data['rows'])) {
+        $table = trim($data['table']);
+        if (!in_array($table, $allowedTables)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Table not allowed for sync']);
+            exit;
+        }
+
+        // Fetch valid columns on target
+        $colStmt = $pdo->query("SHOW COLUMNS FROM `{$table}`");
+        $targetCols = [];
+        while ($c = $colStmt->fetch(PDO::FETCH_ASSOC)) {
+            $targetCols[strtolower($c['Field'])] = true;
+        }
+
+        $syncedCount = 0;
+        foreach ($data['rows'] as $row) {
+            if (!is_array($row)) continue;
+
+            $validRow = [];
+            foreach ($row as $k => $v) {
+                if (isset($targetCols[strtolower($k)])) {
+                    $validRow[$k] = is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : $v;
+                }
+            }
+
+            if (!empty($validRow)) {
+                $cols = array_keys($validRow);
+                $escapedCols = array_map(fn($c) => "`$c`", $cols);
+                $placeholders = implode(', ', array_fill(0, count($cols), '?'));
+                $sql = "REPLACE INTO `{$table}` (" . implode(', ', $escapedCols) . ") VALUES ({$placeholders})";
+                $pdo->prepare($sql)->execute(array_values($validRow));
+                $syncedCount++;
+            }
+        }
+
+        http_response_code(200);
+        echo json_encode(['success' => true, 'table' => $table, 'synced_rows' => $syncedCount]);
+        exit;
+    }
+
+    // -------------------------------------------------------------
+    // UNIVERSAL HANDLER 2: DYNAMIC ROW DELETION (ANY TABLE)
+    // -------------------------------------------------------------
+    if ($action === 'delete_table_row' && !empty($data['table']) && !empty($data['column']) && isset($data['value'])) {
+        $table  = trim($data['table']);
+        $column = preg_replace('/[^a-zA-Z0-9_]/', '', $data['column']);
+        $value  = $data['value'];
+
+        if (!in_array($table, $allowedTables) || empty($column)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid delete parameters']);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("DELETE FROM `{$table}` WHERE `{$column}` = ?");
+        $stmt->execute([$value]);
+
+        http_response_code(200);
+        echo json_encode(['success' => true, 'action' => 'deleted', 'table' => $table]);
+        exit;
+    }
+
+    // -------------------------------------------------------------
+    // MODULE HANDLERS: SITE SETTINGS
     // -------------------------------------------------------------
     if ($action === 'save_setting' || $action === 'save_settings_batch') {
         $stmt = $pdo->prepare("INSERT INTO `site_settings` (`setting_key`, `setting_value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)");
@@ -89,7 +176,7 @@ try {
     }
 
     // -------------------------------------------------------------
-    // 2. HOMEPAGE SECTIONS SYNC
+    // MODULE HANDLERS: HOMEPAGE SECTIONS
     // -------------------------------------------------------------
     if ($action === 'save_sections' && is_array($data)) {
         $sectionsList = isset($data['homepageSections']) ? $data['homepageSections'] : (isset($data['sections']) ? $data['sections'] : $data);
@@ -118,7 +205,7 @@ try {
     }
 
     // -------------------------------------------------------------
-    // 3. CATEGORIES & MASTER GROUPS SYNC
+    // MODULE HANDLERS: CATEGORIES & MASTER GROUPS
     // -------------------------------------------------------------
     if ($action === 'save_categories' && is_array($data)) {
         if (!empty($data['masterGroups']) && is_array($data['masterGroups'])) {
@@ -173,207 +260,7 @@ try {
     }
 
     // -------------------------------------------------------------
-    // 4. PODCASTS SYNC
-    // -------------------------------------------------------------
-    if ($action === 'save_podcasts' && is_array($data)) {
-        $items = (isset($data['titleBn']) || isset($data['title_bn'])) ? [$data] : (array_values($data));
-        $syncedIds = [];
-        $colStmt = $pdo->query("SHOW COLUMNS FROM `podcasts`");
-        $podCols = [];
-        while ($c = $colStmt->fetch(PDO::FETCH_ASSOC)) {
-            $podCols[strtolower($c['Field'])] = true;
-        }
-
-        foreach ($items as $idx => $p) {
-            if (!is_array($p)) continue;
-            $podId = trim($p['id'] ?? ($p['podcast_id'] ?? ''));
-            if (!$podId) $podId = 'pod-' . time() . '-' . rand(100, 999);
-            $syncedIds[] = $podId;
-
-            $titleBn = trim($p['titleBn'] ?? ($p['title_bn'] ?? ($p['title'] ?? '')));
-            if (!$titleBn) continue;
-
-            $validFields = [];
-            foreach ($p as $k => $v) {
-                if (isset($podCols[strtolower($k)])) {
-                    $validFields[$k] = is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : $v;
-                }
-            }
-            if (!empty($validFields)) {
-                $cols = array_keys($validFields);
-                $escaped = array_map(fn($c) => "`$c`", $cols);
-                $ph = implode(', ', array_fill(0, count($cols), '?'));
-                $pdo->prepare("REPLACE INTO `podcasts` (" . implode(', ', $escaped) . ") VALUES ($ph)")->execute(array_values($validFields));
-            }
-        }
-        http_response_code(200);
-        echo json_encode(['success' => true, 'action' => 'podcasts_synced']);
-        exit;
-    }
-
-    // -------------------------------------------------------------
-    // 5. VIDEO NEWS SYNC
-    // -------------------------------------------------------------
-    if ($action === 'save_video_news' && is_array($data)) {
-        $items = isset($data[0]) ? $data : [$data];
-        $vnStmt = $pdo->prepare("
-            INSERT INTO `video_news` (
-                `video_id`, `title_bn`, `title_en`, `category`, `category_bn`, `category_en`,
-                `youtube_url`, `youtube_id`, `image_url`, `thumbnail`, `video_duration`, `date_bn`, `date_en`
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                `title_bn` = VALUES(`title_bn`),
-                `title_en` = VALUES(`title_en`),
-                `category` = VALUES(`category`),
-                `category_bn` = VALUES(`category_bn`),
-                `category_en` = VALUES(`category_en`),
-                `youtube_url` = VALUES(`youtube_url`),
-                `youtube_id` = VALUES(`youtube_id`),
-                `image_url` = VALUES(`image_url`),
-                `thumbnail` = VALUES(`thumbnail`),
-                `video_duration` = VALUES(`video_duration`),
-                `date_bn` = VALUES(`date_bn`),
-                `date_en` = VALUES(`date_en`),
-                `updated_at` = CURRENT_TIMESTAMP
-        ");
-        foreach ($items as $v) {
-            if (empty($v['titleBn']) && empty($v['title_bn'])) continue;
-            $vId = trim($v['id'] ?? ($v['videoId'] ?? ($v['video_id'] ?? '')));
-            if (!$vId) $vId = 'vnews-' . round(microtime(true) * 1000);
-            $titleBn = trim($v['titleBn'] ?? ($v['title_bn'] ?? ''));
-            $titleEn = trim($v['titleEn'] ?? ($v['title_en'] ?? $titleBn));
-            $category = trim($v['category'] ?? ($v['category_id'] ?? 'bangladesh'));
-            $categoryBn = trim($v['categoryBn'] ?? ($v['category_bn'] ?? 'বাংলাদেশ'));
-            $categoryEn = trim($v['categoryEn'] ?? ($v['category_en'] ?? 'Bangladesh'));
-            $ytUrl = trim($v['youtubeUrl'] ?? ($v['youtube_url'] ?? ($v['videoUrl'] ?? '')));
-            $ytId = trim($v['youtubeId'] ?? ($v['youtube_id'] ?? ''));
-            $img = trim($v['imageUrl'] ?? ($v['image_url'] ?? ($v['thumbnail'] ?? '')));
-            $thumb = trim($v['thumbnail'] ?? $img);
-            $duration = trim($v['videoDuration'] ?? ($v['video_duration'] ?? ($v['duration'] ?? '০৩:৪৫')));
-            $dateBn = trim($v['dateBn'] ?? ($v['date_bn'] ?? ''));
-            $dateEn = trim($v['dateEn'] ?? ($v['date_en'] ?? ''));
-
-            $vnStmt->execute([
-                $vId, $titleBn, $titleEn, $category, $categoryBn, $categoryEn,
-                $ytUrl, $ytId, $img, $thumb, $duration, $dateBn, $dateEn
-            ]);
-        }
-        http_response_code(200);
-        echo json_encode(['success' => true, 'action' => 'video_news_synced']);
-        exit;
-    }
-
-    // -------------------------------------------------------------
-    // 6. EMERGENCY SERVICES SYNC
-    // -------------------------------------------------------------
-    if ($action === 'save_emergency' && is_array($data)) {
-        $items = isset($data[0]) ? $data : [$data];
-        $emgStmt = $pdo->prepare("
-            INSERT INTO `emergency_services` (
-                `service_id`, `name_bn`, `name_en`, `phone`, `number`, `district`,
-                `category`, `category_bn`, `category_en`, `description_bn`, `description_en`,
-                `website_url`, `icon`, `order_index`, `is_active`
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                `name_bn` = VALUES(`name_bn`),
-                `name_en` = VALUES(`name_en`),
-                `phone` = VALUES(`phone`),
-                `number` = VALUES(`number`),
-                `category` = VALUES(`category`),
-                `category_bn` = VALUES(`category_bn`),
-                `category_en` = VALUES(`category_en`),
-                `description_bn` = VALUES(`description_bn`),
-                `description_en` = VALUES(`description_en`),
-                `website_url` = VALUES(`website_url`),
-                `icon` = VALUES(`icon`),
-                `order_index` = VALUES(`order_index`),
-                `is_active` = VALUES(`is_active`)
-        ");
-        foreach ($items as $idx => $e) {
-            if (!is_array($e)) continue;
-            $srvId = $e['id'] ?? ($e['service_id'] ?? ('srv-' . ($idx + 1)));
-            $nameBn = $e['nameBn'] ?? ($e['name_bn'] ?? '');
-            $nameEn = $e['nameEn'] ?? ($e['name_en'] ?? $nameBn);
-            $num = $e['number'] ?? ($e['phone'] ?? '');
-            $catBn = $e['categoryBn'] ?? ($e['category_bn'] ?? 'জরুরি সেবা');
-            $catEn = $e['categoryEn'] ?? ($e['category_en'] ?? 'Emergency');
-            $descBn = $e['descriptionBn'] ?? ($e['description_bn'] ?? '');
-            $descEn = $e['descriptionEn'] ?? ($e['description_en'] ?? $descBn);
-            $web = $e['websiteUrl'] ?? ($e['website_url'] ?? '');
-            $icon = $e['icon'] ?? 'phone';
-            $order = (int)($e['orderIndex'] ?? ($e['order_index'] ?? $idx));
-            $active = (!isset($e['isActive']) || !empty($e['isActive'])) && (!isset($e['is_active']) || !empty($e['is_active'])) ? 1 : 0;
-
-            if ($srvId && $nameBn) {
-                $emgStmt->execute([
-                    $srvId, $nameBn, $nameEn, $num, $num, 'সারাদেশ',
-                    $catBn, $catBn, $catEn, $descBn, $descEn,
-                    $web, $icon, $order, $active
-                ]);
-            }
-        }
-        http_response_code(200);
-        echo json_encode(['success' => true, 'action' => 'emergency_synced']);
-        exit;
-    }
-
-    // -------------------------------------------------------------
-    // 7. ADS CONFIG SYNC
-    // -------------------------------------------------------------
-    if ($action === 'save_ads' && is_array($data)) {
-        if (isset($data['adSenseEnabled'])) {
-            $pdo->prepare("INSERT INTO `site_settings` (`setting_key`, `setting_value`) VALUES ('adSenseEnabled', ?) ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)")
-                ->execute([$data['adSenseEnabled'] ? '1' : '0']);
-        }
-        if (!empty($data['adSenseClientId']) || !empty($data['adsenseClientId'])) {
-            $cId = !empty($data['adSenseClientId']) ? $data['adSenseClientId'] : $data['adsenseClientId'];
-            $pdo->prepare("INSERT INTO `site_settings` (`setting_key`, `setting_value`) VALUES ('adSenseClientId', ?) ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)")
-                ->execute([$cId]);
-        }
-        if (!empty($data['adSlots']) && is_array($data['adSlots'])) {
-            $pdo->prepare("INSERT INTO `site_settings` (`setting_key`, `setting_value`) VALUES ('adSlots', ?) ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)")
-                ->execute([json_encode($data['adSlots'], JSON_UNESCAPED_UNICODE)]);
-        }
-
-        $slotsToProcess = !empty($data['adSlots']) && is_array($data['adSlots']) ? $data['adSlots'] : $data;
-        $adsStmt = $pdo->prepare("
-            INSERT INTO `ads_config` (
-                `slot_id`, `ad_slot`, `slot_name_bn`, `slot_name_en`, `ad_code`, `custom_html`, `banner_image_url`, `image_url`, `target_url`, `is_active`
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                `ad_slot` = VALUES(`ad_slot`),
-                `slot_name_bn` = VALUES(`slot_name_bn`),
-                `slot_name_en` = VALUES(`slot_name_en`),
-                `ad_code` = VALUES(`ad_code`),
-                `custom_html` = VALUES(`custom_html`),
-                `banner_image_url` = VALUES(`banner_image_url`),
-                `image_url` = VALUES(`image_url`),
-                `target_url` = VALUES(`target_url`),
-                `is_active` = VALUES(`is_active`)
-        ");
-        foreach ($slotsToProcess as $slotKey => $slotVal) {
-            if ($slotKey === 'adSenseEnabled' || $slotKey === 'adSenseClientId' || $slotKey === 'adsenseClientId') continue;
-            if (!is_array($slotVal)) continue;
-
-            $slotId = $slotKey;
-            $adCode = $slotVal['code'] ?? ($slotVal['ad_code'] ?? ($slotVal['custom_html'] ?? ''));
-            $imageUrl = $slotVal['imageUrl'] ?? ($slotVal['banner_image_url'] ?? ($slotVal['image_url'] ?? ''));
-            $targetUrl = $slotVal['targetUrl'] ?? ($slotVal['target_url'] ?? '');
-            $isActive = !empty($slotVal['enabled']) || !empty($slotVal['is_active']) ? 1 : 0;
-            $nameBn = $slotVal['altText'] ?? ($slotVal['fallbackText'] ?? ($slotVal['nameBn'] ?? $slotId));
-            $nameEn = $slotVal['nameEn'] ?? $slotId;
-
-            $adsStmt->execute([
-                $slotId, $slotId, $nameBn, $nameEn, $adCode, $adCode, $imageUrl, $imageUrl, $targetUrl, $isActive
-            ]);
-        }
-        http_response_code(200);
-        echo json_encode(['success' => true, 'action' => 'ads_synced']);
-        exit;
-    }
-
-    // -------------------------------------------------------------
-    // 8. NEWS ARTICLES SYNC
+    // MODULE HANDLERS: NEWS POSTS & BULK SYNC
     // -------------------------------------------------------------
     if ($action === 'save_news' && !empty($data)) {
         $tableName = 'news_posts';
@@ -425,6 +312,15 @@ try {
             $pdo->prepare($insertSql)->execute($values);
         }
 
+        // Mirror to legacy news table if exists
+        try {
+            $chkNews = $pdo->query("SHOW TABLES LIKE 'news'");
+            if ($chkNews && $chkNews->rowCount() > 0) {
+                $pdo->prepare("REPLACE INTO `news` (`post_id`, `slug`, `title_bn`, `content_bn`) VALUES (?, ?, ?, ?)")
+                    ->execute([$postId, $slug, $validFields['title_bn'] ?? ($validFields['title'] ?? ''), $validFields['content_bn'] ?? '']);
+            }
+        } catch (Exception $ex) {}
+
         http_response_code(200);
         echo json_encode(['success' => true, 'action' => 'news_saved']);
         exit;
@@ -434,6 +330,9 @@ try {
         $id = $data['id'] ?? ($data['post_id'] ?? ($data['slug'] ?? null));
         if ($id) {
             $pdo->prepare("DELETE FROM `news_posts` WHERE `id` = ? OR `post_id` = ? OR `slug` = ?")->execute([$id, $id, $id]);
+            try {
+                $pdo->prepare("DELETE FROM `news` WHERE `id` = ? OR `post_id` = ? OR `slug` = ?")->execute([$id, $id, $id]);
+            } catch (Exception $ex) {}
         }
         http_response_code(200);
         echo json_encode(['success' => true, 'action' => 'news_deleted']);
@@ -472,6 +371,115 @@ try {
 
         http_response_code(200);
         echo json_encode(['success' => true, 'synced_articles' => $syncedCount]);
+        exit;
+    }
+
+    // -------------------------------------------------------------
+    // MODULE HANDLERS: PODCASTS, VIDEO NEWS, EMERGENCY, ADS
+    // -------------------------------------------------------------
+    if ($action === 'save_podcasts' && is_array($data)) {
+        $items = (isset($data['titleBn']) || isset($data['title_bn'])) ? [$data] : (array_values($data));
+        $colStmt = $pdo->query("SHOW COLUMNS FROM `podcasts`");
+        $podCols = [];
+        while ($c = $colStmt->fetch(PDO::FETCH_ASSOC)) {
+            $podCols[strtolower($c['Field'])] = true;
+        }
+
+        foreach ($items as $idx => $p) {
+            if (!is_array($p)) continue;
+            $validFields = [];
+            foreach ($p as $k => $v) {
+                if (isset($podCols[strtolower($k)])) {
+                    $validFields[$k] = is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : $v;
+                }
+            }
+            if (!empty($validFields)) {
+                $cols = array_keys($validFields);
+                $escaped = array_map(fn($c) => "`$c`", $cols);
+                $ph = implode(', ', array_fill(0, count($cols), '?'));
+                $pdo->prepare("REPLACE INTO `podcasts` (" . implode(', ', $escaped) . ") VALUES ($ph)")->execute(array_values($validFields));
+            }
+        }
+        http_response_code(200);
+        echo json_encode(['success' => true, 'action' => 'podcasts_synced']);
+        exit;
+    }
+
+    if ($action === 'save_video_news' && is_array($data)) {
+        $items = isset($data[0]) ? $data : [$data];
+        $colStmt = $pdo->query("SHOW COLUMNS FROM `video_news`");
+        $vCols = [];
+        while ($c = $colStmt->fetch(PDO::FETCH_ASSOC)) {
+            $vCols[strtolower($c['Field'])] = true;
+        }
+
+        foreach ($items as $v) {
+            if (!is_array($v)) continue;
+            $validRow = [];
+            foreach ($v as $k => $val) {
+                if (isset($vCols[strtolower($k)])) {
+                    $validRow[$k] = is_array($val) ? json_encode($val, JSON_UNESCAPED_UNICODE) : $val;
+                }
+            }
+            if (!empty($validRow)) {
+                $cols = array_keys($validRow);
+                $escaped = array_map(fn($c) => "`$c`", $cols);
+                $ph = implode(', ', array_fill(0, count($cols), '?'));
+                $pdo->prepare("REPLACE INTO `video_news` (" . implode(', ', $escaped) . ") VALUES ($ph)")->execute(array_values($validRow));
+            }
+        }
+        http_response_code(200);
+        echo json_encode(['success' => true, 'action' => 'video_news_synced']);
+        exit;
+    }
+
+    if ($action === 'save_emergency' && is_array($data)) {
+        $items = isset($data[0]) ? $data : [$data];
+        $colStmt = $pdo->query("SHOW COLUMNS FROM `emergency_services`");
+        $eCols = [];
+        while ($c = $colStmt->fetch(PDO::FETCH_ASSOC)) {
+            $eCols[strtolower($c['Field'])] = true;
+        }
+
+        foreach ($items as $e) {
+            if (!is_array($e)) continue;
+            $validRow = [];
+            foreach ($e as $k => $val) {
+                if (isset($eCols[strtolower($k)])) {
+                    $validRow[$k] = is_array($val) ? json_encode($val, JSON_UNESCAPED_UNICODE) : $val;
+                }
+            }
+            if (!empty($validRow)) {
+                $cols = array_keys($validRow);
+                $escaped = array_map(fn($c) => "`$c`", $cols);
+                $ph = implode(', ', array_fill(0, count($cols), '?'));
+                $pdo->prepare("REPLACE INTO `emergency_services` (" . implode(', ', $escaped) . ") VALUES ($ph)")->execute(array_values($validRow));
+            }
+        }
+        http_response_code(200);
+        echo json_encode(['success' => true, 'action' => 'emergency_synced']);
+        exit;
+    }
+
+    if ($action === 'save_ads' && is_array($data)) {
+        $slotsToProcess = !empty($data['adSlots']) && is_array($data['adSlots']) ? $data['adSlots'] : $data;
+        foreach ($slotsToProcess as $slotKey => $slotVal) {
+            if ($slotKey === 'adSenseEnabled' || $slotKey === 'adSenseClientId' || $slotKey === 'adsenseClientId') continue;
+            if (!is_array($slotVal)) continue;
+
+            $slotId = $slotKey;
+            $adCode = $slotVal['code'] ?? ($slotVal['ad_code'] ?? ($slotVal['custom_html'] ?? ''));
+            $imageUrl = $slotVal['imageUrl'] ?? ($slotVal['banner_image_url'] ?? ($slotVal['image_url'] ?? ''));
+            $targetUrl = $slotVal['targetUrl'] ?? ($slotVal['target_url'] ?? '');
+            $isActive = !empty($slotVal['enabled']) || !empty($slotVal['is_active']) ? 1 : 0;
+            $nameBn = $slotVal['altText'] ?? ($slotVal['fallbackText'] ?? ($slotVal['nameBn'] ?? $slotId));
+            $nameEn = $slotVal['nameEn'] ?? $slotId;
+
+            $pdo->prepare("REPLACE INTO `ads_config` (`slot_id`, `ad_slot`, `slot_name_bn`, `slot_name_en`, `ad_code`, `custom_html`, `banner_image_url`, `image_url`, `target_url`, `is_active`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                ->execute([$slotId, $slotId, $nameBn, $nameEn, $adCode, $adCode, $imageUrl, $imageUrl, $targetUrl, $isActive]);
+        }
+        http_response_code(200);
+        echo json_encode(['success' => true, 'action' => 'ads_synced']);
         exit;
     }
 

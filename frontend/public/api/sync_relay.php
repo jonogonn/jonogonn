@@ -1,27 +1,26 @@
 <?php
 /**
- * Janogon News (জনগণ.নিউজ) - Bi-Directional Secure HTTPS Sync Relay
+ * Janogon News (জনগণ.নিউজ) - Universal Real-Time Database Replication Helper
  * Path: /api/sync_relay.php
  * 
- * Works from BOTH servers:
- * - If invoked on Server 1 (188.40.132.89) -> Relays to Server 2 (198.23.142.82)
- * - If invoked on Server 2 (198.23.142.82) -> Relays to Server 1 (188.40.132.89)
- * 
- * Direct Origin IP dispatch with Host header: jonogon.news
- * Zero Port 3306 dependency. Zero credential leakage.
+ * Works for ALL 19 MariaDB Tables:
+ * - admin_activity_logs, ads_config, article_comments, backup_logs, breaking_news
+ * - categories, category_master_groups, emergency_services, homepage_sections
+ * - jonogon_complaints, media_gallery, media_uploads, news, news_posts
+ * - podcasts, site_settings, top-news, top_news, video_news
  */
 
 require_once __DIR__ . '/config.php';
 
 /**
- * Dispatch real-time update to the peer hosting server via secure HTTPS Webhook
+ * Universal Sync Dispatcher for any table mutation
  *
- * @param string $action 'save_news' | 'delete_news' | 'save_setting' | 'save_settings_batch' | 'save_section' | 'save_categories' | 'bulk_sync'
- * @param array $payload The article data or sync payload
+ * @param string $action 'sync_table_rows' | 'delete_table_row' | 'execute_raw' | legacy actions
+ * @param array $payload
  * @return bool
  */
 function sendSyncWebhookToReplica($action, array $payload = []) {
-    // Avoid infinite sync loops
+    // Prevent infinite sync feedback loops
     if (!empty($_SERVER['HTTP_X_SYNC_SIGNATURE']) || !empty($_POST['_is_sync_request'])) {
         return false;
     }
@@ -40,7 +39,6 @@ function sendSyncWebhookToReplica($action, array $payload = []) {
     } elseif ($serverIp === '198.23.142.82' || (function_exists('getActiveDbNode') && getActiveDbNode() === 'secondary')) {
         $targetIps[] = '188.40.132.89'; // Send to Server 1
     } else {
-        // Fallback: try both if local or unknown
         $targetIps = ['198.23.142.82', '188.40.132.89'];
     }
 
@@ -83,4 +81,25 @@ function sendSyncWebhookToReplica($action, array $payload = []) {
     }
 
     return $success;
+}
+
+/**
+ * Convenience helper to sync any generic row insert or update across all 19 tables
+ */
+function syncTableRowToPeer($tableName, array $rowFields) {
+    return sendSyncWebhookToReplica('sync_table_rows', [
+        'table' => $tableName,
+        'rows'  => [$rowFields]
+    ]);
+}
+
+/**
+ * Convenience helper to sync generic row deletion across any table
+ */
+function syncTableDeleteToPeer($tableName, $identifierColumn, $identifierValue) {
+    return sendSyncWebhookToReplica('delete_table_row', [
+        'table'  => $tableName,
+        'column' => $identifierColumn,
+        'value'  => $identifierValue
+    ]);
 }
