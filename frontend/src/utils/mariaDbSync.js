@@ -487,6 +487,103 @@ export async function deleteVideoNewsFromMariaDb(videoId) {
   return false;
 }
 
+// -------------------------------------------------------------
+// Top 10 News (YouTube Shorts Style) REST Endpoints & Sync
+// -------------------------------------------------------------
+function getTopNewsEndpoints(query = '') {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isJanogon = pathname.includes('/janogon');
+  const isLocal = isLocalEnvironment();
+  const q = query ? (query.startsWith('?') ? query : `?${query}`) : '';
+
+  const list = [];
+  if (isJanogon || isLocal) {
+    list.push(`/janogon.news/api/top_news.php${q}`);
+    list.push(`/janogon/api/top_news.php${q}`);
+    if (origin) list.push(`${origin}/janogon.news/api/top_news.php${q}`);
+    if (origin) list.push(`${origin}/janogon/api/top_news.php${q}`);
+    list.push(`http://127.0.0.1/janogon.news/api/top_news.php${q}`);
+    list.push(`http://localhost/janogon.news/api/top_news.php${q}`);
+    list.push(`/api/top_news.php${q}`);
+  } else {
+    list.push(`/api/top_news.php${q}`);
+    if (origin) list.push(`${origin}/api/top_news.php${q}`);
+    list.push(`https://jonogon.news/api/top_news.php${q}`);
+  }
+  return [...new Set(list)];
+}
+
+export async function fetchTopNewsFromMariaDb() {
+  const endpoints = getTopNewsEndpoints();
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result && result.success && Array.isArray(result.data)) {
+          return result.data;
+        }
+      }
+    } catch (err) {
+      // continue
+    }
+  }
+  return null;
+}
+
+export async function saveTopNewsToMariaDb(payload) {
+  let lastError = null;
+  const endpoints = getTopNewsEndpoints();
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result && result.success) {
+          return { success: true, result };
+        }
+      }
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  return { success: false, error: lastError?.message || 'Failed to save Top 10 News to MariaDB' };
+}
+
+export async function deleteTopNewsFromMariaDb(newsId) {
+  const endpoints = getTopNewsEndpoints();
+  for (const endpoint of endpoints) {
+    try {
+      const url = `${endpoint}?id=${encodeURIComponent(newsId)}`;
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (response.ok) return true;
+      const postFallback = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id: newsId })
+      });
+      if (postFallback.ok) return true;
+    } catch (err) {
+      // continue
+    }
+  }
+  return false;
+}
+
 function getCommentsEndpoints(query = '') {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';

@@ -13,6 +13,7 @@ import {
   Filter
 } from 'lucide-react';
 import AdSenseSlot from '../components/Ads/AdSenseSlot';
+import { formatViewsBn } from '../utils/viewHelper';
 
 export default function CategoryPage() {
   const {
@@ -314,10 +315,14 @@ export default function CategoryPage() {
                           {isBn ? item.excerptBn : item.excerptEn}
                         </p>
                       )}
-                      <div className="category-card-footer">
+                      <div className="category-card-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div className="category-card-date">
                           <Clock size={12} color="var(--primary-red)" />
                           <span>{isBn ? item.dateBn : item.dateEn}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', color: 'var(--text-light)' }}>
+                          <Eye size={12} color="var(--primary-red)" />
+                          <span>{formatViewsBn(item.views, isBn)}</span>
                         </div>
                       </div>
                     </div>

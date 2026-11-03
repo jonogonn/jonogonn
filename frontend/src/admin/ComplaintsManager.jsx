@@ -65,9 +65,12 @@ export default function ComplaintsManager({ triggerSaveToast }) {
     setIsSavingVideo(true);
     try {
       const trimmedUrl = (complaintVideoUrl || '').trim();
+      const ytMatch = trimmedUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([\w-]{11})/);
+      const newYtId = ytMatch ? ytMatch[1] : '';
       const updatedComplaintBoxVideo = {
         ...(settings?.complaintBoxVideo || {}),
-        youtubeUrl: trimmedUrl
+        youtubeUrl: trimmedUrl,
+        posterUrl: newYtId ? `https://img.youtube.com/vi/${newYtId}/maxresdefault.jpg` : ''
       };
 
       if (updateSiteSettings) {

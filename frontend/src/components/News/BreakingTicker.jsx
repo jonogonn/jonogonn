@@ -67,6 +67,8 @@ export default function BreakingTicker() {
           })));
 
   const [currentHighlightIdx, setCurrentHighlightIdx] = useState(0);
+  // Standardized steady pace matching the master reading velocity (~45 px/s, approx 8s per headline)
+  const tickerDuration = Math.max(90, Math.round(tickerItems.length * 8));
   const [slideDirection, setSlideDirection] = useState('up');
   const [isPaused, setIsPaused] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
@@ -180,7 +182,7 @@ export default function BreakingTicker() {
 
           {/* 3. Continuous Seamless Horizontal Marquee Crawl */}
           <div className="star-crawl-viewport" title={isBn ? 'সংবাদে ক্লিক করুন' : 'Click to read'}>
-            <div className="star-crawl-track">
+            <div className="star-crawl-track" style={{ animationDuration: `${tickerDuration}s` }}>
               {/* Primary Loop */}
               {tickerItems.map((art, idx) => (
                 <div

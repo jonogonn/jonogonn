@@ -104,6 +104,7 @@ export default function Navbar() {
     activeCategory,
     setActiveCategory,
     navigateTo,
+    goToSearch,
     userDistrict,
     setUserDistrict,
     searchQuery,
@@ -406,7 +407,8 @@ export default function Navbar() {
                               className="aleric-bottom-link"
                               style={{ color: 'var(--primary-red)', fontWeight: 700 }}
                             >
-                              🚨 {isBn ? 'জাতীয় জরুরি সেবা' : 'Emergency Services'}
+                              <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: 6 }}></i>
+                              {isBn ? 'জাতীয় জরুরি সেবা' : 'Emergency Services'}
                             </button>
                           </div>
                         </div>
@@ -433,8 +435,32 @@ export default function Navbar() {
               </div>
             </div>
 
-            {/* 3. RIGHT SIDE: Fixed BN/EN Toggle and Sun/Moon Theme Switcher */}
+            {/* 3. RIGHT SIDE: Fixed Search, BN/EN Toggle and Sun/Moon Theme Switcher */}
             <div className="nav-right-actions">
+              {/* Dedicated Search Page Shortcut */}
+              <button
+                type="button"
+                onClick={() => goToSearch('')}
+                className="nav-search-btn"
+                title={isBn ? 'সংবাদ অনুসন্ধান ও ফিল্টার' : 'Search & Filter News'}
+                aria-label="Search News"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 32,
+                  height: 32,
+                  borderRadius: 4,
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  backgroundColor: 'transparent',
+                  color: 'var(--white)',
+                  cursor: 'pointer',
+                  marginRight: 6
+                }}
+              >
+                <Search size={15} />
+              </button>
+
               {/* BN / EN Language Switcher */}
               <button
                 type="button"

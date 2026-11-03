@@ -2755,7 +2755,7 @@ ol {
   flex-direction: column;
   gap: 10px;
   padding: 10px;
-  animation: verticalScrollSub 75s linear infinite;
+  animation: verticalScrollSub var(--sub-list-duration, 48s) linear infinite;
   will-change: transform;
   transform: translate3d(0, 0, 0);
 }
@@ -2932,7 +2932,7 @@ ol {
   display: flex;
   flex-direction: column;
   padding: 8px 10px;
-  animation: verticalScrollMostRead 75s linear infinite;
+  animation: verticalScrollMostRead var(--most-read-duration, 40s) linear infinite;
   will-change: transform;
   transform: translate3d(0, 0, 0);
 }
@@ -3189,9 +3189,9 @@ ol {
   animation-play-state: paused;
 }
 
-/* 1. Left to Right Scroll Animation (Standardized speed) */
+/* 1. Left to Right Scroll Animation (Standardized speed matching Breaking Ticker ~45 px/s) */
 .scroll-left-to-right {
-  animation: scrollLeftToRight 80s linear infinite;
+  animation: scrollLeftToRight var(--latest-duration, 80s) linear infinite;
 }
 
 @keyframes scrollLeftToRight {
@@ -3204,9 +3204,9 @@ ol {
   }
 }
 
-/* 2. Right to Left Scroll Animation (Standardized speed) */
+/* 2. Right to Left Scroll Animation (Standardized speed matching Breaking Ticker ~45 px/s) */
 .scroll-right-to-left {
-  animation: scrollRightToLeft 80s linear infinite;
+  animation: scrollRightToLeft var(--podcast-duration, 80s) linear infinite;
 }
 
 @keyframes scrollRightToLeft {
@@ -10863,128 +10863,146 @@ ol {
   min-width: 0;
 }
 
-.article-main-headline {
-  font-family: var(--font-headline);
-  font-size: 2.1rem;
-  font-weight: 800;
-  line-height: 1.3;
-  color: var(--text-main);
-  margin: 12px 0 16px 0;
+/* Prothom Alo Section Link */
+.article-section-top {
+  margin-bottom: 8px;
 }
 
-.article-meta-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0;
-  border-top: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 20px;
-  font-size: 0.88rem;
-  color: var(--text-muted);
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.article-meta-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.article-meta-author {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.article-meta-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.article-font-adjuster {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--bg-subtle);
-  padding: 3px 8px;
-  border-radius: 4px;
-}
-
-.article-font-label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-right: 4px;
-}
-
-.article-font-adjuster button {
-  padding: 2px 6px;
-  font-weight: 700;
+.article-section-link {
+  display: inline-block;
   background: none;
   border: none;
-  cursor: pointer;
-  color: var(--text-main);
-}
-
-.article-social-share-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-.article-share-label {
-  font-size: 0.85rem;
+  color: #0284C7;
+  font-size: 1.05rem;
   font-weight: 700;
-  color: var(--text-main);
-  margin-right: 4px;
-}
-
-.article-share-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  border: none;
+  font-family: var(--font-headline);
   cursor: pointer;
+  padding: 0;
+  text-decoration: none;
   transition: opacity var(--transition-fast);
 }
 
-.article-share-btn:hover {
+.article-section-link:hover {
+  text-decoration: underline;
+  opacity: 0.85;
+}
+
+.article-main-headline {
+  font-family: var(--font-headline);
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1.35;
+  color: var(--text-main);
+  margin: 0 0 16px 0;
+  letter-spacing: -0.01em;
+}
+
+/* Prothom Alo Unified Metadata Bar (Author, Location, Update Time & Circle Icons) */
+.pa-story-metadata-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0 14px 0;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pa-author-time-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pa-author-location-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pa-author-name {
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: var(--text-main);
+  font-family: var(--font-headline);
+}
+
+.pa-author-location {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+.pa-time-row {
+  font-size: 0.82rem;
+  color: var(--text-light);
+}
+
+.pa-meta-icons-col {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pa-circle-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: transform var(--transition-fast), opacity var(--transition-fast), background-color var(--transition-fast);
+}
+
+.pa-circle-btn:hover {
+  transform: translateY(-1px);
   opacity: 0.9;
 }
 
-.share-fb {
+.pa-btn-fb {
   background-color: #1877F2;
   color: #FFFFFF;
 }
 
-.share-wa {
-  background-color: #25D366;
+.pa-btn-x {
+  background-color: #000000;
   color: #FFFFFF;
 }
 
-.share-copy {
-  background-color: var(--bg-subtle);
+.pa-btn-share {
+  background-color: #EF4444;
+  color: #FFFFFF;
+}
+
+.pa-btn-font {
+  background-color: #0284C7;
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-headline);
+}
+
+.pa-btn-util {
+  background-color: var(--bg-card);
   border: 1px solid var(--border-color);
+  color: var(--text-muted);
+}
+
+.pa-btn-util:hover {
+  border-color: var(--text-main);
   color: var(--text-main);
 }
 
-.share-print {
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-color);
-  color: var(--text-main);
+.pa-bookmarked {
+  background-color: #FEE2E2 !important;
+  border-color: #F87171 !important;
+  color: var(--primary-red) !important;
 }
 
+/* Prothom Alo Hero Image & Caption Bar */
 .article-featured-image-wrap {
   margin-bottom: 24px;
 }
@@ -10995,12 +11013,27 @@ ol {
   max-height: none !important;
   object-fit: contain !important;
   border-radius: 4px;
+  display: block;
 }
 
-.article-image-caption {
-  font-size: 0.78rem;
+.article-image-caption-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px 0 4px;
+  font-size: 0.82rem;
   color: var(--text-light);
-  margin-top: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.article-image-caption-text {
+  font-weight: 500;
+}
+
+.article-image-credit {
+  font-size: 0.78rem;
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -11013,15 +11046,254 @@ ol {
   padding: 16px 20px;
   border-radius: 0 4px 4px 0;
   margin-bottom: 24px;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .article-body-text {
   font-family: var(--font-body);
-  line-height: 1.85;
+  line-height: 1.9;
   color: var(--text-main);
   white-space: pre-line;
-  margin-bottom: 32px;
+  margin-bottom: 28px;
+}
+
+/* Prothom Alo Signature "আরও পড়ুন" (Also Read) Card */
+.article-also-read-box {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--primary-red);
+  padding: 14px 18px;
+  margin: 24px 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.article-also-read-box:hover {
+  background-color: var(--bg-card);
+  border-color: var(--primary-red);
+}
+
+.article-also-read-badge {
+  background-color: var(--primary-red);
+  color: #FFFFFF;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+  font-family: var(--font-headline);
+}
+
+.article-also-read-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.article-also-read-title {
+  font-family: var(--font-headline);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--text-main);
+  margin: 0 0 6px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.article-also-read-title:hover {
+  color: var(--primary-red);
+}
+
+.article-also-read-date {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.article-also-read-thumb-wrap {
+  width: 90px;
+  height: 60px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--bg-card);
+}
+
+.article-also-read-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Prothom Alo Topic Tags Section */
+.article-tags-wrapper {
+  margin: 28px 0;
+  padding: 18px;
+  background-color: var(--bg-subtle);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.article-tags-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  margin-bottom: 12px;
+}
+
+.article-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.article-tag-pill {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.article-tag-pill:hover {
+  background-color: var(--primary-red);
+  border-color: var(--primary-red);
+  color: #FFFFFF;
+}
+
+/* Sidebar Prothom Alo Card & Ad Box */
+.article-sidebar-ad-box {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.sidebar-ad-label {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-light);
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.article-sidebar-cat-news,
+.tabbed-ranking-box {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.article-sidebar-cat-header {
+  padding: 12px 16px;
+  background-color: var(--bg-subtle);
+  border-bottom: 2px solid var(--primary-red);
+}
+
+.article-sidebar-cat-header h4 {
+  font-family: var(--font-headline);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.article-sidebar-cat-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.article-sidebar-pa-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.article-sidebar-pa-card:last-child {
+  border-bottom: none;
+}
+
+.article-sidebar-pa-card:hover {
+  background-color: var(--bg-subtle);
+}
+
+.article-sidebar-pa-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.article-sidebar-pa-title {
+  font-family: var(--font-headline);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--text-main);
+  margin: 0 0 6px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.article-sidebar-pa-card:hover .article-sidebar-pa-title {
+  color: var(--primary-red);
+}
+
+.article-sidebar-pa-time {
+  font-size: 0.78rem;
+  color: var(--text-light);
+}
+
+.article-sidebar-pa-thumb-wrap {
+  width: 76px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--bg-subtle);
+}
+
+.article-sidebar-pa-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ranking-pa-item {
+  position: relative;
+  align-items: flex-start;
+}
+
+.ranking-pa-num {
+  font-family: var(--font-headline);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--primary-red);
+  min-width: 24px;
+  line-height: 1.2;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .article-comments-section {
@@ -11108,32 +11380,43 @@ ol {
 
 @media (max-width: 600px) {
   .article-main-headline {
-    font-size: 1.35rem;
+    font-size: 1.4rem;
     line-height: 1.35;
   }
 
-  .article-meta-bar {
+  .pa-story-metadata-wrapper {
     flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
+  }
+
+  .pa-meta-icons-col {
+    width: 100%;
+    justify-content: flex-start;
     gap: 8px;
+    flex-wrap: wrap;
   }
 
-  .article-meta-left {
-    gap: 8px;
+  .article-also-read-box {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
 
-  .article-social-share-bar {
-    gap: 6px;
-  }
-
-  .article-social-share-bar button {
-    flex: 1 1 calc(50% - 6px);
-    justify-content: center;
+  .article-also-read-thumb-wrap {
+    width: 100%;
+    height: 160px;
   }
 
   .article-featured-image {
     max-height: none !important;
     height: auto !important;
+  }
+
+  .article-image-caption-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
   }
 
   .article-related-grid {
@@ -12423,5 +12706,173 @@ ol {
   .admin-card [style*="gridTemplateColumns: 'repeat(auto-fit, minmax(260px"] {
     grid-template-columns: 1fr !important;
     gap: 12px !important;
+  }
+}
+
+/* =========================================================
+   ADVANCED SEARCH & FILTER PAGE STYLES
+   ========================================================= */
+.search-filter-sidebar {
+  position: sticky;
+  top: 130px;
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+.search-filter-sidebar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.search-filter-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.search-filter-sidebar::-webkit-scrollbar-thumb {
+  background-color: var(--border-color);
+  border-radius: 4px;
+}
+
+/* Explicit high-contrast dropdown text styling for 100% visibility in all browsers */
+.search-select {
+  color: var(--text-main) !important;
+  background-color: var(--bg-body) !important;
+  border: 1px solid var(--border-color) !important;
+  font-family: inherit !important;
+}
+
+.search-select option {
+  background-color: #FFFFFF !important;
+  color: #111111 !important;
+  padding: 8px 12px !important;
+  font-size: 0.9rem !important;
+}
+
+[data-theme="dark"] .search-select {
+  color: #F0F6FC !important;
+  background-color: #161B22 !important;
+  border-color: #30363D !important;
+}
+
+[data-theme="dark"] .search-select option {
+  background-color: #161B22 !important;
+  color: #F0F6FC !important;
+}
+
+/* Custom Search Scope Dropdown menu styles */
+.search-scope-dropdown-container {
+  position: relative;
+  min-width: 190px;
+}
+
+.search-scope-trigger-btn:hover {
+  border-color: var(--primary-red) !important;
+}
+
+.search-scope-item:hover {
+  background-color: var(--bg-subtle) !important;
+}
+
+@media (max-width: 991px) {
+  .search-main-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .search-mobile-filter-btn {
+    display: inline-flex !important;
+  }
+
+  .search-filter-sidebar {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-height: 100vh !important;
+    z-index: 999999 !important;
+    border-radius: 0 !important;
+    overflow-y: auto !important;
+    padding: 24px 20px 80px 20px !important;
+  }
+
+  .search-filter-sidebar.mobile-open {
+    display: block !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .search-results-grid.list-mode article {
+    flex-direction: column !important;
+  }
+
+  .search-results-grid.list-mode article > div:first-child {
+    width: 100% !important;
+    min-width: 100% !important;
+    height: 190px !important;
+  }
+
+  .search-hero-box {
+    padding: 18px 16px !important;
+  }
+}
+
+
+/* ==========================================================================
+   TOP 10 NEWS SECTION (YOUTUBE SHORTS STYLE)
+   ========================================================================== */
+.top-news-section {
+  position: relative;
+  width: 100%;
+}
+
+.top-news-carousel {
+  -webkit-overflow-scrolling: touch;
+}
+
+.top-news-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.top-news-card {
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.top-news-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22) !important;
+}
+
+.top-news-card:hover .top-news-card-img {
+  transform: scale(1.06);
+}
+
+.top-news-card:hover .top-news-play-hover {
+  opacity: 1 !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+}
+
+.top-news-card:active {
+  transform: scale(0.98);
+}
+
+@media (max-width: 768px) {
+  .top-news-card {
+    flex: 0 0 180px !important;
+    height: 310px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .top-news-card {
+    flex: 0 0 160px !important;
+    height: 280px !important;
+    border-radius: 12px !important;
+  }
+  
+  .top-news-card h4 {
+    font-size: 0.88rem !important;
   }
 }

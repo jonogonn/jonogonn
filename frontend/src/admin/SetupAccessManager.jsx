@@ -40,6 +40,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Video,
+  Flame,
   Inbox,
   MessageSquare,
   MoreVertical,
@@ -123,6 +124,14 @@ export const ADMIN_AVAILABLE_TABS = [
     nameEn: 'Video News',
     icon: Video,
     descBn: 'হোমপেজের ভিডিও সংবাদ সেকশন ও ইউটিউব ভিডিও প্রতিবেদন ব্যবস্থাপনা'
+  },
+  {
+    id: 'top-news',
+    group: 'media',
+    nameBn: 'টপ ১০ নিউজ',
+    nameEn: 'Top 10 News',
+    icon: Flame,
+    descBn: 'ইউটিউব শর্টস স্টাইলের খাড়া ভিডিও ও শীর্ষ ১০ সংবাদ ব্যবস্থাপনা'
   },
   {
     id: 'main-menu',

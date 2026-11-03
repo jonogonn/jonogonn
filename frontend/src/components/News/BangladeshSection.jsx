@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNews } from '../../context/NewsContext';
-import { Clock, BookOpen, ChevronLeft, ChevronRight, ArrowRight, Star } from 'lucide-react';
+import { Clock, BookOpen, ChevronLeft, ChevronRight, ArrowRight, Star, Eye } from 'lucide-react';
 import WeatherFollowSidebar from '../Widgets/WeatherFollowSidebar';
+import { formatViewsBn } from '../../utils/viewHelper';
 
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
 
@@ -181,6 +182,11 @@ export default function BangladeshSection() {
               <BookOpen size={13} color="var(--primary-red)" />
               {isBn ? currentBdSlide.readTimeBn || '৪ মিনিট' : currentBdSlide.readTimeEn || '4 min read'}
             </span>
+            <span>•</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Eye size={13} color="var(--primary-red)" />
+              {formatViewsBn(currentBdSlide.views, isBn)}
+            </span>
           </div>
         </div>
 
@@ -217,9 +223,15 @@ export default function BangladeshSection() {
               <h4 className="foxiz-sublead-title">
                 {isBn ? subItem.titleBn : subItem.titleEn}
               </h4>
-              <div className="foxiz-sublead-meta">
-                <Clock size={12} color="var(--primary-red)" />
-                <span>{isBn ? subItem.dateBn : subItem.dateEn}</span>
+              <div className="foxiz-sublead-meta" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Clock size={12} color="var(--primary-red)" />
+                  <span>{isBn ? subItem.dateBn : subItem.dateEn}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Eye size={12} color="var(--primary-red)" />
+                  <span>{formatViewsBn(subItem.views, isBn)}</span>
+                </div>
               </div>
             </div>
 

@@ -3,8 +3,13 @@ import { useNews } from '../../context/NewsContext';
 import { Search } from 'lucide-react';
 
 export default function MainHeader() {
-  const { language, settings, searchQuery, setSearchQuery, setActiveCategory } = useNews();
+  const { language, settings, searchQuery, setSearchQuery, setActiveCategory, goToSearch } = useNews();
   const isBn = language === 'bn';
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    goToSearch(searchQuery.trim());
+  };
 
   return (
     <div className="main-header">
@@ -33,7 +38,7 @@ export default function MainHeader() {
         </a>
 
         {/* Header Search Box */}
-        <div className="header-search-box">
+        <form onSubmit={handleSearchSubmit} className="header-search-box" role="search">
           <input
             type="text"
             className="header-search-input"
@@ -42,10 +47,10 @@ export default function MainHeader() {
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search news"
           />
-          <button className="header-search-btn" aria-label="Submit search">
+          <button type="submit" className="header-search-btn" aria-label="Submit search">
             <Search size={18} />
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );

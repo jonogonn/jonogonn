@@ -7,6 +7,7 @@ import {
   Tag
 } from 'lucide-react';
 import AdSenseSlot from '../Ads/AdSenseSlot';
+import { formatViewsBn } from '../../utils/viewHelper';
 
 // Helper to render FontAwesome icon for master groups (from Admin Panel Edit 10)
 const renderMasterGroupIcon = (groupId) => {
@@ -242,9 +243,15 @@ export default function SubGroupSections({ subGroupIds = null, targetSubGroupId 
                     <h5 className="subgroup-small-title">
                       {isBn ? art.titleBn : art.titleEn}
                     </h5>
-                    <div className="subgroup-small-meta">
-                      <Clock size={11} className="meta-clock-icon" />
-                      <span>{isBn ? art.dateBn || 'আজ' : art.dateEn || 'Today'}</span>
+                    <div className="subgroup-small-meta" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Clock size={11} className="meta-clock-icon" />
+                        <span>{isBn ? art.dateBn || 'আজ' : art.dateEn || 'Today'}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Eye size={11} color="var(--primary-red)" />
+                        <span>{formatViewsBn(art.views, isBn)}</span>
+                      </div>
                     </div>
                   </div>
                 </article>
@@ -290,15 +297,15 @@ export default function SubGroupSections({ subGroupIds = null, targetSubGroupId 
                       {isBn ? heroArticle.excerptBn : heroArticle.excerptEn}
                     </p>
                     <div className="subgroup-hero-meta-row">
-                      <div className="hero-meta-left">
-                        <Clock size={12} className="meta-clock-icon" />
-                        <span>{isBn ? heroArticle.dateBn || 'আজ' : heroArticle.dateEn || 'Today'}</span>
-                        {heroArticle.views && (
-                          <span className="meta-views-count">
-                            <Eye size={12} />
-                            <span>{heroArticle.views.toLocaleString()}</span>
-                          </span>
-                        )}
+                      <div className="hero-meta-left" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Clock size={12} className="meta-clock-icon" />
+                          <span>{isBn ? heroArticle.dateBn || 'আজ' : heroArticle.dateEn || 'Today'}</span>
+                        </span>
+                        <span className="meta-views-count" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Eye size={12} color="var(--primary-red)" />
+                          <span>{formatViewsBn(heroArticle.views, isBn)}</span>
+                        </span>
                       </div>
                     </div>
                   </div>

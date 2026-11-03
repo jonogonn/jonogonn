@@ -9,6 +9,7 @@ import {
   initialNewsArticles,
   initialPodcasts,
   initialVideoNews,
+  initialTopNews,
   podcastSubjects,
   initialEmergencyServices,
   bangladeshDistricts
@@ -30,6 +31,9 @@ import {
   fetchVideoNewsFromMariaDb,
   saveVideoNewsToMariaDb,
   deleteVideoNewsFromMariaDb,
+  fetchTopNewsFromMariaDb,
+  saveTopNewsToMariaDb,
+  deleteTopNewsFromMariaDb,
   normalizeImageUrl
 } from '../utils/mariaDbSync';
 import { safeSetLocalStorage, safeGetLocalStorage, safeRemoveLocalStorage } from '../utils/safeStorage';
@@ -396,6 +400,18 @@ export function NewsProvider({ children }) {
     }
   };
 
+  const refreshTopNews = async () => {
+    try {
+      const dbTop = await fetchTopNewsFromMariaDb();
+      if (Array.isArray(dbTop) && dbTop.length > 0) {
+        setTopNews(dbTop);
+        safeSetLocalStorage('jonogon_top_news', dbTop);
+      }
+    } catch (e) {
+      console.warn('Error refreshing Top 10 News from MariaDB:', e);
+    }
+  };
+
   const refreshPodcasts = async () => {
     try {
       const dbPods = await fetchPodcastsFromMariaDb();
@@ -469,7 +485,16 @@ export function NewsProvider({ children }) {
           });
           defaultHomepageSections.forEach((def) => {
             if (!cleanList.some((m) => m.id === def.id)) {
-              cleanList.push(def);
+              if (def.id === 'topNewsSection') {
+                const vIdx = cleanList.findIndex((s) => s.id === 'videoNewsSection');
+                if (vIdx >= 0) {
+                  cleanList.splice(vIdx + 1, 0, def);
+                } else {
+                  cleanList.push(def);
+                }
+              } else {
+                cleanList.push(def);
+              }
             }
           });
           setHomepageSections(cleanList);
@@ -506,6 +531,7 @@ export function NewsProvider({ children }) {
     refreshArticles();
     refreshPodcasts();
     refreshVideoNews();
+    refreshTopNews();
     refreshAllModulesFromDb();
 
     setCategoryMasterGroups((prevGroups) => {
@@ -587,6 +613,15 @@ export function NewsProvider({ children }) {
       if (saved && Array.isArray(saved) && saved.length > 0) return saved;
     } catch (e) { }
     return initialVideoNews || [];
+  });
+
+  // 7-TN. Top 10 News State (YouTube Shorts style vertical highlights)
+  const [topNews, setTopNews] = useState(() => {
+    try {
+      const saved = safeGetLocalStorage('jonogon_top_news');
+      if (saved && Array.isArray(saved) && saved.length > 0) return saved;
+    } catch (e) { }
+    return initialTopNews || [];
   });
 
   // 7a. Podcast Subjects / Categories State
@@ -687,7 +722,16 @@ export function NewsProvider({ children }) {
         // Append any missing default sections
         defaultHomepageSections.forEach((def) => {
           if (!cleanList.some((m) => m.id === def.id)) {
-            cleanList.push(def);
+            if (def.id === 'topNewsSection') {
+              const vIdx = cleanList.findIndex((s) => s.id === 'videoNewsSection');
+              if (vIdx >= 0) {
+                cleanList.splice(vIdx + 1, 0, def);
+              } else {
+                cleanList.push(def);
+              }
+            } else {
+              cleanList.push(def);
+            }
           }
         });
 
@@ -755,6 +799,10 @@ export function NewsProvider({ children }) {
     if (catParam) {
       return { page: 'category', isAdmin: false, category: decodeURIComponent(catParam.trim()), articleSlug: null };
     }
+    if (path.includes('/search')) {
+      const q = params.get('q') || params.get('query') || '';
+      return { page: 'search', isAdmin: false, category: 'latest', articleSlug: null, initialQuery: q };
+    }
     if (path.includes('/about')) return { page: 'about', isAdmin: false, category: 'latest', articleSlug: null };
     if (path.includes('/contact')) return { page: 'contact', isAdmin: false, category: 'latest', articleSlug: null };
     if (path.includes('/advertisement') || path.includes('/advertise')) return { page: 'advertisement', isAdmin: false, category: 'latest', articleSlug: null };
@@ -771,7 +819,7 @@ export function NewsProvider({ children }) {
   const [activePage, setActivePage] = useState(initialRoute.page);
   const [activeCategory, setActiveCategoryState] = useState(initialRoute.category);
   const [selectedPodcastSubject, setSelectedPodcastSubject] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialRoute.initialQuery || '');
   const [currentArticle, setCurrentArticle] = useState(() => {
     if (typeof window !== 'undefined' && window.__INITIAL_ARTICLE__) {
       return window.__INITIAL_ARTICLE__;
@@ -940,6 +988,13 @@ export function NewsProvider({ children }) {
     }
 
     // 3. Static Pages
+    if (path.includes('/search')) {
+      setActivePage('search');
+      setCurrentArticle(null);
+      const q = params.get('q') || params.get('query') || '';
+      if (q) setSearchQuery(q);
+      return;
+    }
     if (path.includes('/about')) { setActivePage('about'); setCurrentArticle(null); return; }
     if (path.includes('/advertisement') || path.includes('/advertise')) { setActivePage('advertisement'); setCurrentArticle(null); return; }
     if (path.includes('/contact')) { setActivePage('contact'); setCurrentArticle(null); return; }
@@ -1012,6 +1067,17 @@ export function NewsProvider({ children }) {
     goToHome();
   };
 
+  // Navigate to Dedicated Search Page (/search)
+  const goToSearch = (query = '') => {
+    setActivePage('search');
+    setCurrentArticle(null);
+    setIsAdminOpen(false);
+    setSearchQuery(query);
+    const searchUrl = query ? `/search?q=${encodeURIComponent(query)}` : '/search';
+    window.history.pushState({ page: 'search', query }, '', searchUrl);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // General Navigation Method for Standalone Pages
   const navigateTo = (path, { replace = false } = {}) => {
     const cleanPath = path.toLowerCase();
@@ -1026,7 +1092,13 @@ export function NewsProvider({ children }) {
 
     setIsAdminOpen(false);
 
-    if (cleanPath === '/about') {
+    if (cleanPath === '/search' || cleanPath.startsWith('/search')) {
+      setActivePage('search');
+      setCurrentArticle(null);
+      const searchParams = new URLSearchParams(window.location.search);
+      const q = searchParams.get('q') || searchParams.get('query') || '';
+      if (q) setSearchQuery(q);
+    } else if (cleanPath === '/about') {
       setActivePage('about');
       setCurrentArticle(null);
     } else if (cleanPath === '/advertisement' || cleanPath === '/advertise') {
@@ -1984,6 +2056,102 @@ export function NewsProvider({ children }) {
     return { success: true };
   };
 
+  // Top 10 News (YouTube Shorts Style) Actions
+  const addTopNews = async (item) => {
+    const newsId = item.id || `top-news-${Date.now()}`;
+    let thumb = item.imageUrl || item.thumbnail || '';
+    let ytId = item.youtubeId || item.youtube_id;
+    const ytUrl = item.youtubeUrl || item.youtube_url || item.videoUrl || '';
+    if (!ytId && ytUrl) {
+      const match = ytUrl.match(/(?:shorts\/|youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+      if (match) ytId = match[1];
+    }
+    if (ytId && (!thumb || thumb.includes('unsplash.com'))) {
+      thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+    }
+
+    const nextRank = (topNews || []).length + 1;
+    const newItem = {
+      ...item,
+      id: newsId,
+      newsId,
+      rank: item.rank || nextRank,
+      orderIndex: item.orderIndex || nextRank,
+      youtubeId: ytId || item.youtubeId || '',
+      youtubeUrl: ytUrl,
+      imageUrl: thumb || item.imageUrl || 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=600&h=1000&fit=crop&q=80',
+      thumbnail: thumb || item.thumbnail,
+      videoDuration: item.videoDuration || item.duration || '০০:৫৮',
+      views: item.views || (1200 + Math.floor(Math.random() * 2000)),
+      dateBn: item.dateBn || new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }),
+      dateEn: item.dateEn || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+      isActive: true
+    };
+
+    setTopNews((prev) => {
+      const updated = [...(Array.isArray(prev) ? prev : []), newItem];
+      safeSetLocalStorage('jonogon_top_news', updated);
+      syncModuleToMariaDb('topNews', updated).catch(() => {});
+      saveTopNewsToMariaDb(newItem).catch((err) => console.warn('MariaDB topNews save error:', err));
+      return updated;
+    });
+    return newItem;
+  };
+
+  const updateTopNews = async (id, updatedData) => {
+    let thumb = updatedData.imageUrl || updatedData.thumbnail;
+    let ytId = updatedData.youtubeId || updatedData.youtube_id;
+    const ytUrl = updatedData.youtubeUrl || updatedData.youtube_url || updatedData.videoUrl;
+    if (!ytId && ytUrl) {
+      const match = ytUrl.match(/(?:shorts\/|youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+      if (match) ytId = match[1];
+    }
+    if (ytId && (!thumb || thumb.includes('unsplash.com'))) {
+      thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+    }
+
+    const cleanUpdated = {
+      ...updatedData,
+      ...(ytId ? { youtubeId: ytId } : {}),
+      ...(thumb ? { imageUrl: thumb, thumbnail: thumb } : {}),
+      ...(updatedData.duration ? { videoDuration: updatedData.duration } : {})
+    };
+
+    setTopNews((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
+      const updated = list.map((item) => (item.id === id || item.newsId === id ? { ...item, ...cleanUpdated } : item));
+      safeSetLocalStorage('jonogon_top_news', updated);
+      syncModuleToMariaDb('topNews', updated).catch(() => {});
+      saveTopNewsToMariaDb({ ...cleanUpdated, id, newsId: id }).catch((err) => console.warn('MariaDB topNews update error:', err));
+      return updated;
+    });
+    return { success: true };
+  };
+
+  const deleteTopNews = async (id) => {
+    setTopNews((prev) => {
+      const remaining = (Array.isArray(prev) ? prev : []).filter((item) => item.id !== id && item.newsId !== id);
+      safeSetLocalStorage('jonogon_top_news', remaining);
+      syncModuleToMariaDb('topNews', remaining).catch(() => {});
+      deleteTopNewsFromMariaDb(id).catch((err) => console.warn('MariaDB topNews delete error:', err));
+      return remaining;
+    });
+    return { success: true };
+  };
+
+  const reorderTopNews = async (reorderedList) => {
+    const normalized = (reorderedList || []).map((item, idx) => ({
+      ...item,
+      rank: idx + 1,
+      orderIndex: idx + 1
+    }));
+    setTopNews(normalized);
+    safeSetLocalStorage('jonogon_top_news', normalized);
+    syncModuleToMariaDb('topNews', normalized).catch(() => {});
+    saveTopNewsToMariaDb({ data: normalized }).catch((err) => console.warn('MariaDB topNews reorder error:', err));
+    return normalized;
+  };
+
   // Emergency Services Actions
   const addEmergencyService = async (service) => {
     const itemWithId = {
@@ -2244,6 +2412,13 @@ export function NewsProvider({ children }) {
         addVideoNews,
         updateVideoNews,
         deleteVideoNews,
+        topNews,
+        setTopNews,
+        refreshTopNews,
+        addTopNews,
+        updateTopNews,
+        deleteTopNews,
+        reorderTopNews,
         podcastSubjects: dynamicPodcastSubjects,
         addPodcastSubject,
         selectedPodcastSubject,
@@ -2255,6 +2430,7 @@ export function NewsProvider({ children }) {
         activePage,
         setActivePage,
         navigateTo,
+        goToSearch,
         activeCategory,
         setActiveCategory,
         searchQuery,

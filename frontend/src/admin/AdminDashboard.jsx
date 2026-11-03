@@ -53,6 +53,7 @@ import {
   Users,
   Camera,
   Video,
+  Flame,
   Inbox
 } from 'lucide-react';
 import { uploadImageToStorage } from '../utils/imageUploader';
@@ -72,6 +73,7 @@ import AdminNotificationDropdown from './AdminNotificationDropdown';
 import AdminLoginScreen from './AdminLoginScreen';
 import AdsManager from './AdsManager';
 import VideoNewsManager from './VideoNewsManager';
+import TopNewsManager from './TopNewsManager';
 import ComplaintsManager from './ComplaintsManager';
 import CommentsManager from './CommentsManager';
 import ConfirmModal from '../components/Modals/ConfirmModal';
@@ -961,14 +963,31 @@ export default function AdminDashboard() {
               type="button"
               className={`admin-nav-item ${activeTab === 'video-news' ? 'active' : ''}`}
               onClick={() => setActiveTab('video-news')}
-              title={isBn ? 'ভিডিও সংবাদ' : 'Video News'}
+              title="Video News"
               style={{
                 justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
                 padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
               }}
             >
               <Video size={18} />
-              {!isSidebarCollapsed && <span>{isBn ? 'ভিডিও সংবাদ' : 'Video News'}</span>}
+              {!isSidebarCollapsed && <span>Video News</span>}
+            </button>
+          )}
+
+          {/* 7c. Top 10 News (Shorts Style) */}
+          {isTabAllowed('top-news') && (
+            <button
+              type="button"
+              className={`admin-nav-item ${activeTab === 'top-news' ? 'active' : ''}`}
+              onClick={() => setActiveTab('top-news')}
+              title="Top 10 News"
+              style={{
+                justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                padding: isSidebarCollapsed ? '10px 0' : '10px 14px'
+              }}
+            >
+              <Flame size={18} />
+              {!isSidebarCollapsed && <span>Top 10 News</span>}
             </button>
           )}
 
@@ -2548,6 +2567,11 @@ export default function AdminDashboard() {
           {/* TAB: VIDEO NEWS (HOMEPAGE VIDEO NEWS SECTION) */}
           {activeTab === 'video-news' && (
             <VideoNewsManager triggerSaveToast={triggerSaveToast} />
+          )}
+
+          {/* TAB: TOP 10 NEWS (YOUTUBE SHORTS STYLE) */}
+          {activeTab === 'top-news' && (
+            <TopNewsManager triggerSaveToast={triggerSaveToast} />
           )}
 
           {/* TAB: CITIZEN COMPLAINTS BOX */}

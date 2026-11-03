@@ -10,8 +10,10 @@ import {
   PhoneCall,
   Building2,
   Globe2,
-  Coins
+  Coins,
+  Eye
 } from 'lucide-react';
+import { formatViewsBn } from '../../utils/viewHelper';
 
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800&q=80';
 
@@ -179,6 +181,11 @@ export default function RemittanceFighter() {
               <BookOpen size={13} color="#0D5C9E" />
               {isBn ? currentSlide.readTimeBn || '৪ মিনিট' : currentSlide.readTimeEn || '4 min read'}
             </span>
+            <span>•</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Eye size={13} color="#0D5C9E" />
+              {formatViewsBn(currentSlide.views, isBn)}
+            </span>
           </div>
         </div>
 
@@ -215,9 +222,15 @@ export default function RemittanceFighter() {
               <h4 className="foxiz-sublead-title">
                 {isBn ? subItem.titleBn : subItem.titleEn}
               </h4>
-              <div className="foxiz-sublead-meta">
-                <Clock size={12} color="#0D5C9E" />
-                <span>{isBn ? subItem.dateBn : subItem.dateEn}</span>
+              <div className="foxiz-sublead-meta" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Clock size={12} color="#0D5C9E" />
+                  <span>{isBn ? subItem.dateBn : subItem.dateEn}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Eye size={12} color="#0D5C9E" />
+                  <span>{formatViewsBn(subItem.views, isBn)}</span>
+                </div>
               </div>
             </div>
 

@@ -12,13 +12,18 @@ import {
   ChevronRight,
   ArrowLeft,
   User,
+  MapPin,
+  Tag,
   MessageSquare,
-  Send
+  Send,
+  Bookmark,
+  BookmarkCheck
 } from 'lucide-react';
 import { FacebookIcon } from '../Icons/SocialIcons';
 import AdSenseSlot from '../Ads/AdSenseSlot';
 import { fetchCommentsFromMariaDb, saveCommentToMariaDb } from '../../utils/mariaDbSync';
 import { ArticleDetailSkeleton } from '../UI/NewsSkeletonLoader';
+import { formatViewsBn } from '../../utils/viewHelper';
 
 export default function ArticleDetailPage() {
   const {
@@ -34,6 +39,7 @@ export default function ArticleDetailPage() {
   } = useNews();
 
   const [fontSize, setFontSize] = useState(1.15); // rem
+  const [isBookmarked, setIsBookmarked] = useState(false);
   const [copied, setCopied] = useState(false);
   const [commentName, setCommentName] = useState('');
   const [commentText, setCommentText] = useState('');
@@ -44,6 +50,49 @@ export default function ArticleDetailPage() {
   const [commentError, setCommentError] = useState('');
 
   const isBn = language === 'bn';
+
+  const handleFontToggle = () => {
+    setFontSize((prev) => {
+      if (prev >= 1.45) return 1.05;
+      return +(prev + 0.15).toFixed(2);
+    });
+  };
+
+  const handleBookmarkToggle = () => {
+    setIsBookmarked((prev) => !prev);
+  };
+
+  const getRelativeTimeBn = (dateStr) => {
+    if (!dateStr) return isBn ? 'কিছুক্ষণ আগে' : 'Just now';
+    if (typeof dateStr === 'string' && (dateStr.includes('আগে') || dateStr.includes('ঘণ্টা') || dateStr.includes('মিনিট'))) {
+      return dateStr;
+    }
+    try {
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        const diffMs = Date.now() - d.getTime();
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        if (diffHours < 1) {
+          const diffMins = Math.max(1, Math.floor(diffMs / (1000 * 60)));
+          return isBn
+            ? `${String(diffMins).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[d])} মিনিট আগে`
+            : `${diffMins} min ago`;
+        } else if (diffHours < 24) {
+          return isBn
+            ? `${String(diffHours).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[d])} ঘণ্টা আগে`
+            : `${diffHours} hr ago`;
+        } else {
+          const diffDays = Math.floor(diffHours / 24);
+          if (diffDays <= 7) {
+            return isBn
+              ? `${String(diffDays).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[d])} দিন আগে`
+              : `${diffDays} days ago`;
+          }
+        }
+      }
+    } catch (e) {}
+    return dateStr;
+  };
 
   // Helper to generate short, clean, beautiful canonical URL (e.g. https://jonogon.news/news/28)
   const getShortShareUrl = (art) => {
@@ -139,6 +188,12 @@ export default function ArticleDetailPage() {
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shortUrl)}`, '_blank', 'width=600,height=450');
   };
 
+  const handleTwitterShare = () => {
+    const title = isBn ? currentArticle.titleBn : currentArticle.titleEn;
+    const shortUrl = getShortShareUrl(currentArticle);
+    window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shortUrl)}&text=${encodeURIComponent(title)}`, '_blank', 'width=600,height=450');
+  };
+
   const handleWhatsAppShare = () => {
     const title = isBn ? currentArticle.titleBn : currentArticle.titleEn;
     const shortUrl = getShortShareUrl(currentArticle);
@@ -228,6 +283,24 @@ export default function ArticleDetailPage() {
 
   // Category matching
   const catObj = categories.find((c) => c.id === currentArticle?.category);
+  const categoryLabel = isBn
+    ? currentArticle.categoryBn || catObj?.nameBn || 'বাংলাদেশ'
+    : currentArticle.category || catObj?.nameEn || 'National';
+
+  // Prothom Alo-style tags list
+  const articleTags = (() => {
+    if (currentArticle.tags && Array.isArray(currentArticle.tags) && currentArticle.tags.length > 0) {
+      return currentArticle.tags;
+    }
+    if (typeof currentArticle.tags === 'string' && currentArticle.tags.trim()) {
+      return currentArticle.tags.split(',').map((t) => t.trim()).filter(Boolean);
+    }
+    const fallback = [categoryLabel];
+    if (currentArticle.district) fallback.push(currentArticle.district);
+    fallback.push(isBn ? 'জাতীয়' : 'National');
+    fallback.push(isBn ? 'সর্বশেষ সংবাদ' : 'Latest News');
+    return fallback;
+  })();
 
   // Most Read and Related (strictly published/approved articles)
   const mostReadList = [...articles]
@@ -237,6 +310,14 @@ export default function ArticleDetailPage() {
 
   const relatedArticles = articles
     .filter((a) => a.id !== currentArticle.id && (a.status === 'approved' || a.status === 'published' || !a.status) && (a.category === currentArticle.category || !currentArticle.category))
+    .slice(0, 4);
+
+  const alsoReadArticle = relatedArticles.length > 0 ? relatedArticles[0] : null;
+  const bottomRelatedArticles = relatedArticles.length > 1 ? relatedArticles.slice(1, 4) : articles.filter((a) => a.id !== currentArticle.id).slice(0, 3);
+
+  // Category news for sidebar (Prothom Alo "এই বিভাগের আরও খবর")
+  const categoryMoreList = articles
+    .filter((a) => a.id !== currentArticle.id && a.category === currentArticle.category)
     .slice(0, 3);
 
   return (
@@ -280,95 +361,107 @@ export default function ArticleDetailPage() {
         <div className="article-page-grid">
           {/* Main Article Body */}
           <article className="article-main-column">
-            {/* Category Badge */}
-            <span className="badge-category" style={{ marginBottom: 12 }}>
-              {isBn ? currentArticle.categoryBn || catObj?.nameBn || 'জাতীয়' : currentArticle.category || catObj?.nameEn || 'National'}
-            </span>
+            {/* Prothom Alo Section Link */}
+            <div className="article-section-top">
+              <button
+                onClick={() => {
+                  setActiveCategory(currentArticle.category || 'latest');
+                  goToHome();
+                }}
+                className="article-section-link"
+              >
+                {categoryLabel}
+              </button>
+            </div>
 
             {/* Main Headline */}
             <h1 className="article-main-headline">
               {isBn ? currentArticle.titleBn : currentArticle.titleEn}
             </h1>
 
-            {/* Metadata Line */}
-            <div className="article-meta-bar">
-              {/* Author & Date */}
-              <div className="article-meta-left">
-                <div className="article-meta-author">
-                  <User size={16} color="var(--primary-red)" />
-                  <span>{currentArticle.author || 'জনগণ নিউজ ডেস্ক'}</span>
+            {/* Prothom Alo Unified Metadata Bar (Author, Location, Update Time & Circle Icons) */}
+            <div className="pa-story-metadata-wrapper">
+              <div className="pa-author-time-col">
+                <div className="pa-author-location-row">
+                  <span className="pa-author-name">{currentArticle.author || 'বিশেষ প্রতিবেদক'}</span>
+                  <span className="pa-author-location">{currentArticle.district || currentArticle.location || (isBn ? 'ঢাকা' : 'Dhaka')}</span>
                 </div>
-                <span>•</span>
-                <div className="article-meta-item">
-                  <Clock size={15} color="var(--primary-red)" />
-                  <span>{isBn ? currentArticle.dateBn : currentArticle.dateEn}</span>
-                </div>
-                <span>•</span>
-                <div className="article-meta-item">
-                  <BookOpen size={15} color="var(--primary-red)" />
-                  <span>{isBn ? currentArticle.readTimeBn || '৪ মিনিট পড়তে' : currentArticle.readTimeEn || '4 min read'}</span>
-                </div>
-                <span>•</span>
-                <div className="article-meta-item">
-                  <Eye size={15} color="var(--primary-red)" />
-                  <span>{currentArticle.views || 1} {isBn ? 'ভিউ' : 'views'}</span>
+                <div className="pa-time-row">
+                  <time>
+                    {isBn ? 'আপডেট: ' : 'Updated: '}
+                    {isBn ? (currentArticle.dateBn || '০৩ নভেম্বর ২০২৬, ০১: ২৬') : (currentArticle.dateEn || '03 Nov 2026, 01:26')}
+                  </time>
                 </div>
               </div>
 
-              {/* Font Size Adjuster */}
-              <div className="article-font-adjuster">
-                <span className="article-font-label">{isBn ? 'হরফ:' : 'Font:'}</span>
-                <button onClick={() => setFontSize((f) => Math.max(0.95, f - 0.1))} title="ছোট করুন">A-</button>
-                <button onClick={() => setFontSize(1.15)} title="সাধারণ সাইজ">A</button>
-                <button onClick={() => setFontSize((f) => Math.min(1.6, f + 0.1))} title="বড় করুন">A+</button>
+              <div className="pa-meta-icons-col">
+                {/* Facebook Share Button */}
+                <button
+                  onClick={handleFacebookShare}
+                  className="pa-circle-btn pa-btn-fb"
+                  title={isBn ? 'ফেসবুকে শেয়ার করুন' : 'Share on Facebook'}
+                  aria-label="Facebook"
+                >
+                  <FacebookIcon size={14} color="#ffffff" />
+                </button>
+
+                {/* X (Twitter) Share Button */}
+                <button
+                  onClick={handleTwitterShare}
+                  className="pa-circle-btn pa-btn-x"
+                  title={isBn ? 'এক্স-এ শেয়ার করুন' : 'Share on X'}
+                  aria-label="X (Twitter)"
+                >
+                  <i className="fa-brands fa-x-twitter" style={{ fontSize: 13, color: '#ffffff' }}></i>
+                </button>
+
+                {/* Share / WhatsApp Button */}
+                <button
+                  onClick={handleWhatsAppShare}
+                  className="pa-circle-btn pa-btn-share"
+                  title={isBn ? 'হোয়াটসঅ্যাপে শেয়ার করুন' : 'Share on WhatsApp'}
+                  aria-label="Share"
+                >
+                  <Share2 size={13} color="#ffffff" />
+                </button>
+
+                {/* Font Size Toggle Button */}
+                <button
+                  onClick={handleFontToggle}
+                  className="pa-circle-btn pa-btn-font"
+                  title={isBn ? 'হরফের আকার পরিবর্তন করুন' : 'Change Font Size'}
+                  aria-label="Font Size"
+                >
+                  <span>{isBn ? 'অ+' : 'A+'}</span>
+                </button>
+
+                {/* Print Button */}
+                <button
+                  onClick={handlePrint}
+                  className="pa-circle-btn pa-btn-util"
+                  title={isBn ? 'প্রিন্ট করুন' : 'Print Article'}
+                  aria-label="Print"
+                >
+                  <Printer size={14} />
+                </button>
+
+                {/* Bookmark Button */}
+                <button
+                  onClick={handleBookmarkToggle}
+                  className={`pa-circle-btn pa-btn-util ${isBookmarked ? 'pa-bookmarked' : ''}`}
+                  title={isBookmarked ? (isBn ? 'সংরক্ষিত' : 'Saved') : (isBn ? 'সংরক্ষণ করুন' : 'Bookmark')}
+                  aria-label="Bookmark"
+                >
+                  {isBookmarked ? (
+                    <BookmarkCheck size={14} color="var(--primary-red)" />
+                  ) : (
+                    <Bookmark size={14} />
+                  )}
+                </button>
               </div>
             </div>
 
-            {/* Social Share Toolbar */}
-            <div className="article-social-share-bar">
-              <span className="article-share-label">
-                {isBn ? 'শেয়ার করুন:' : 'Share:'}
-              </span>
-              <button
-                onClick={handleFacebookShare}
-                className="article-share-btn share-fb"
-              >
-                <FacebookIcon size={15} color="#fff" />
-                <span>Facebook</span>
-              </button>
-              <button
-                onClick={handleMessengerShare}
-                className="article-share-btn share-msgr"
-                style={{ background: '#0084FF', color: '#fff', border: 'none' }}
-                title="Messenger"
-              >
-                <i className="fa-brands fa-facebook-messenger" style={{ fontSize: 15 }}></i>
-                <span>Messenger</span>
-              </button>
-              <button
-                onClick={handleWhatsAppShare}
-                className="article-share-btn share-wa"
-              >
-                <span>WhatsApp</span>
-              </button>
-              <button
-                onClick={handleCopyLink}
-                className="article-share-btn share-copy"
-              >
-                {copied ? <Check size={15} color="#16A34A" /> : <Copy size={15} />}
-                <span>{copied ? (isBn ? 'কপি হয়েছে!' : 'Link Copied!') : (isBn ? 'লিঙ্ক কপি' : 'Copy Link')}</span>
-              </button>
-              <button
-                onClick={handlePrint}
-                className="article-share-btn share-print"
-                title="Print Article"
-              >
-                <Printer size={15} />
-                <span>{isBn ? 'প্রিন্ট' : 'Print'}</span>
-              </button>
-            </div>
-
-            {/* Large Featured High-Res Image */}
+            {/* Large Featured High-Res Hero Image (Prothom Alo Format) */}
             {currentArticle.imageUrl && (
               <div className="article-featured-image-wrap">
                 <img
@@ -385,9 +478,14 @@ export default function ArticleDetailPage() {
                     }
                   }}
                 />
-                <div className="article-image-caption">
-                  {isBn ? currentArticle.titleBn : currentArticle.titleEn} | ছবি: জনগণ নিউজ
-                </div>
+                <figcaption className="article-image-caption-bar">
+                  <span className="article-image-caption-text">
+                    {isBn ? currentArticle.titleBn : currentArticle.titleEn}
+                  </span>
+                  <span className="article-image-credit">
+                    {isBn ? 'ছবি: সংগ্রহ / জনগণ নিউজ' : 'Photo: Jonogon News'}
+                  </span>
+                </figcaption>
               </div>
             )}
 
@@ -420,8 +518,69 @@ export default function ArticleDetailPage() {
               }}
             />
 
+            {/* Prothom Alo Signature "আরও পড়ুন" (Also Read) Editorial Box */}
+            {alsoReadArticle && (
+              <div
+                className="article-also-read-box"
+                onClick={() => openArticle(alsoReadArticle)}
+                title={isBn ? alsoReadArticle.titleBn : alsoReadArticle.titleEn}
+              >
+                <div className="article-also-read-badge">
+                  {isBn ? 'আরও পড়ুন' : 'Also Read'}
+                </div>
+                <div className="article-also-read-content">
+                  <h4 className="article-also-read-title">
+                    {isBn ? alsoReadArticle.titleBn : alsoReadArticle.titleEn}
+                  </h4>
+                  <div className="article-also-read-date" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Clock size={12} color="var(--primary-red)" />
+                      <span>{isBn ? alsoReadArticle.dateBn : alsoReadArticle.dateEn}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Eye size={12} color="var(--primary-red)" />
+                      <span>{formatViewsBn(alsoReadArticle.views, isBn)}</span>
+                    </div>
+                  </div>
+                </div>
+                {alsoReadArticle.imageUrl && (
+                  <div className="article-also-read-thumb-wrap">
+                    <img
+                      src={alsoReadArticle.imageUrl}
+                      alt=""
+                      className="article-also-read-thumb"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* In-Article Mid Banner Ad */}
             <AdSenseSlot slotId="midContentBanner" customClass="ad-slot-970x90" />
+
+            {/* Prothom Alo Topic Tags Section */}
+            <div className="article-tags-wrapper">
+              <div className="article-tags-header">
+                <Tag size={15} color="var(--primary-red)" />
+                <span>
+                  <strong>{categoryLabel}</strong> {isBn ? 'থেকে আরও পড়ুন:' : 'More Topics:'}
+                </span>
+              </div>
+              <div className="article-tags-list">
+                {articleTags.map((tag, idx) => (
+                  <button
+                    key={idx}
+                    className="article-tag-pill"
+                    onClick={() => {
+                      setActiveCategory(currentArticle.category || 'latest');
+                      goToHome();
+                    }}
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Interactive Reader Comments Section */}
             <div className="article-comments-section">
@@ -520,7 +679,7 @@ export default function ArticleDetailPage() {
               </div>
 
               <div className="article-related-grid">
-                {relatedArticles.map((rel) => (
+                {bottomRelatedArticles.map((rel) => (
                   <article
                     key={rel.id}
                     className="news-card-standard"
@@ -534,9 +693,15 @@ export default function ArticleDetailPage() {
                       <h4 className="news-card-title" style={{ fontSize: '0.98rem' }}>
                         {isBn ? rel.titleBn : rel.titleEn}
                       </h4>
-                      <div className="news-card-date">
-                        <Clock size={12} color="var(--primary-red)" />
-                        <span>{isBn ? rel.dateBn : rel.dateEn}</span>
+                      <div className="news-card-date" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Clock size={12} color="var(--primary-red)" />
+                          <span>{isBn ? rel.dateBn : rel.dateEn}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Eye size={12} color="var(--primary-red)" />
+                          <span>{formatViewsBn(rel.views, isBn)}</span>
+                        </div>
                       </div>
                     </div>
                   </article>
@@ -545,18 +710,70 @@ export default function ArticleDetailPage() {
             </div>
           </article>
 
-          {/* Right Column Sidebar */}
+          {/* Right Column Sidebar (Prothom Alo Anatomy) */}
           <aside className="article-sidebar">
             {/* Top 300x250 Ad */}
-            <AdSenseSlot slotId="leadSidebarAd" customClass="ad-slot-300x250" />
+            <div className="article-sidebar-ad-box">
+              <span className="sidebar-ad-label">{isBn ? 'বিজ্ঞাপন' : 'ADVERTISEMENT'}</span>
+              <AdSenseSlot slotId="leadSidebarAd" customClass="ad-slot-300x250" />
+            </div>
 
-            {/* Most Read 01-05 Ranking Box */}
-            <div className="tabbed-ranking-box" style={{ marginBottom: 24 }}>
+            {/* Prothom Alo: "{categoryLabel} নিয়ে আরও পড়ুন" with Title, Time & Right Thumbnail */}
+            {categoryMoreList.length > 0 && (
+              <div className="article-sidebar-cat-news">
+                <div className="article-sidebar-cat-header">
+                  <h4>{categoryLabel} {isBn ? 'নিয়ে আরও পড়ুন' : 'More News'}</h4>
+                </div>
+                <div className="article-sidebar-cat-list">
+                  {categoryMoreList.map((art) => (
+                    <div
+                      key={art.id}
+                      className="article-sidebar-pa-card"
+                      onClick={() => openArticle(art)}
+                    >
+                      <div className="article-sidebar-pa-body">
+                        <h5 className="article-sidebar-pa-title">
+                          {isBn ? art.titleBn : art.titleEn}
+                        </h5>
+                        <div className="article-card-meta-line" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span className="article-sidebar-pa-time">
+                            {getRelativeTimeBn(art.dateBn || art.dateEn)}
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '0.78rem', color: 'var(--text-light)' }}>
+                            <Eye size={12} color="var(--primary-red)" />
+                            <span>{formatViewsBn(art.views, isBn)}</span>
+                          </span>
+                        </div>
+                      </div>
+                      {art.imageUrl && (
+                        <div className="article-sidebar-pa-thumb-wrap">
+                          <img
+                            src={art.imageUrl}
+                            alt=""
+                            className="article-sidebar-pa-thumb"
+                            onError={(e) => {
+                              const s = e.currentTarget.src || '';
+                              if (s.includes('/uploads/') && !s.includes('uploads_proxy.php')) {
+                                const m = s.match(/uploads\/(.+)$/);
+                                if (m) e.currentTarget.src = `/api/uploads_proxy.php?file=${encodeURIComponent(m[1])}`;
+                              }
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Most Read 01-05 Ranking Box with side images just like "বাংলাদেশ নিয়ে আরও পড়ুন" */}
+            <div className="tabbed-ranking-box" style={{ marginTop: 24, marginBottom: 24 }}>
               <div style={{ padding: '12px 16px', backgroundColor: 'var(--primary-red)', color: 'var(--white)', fontWeight: 700, fontFamily: 'var(--font-headline)', fontSize: '1.05rem' }}>
                 {isBn ? 'সর্বাধিক পঠিত সংবাদ' : 'Most Read Stories'}
               </div>
 
-              <div className="ranking-list">
+              <div className="ranking-list-thumbs">
                 {mostReadList.map((art, idx) => {
                   const numStr = isBn
                     ? String(idx + 1).padStart(2, '0').replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[d])
@@ -565,12 +782,41 @@ export default function ArticleDetailPage() {
                   return (
                     <div
                       key={art.id}
-                      className="ranking-item"
+                      className="article-sidebar-pa-card ranking-pa-item"
                       onClick={() => openArticle(art)}
                       title={isBn ? art.titleBn : art.titleEn}
                     >
-                      <span className="ranking-num">{numStr}</span>
-                      <p className="ranking-title">{isBn ? art.titleBn : art.titleEn}</p>
+                      <span className="ranking-pa-num">{numStr}</span>
+                      <div className="article-sidebar-pa-body">
+                        <h5 className="article-sidebar-pa-title">
+                          {isBn ? art.titleBn : art.titleEn}
+                        </h5>
+                        <div className="article-card-meta-line" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span className="article-sidebar-pa-time">
+                            {getRelativeTimeBn(art.dateBn || art.dateEn)}
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '0.78rem', color: 'var(--text-light)' }}>
+                            <Eye size={12} color="var(--primary-red)" />
+                            <span>{formatViewsBn(art.views, isBn)}</span>
+                          </span>
+                        </div>
+                      </div>
+                      {art.imageUrl && (
+                        <div className="article-sidebar-pa-thumb-wrap">
+                          <img
+                            src={art.imageUrl}
+                            alt=""
+                            className="article-sidebar-pa-thumb"
+                            onError={(e) => {
+                              const s = e.currentTarget.src || '';
+                              if (s.includes('/uploads/') && !s.includes('uploads_proxy.php')) {
+                                const m = s.match(/uploads\/(.+)$/);
+                                if (m) e.currentTarget.src = `/api/uploads_proxy.php?file=${encodeURIComponent(m[1])}`;
+                              }
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}

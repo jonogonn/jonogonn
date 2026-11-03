@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNews } from '../../context/NewsContext';
-import { Play, Volume2, VolumeX, Clock, ArrowRight, X } from 'lucide-react';
+import { Play, Volume2, VolumeX, Clock, ArrowRight, X, Eye } from 'lucide-react';
+import { formatViewsBn } from '../../utils/viewHelper';
 
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
 
@@ -190,8 +191,9 @@ export default function VideoNewsSection() {
             </div>
 
             {/* Duration Tag */}
-            <span className="video-duration-tag">
-              ⏱ {currentVideo?.videoDuration || '০:৩২'}
+            <span className="video-duration-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Clock size={11} />
+              <span>{currentVideo?.videoDuration || '০:৩২'}</span>
             </span>
 
             {/* 10-Second Progress Line */}
@@ -207,10 +209,14 @@ export default function VideoNewsSection() {
             <h3 className="video-player-title">
               {isBn ? (currentVideo?.titleBn || currentVideo?.title || '') : (currentVideo?.titleEn || currentVideo?.titleBn || '')}
             </h3>
-            <div className="video-player-meta">
+            <div className="video-player-meta" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Clock size={13} color="var(--primary-red)" />
                 {isBn ? (currentVideo?.dateBn || '') : (currentVideo?.dateEn || currentVideo?.dateBn || '')}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Eye size={13} color="var(--primary-red)" />
+                {formatViewsBn(currentVideo?.views, isBn)}
               </span>
             </div>
           </div>
@@ -253,8 +259,15 @@ export default function VideoNewsSection() {
                     <h4 className="video-playlist-title">
                       {vTitle}
                     </h4>
-                    <div className="video-playlist-footer">
-                      <span className="playlist-duration">⏱ {vItem.videoDuration || '০:৩২'}</span>
+                    <div className="video-playlist-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                      <span className="playlist-duration" style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                        <Clock size={10} />
+                        <span>{vItem.videoDuration || '০:৩২'}</span>
+                      </span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                        <Eye size={11} color="var(--primary-red)" />
+                        <span>{formatViewsBn(vItem.views, isBn)}</span>
+                      </span>
                     </div>
                   </div>
                 </div>

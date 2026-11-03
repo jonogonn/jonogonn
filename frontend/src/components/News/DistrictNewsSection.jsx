@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNews } from '../../context/NewsContext';
-import { MapPin, Clock, ArrowRight, ChevronDown, Compass, LocateFixed, Loader2, CheckCircle2 } from 'lucide-react';
+import { MapPin, Clock, ArrowRight, ChevronDown, Compass, LocateFixed, Loader2, CheckCircle2, Eye } from 'lucide-react';
 import { bangladeshDistricts, findClosestDistrict } from '../../data/initialData';
+import { formatViewsBn } from '../../utils/viewHelper';
 
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
 
@@ -272,8 +273,9 @@ export default function DistrictNewsSection() {
                   e.target.src = FALLBACK_NEWS_IMG;
                 }}
               />
-              <span className="district-tag-pill">
-                📍 {matchingArticles.length > 0 ? selectedDistrictObj.nameBn : (item.categoryBn || 'সারাদেশ')}
+              <span className="district-tag-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <MapPin size={11} color="var(--primary-red)" />
+                <span>{matchingArticles.length > 0 ? selectedDistrictObj.nameBn : (item.categoryBn || 'সারাদেশ')}</span>
               </span>
             </div>
 
@@ -286,9 +288,15 @@ export default function DistrictNewsSection() {
                   {isBn ? item.excerptBn : item.excerptEn}
                 </p>
               )}
-              <div className="district-card-footer">
-                <Clock size={12} color="var(--primary-red)" />
-                <span>{isBn ? item.dateBn : item.dateEn}</span>
+              <div className="district-card-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Clock size={12} color="var(--primary-red)" />
+                  <span>{isBn ? item.dateBn : item.dateEn}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Eye size={12} color="var(--primary-red)" />
+                  <span>{formatViewsBn(item.views, isBn)}</span>
+                </div>
               </div>
             </div>
           </article>

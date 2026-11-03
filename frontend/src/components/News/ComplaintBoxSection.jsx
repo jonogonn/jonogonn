@@ -32,16 +32,21 @@ export default function ComplaintBoxSection() {
     'https://youtu.be/Hma2pA8rPe0';
 
   const getYoutubeId = (url) => {
-    if (!url) return 'Hma2pA8rPe0';
-    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
-    return match ? match[1] : '';
+    if (!url || typeof url !== 'string') return '';
+    const cleanUrl = url.trim();
+    const match = cleanUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([\w-]{11})/);
+    if (match && match[1]) return match[1];
+    if (/^[\w-]{11}$/.test(cleanUrl)) return cleanUrl;
+    return '';
   };
 
   const ytId = getYoutubeId(rawVideoUrl) || 'Hma2pA8rPe0';
-  const videoPoster =
-    (typeof complaintVideo === 'object' && complaintVideo?.posterUrl)
+  // Prioritize real YouTube thumbnail over hardcoded placeholder
+  const videoPoster = ytId
+    ? `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg`
+    : ((typeof complaintVideo === 'object' && complaintVideo?.posterUrl && complaintVideo.posterUrl !== '/complaint-video-poster.jpg')
       ? complaintVideo.posterUrl
-      : (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : '/complaint-video-poster.jpg');
+      : '/complaint-video-poster.jpg');
   const videoTitle = isBn
     ? ((typeof complaintVideo === 'object' && complaintVideo?.titleBn) || 'জনগণের অভিযোগ ও অনুসন্ধানী প্রতিবেদন')
     : ((typeof complaintVideo === 'object' && complaintVideo?.titleEn) || 'Public Grievance & Investigative Report');
@@ -241,8 +246,14 @@ export default function ComplaintBoxSection() {
             >
               <img
                 src={videoPoster}
-                alt="Bangladesh Investigative Report"
+                alt={videoTitle}
                 className="complaint-video-poster-img"
+                onError={(e) => {
+                  if (ytId && !e.currentTarget.dataset.fallback) {
+                    e.currentTarget.dataset.fallback = '1';
+                    e.currentTarget.src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+                  }
+                }}
               />
               
               {/* Center Play Button with Ripple Animation */}

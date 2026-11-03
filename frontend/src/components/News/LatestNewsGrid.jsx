@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import { useNews } from '../../context/NewsContext';
-import { Clock, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, ArrowRight, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { LatestNewsSkeleton } from '../UI/NewsSkeletonLoader';
+import { formatViewsBn } from '../../utils/viewHelper';
 
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
 
@@ -45,10 +46,14 @@ export default function LatestNewsGrid() {
 
   let displayCards = [];
   if (baseCards.length > 0) {
+    displayCards = baseCards.slice(0, 15);
     while (displayCards.length < 12) {
       displayCards = [...displayCards, ...baseCards];
     }
   }
+
+  // Synchronized scrolling velocity matching Breaking News crawl (~45 px/s)
+  const latestScrollDuration = Math.round((displayCards.length * 296) / 45);
 
   const handleArticleClick = (art) => {
     openArticle(art);
@@ -106,7 +111,7 @@ export default function LatestNewsGrid() {
         ref={scrollContainerRef}
         title={isBn ? 'স্ক্রোল বা মাউস রাখুন' : 'Scroll or hover to pause'}
       >
-        <div className="horizontal-scroll-track scroll-left-to-right">
+        <div className="horizontal-scroll-track scroll-left-to-right" style={{ animationDuration: `${latestScrollDuration}s` }}>
           {/* First Set of Cards */}
           {displayCards.map((item, idx) => (
             <article
@@ -131,9 +136,15 @@ export default function LatestNewsGrid() {
                 <h3 className="news-card-title">
                   {isBn ? item.titleBn : item.titleEn}
                 </h3>
-                <div className="news-card-date">
-                  <Clock size={13} color="var(--primary-red)" />
-                  <span>{isBn ? item.dateBn : item.dateEn}</span>
+                <div className="news-card-date" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Clock size={13} color="var(--primary-red)" />
+                    <span>{isBn ? item.dateBn : item.dateEn}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Eye size={12} color="var(--primary-red)" />
+                    <span>{formatViewsBn(item.views, isBn)}</span>
+                  </div>
                 </div>
               </div>
             </article>
@@ -163,9 +174,15 @@ export default function LatestNewsGrid() {
                 <h3 className="news-card-title">
                   {isBn ? item.titleBn : item.titleEn}
                 </h3>
-                <div className="news-card-date">
-                  <Clock size={13} color="var(--primary-red)" />
-                  <span>{isBn ? item.dateBn : item.dateEn}</span>
+                <div className="news-card-date" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Clock size={13} color="var(--primary-red)" />
+                    <span>{isBn ? item.dateBn : item.dateEn}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Eye size={12} color="var(--primary-red)" />
+                    <span>{formatViewsBn(item.views, isBn)}</span>
+                  </div>
                 </div>
               </div>
             </article>

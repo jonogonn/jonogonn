@@ -204,13 +204,10 @@ export default function WeatherFollowSidebar() {
 
         <div className="follow-buttons-grid">
           {[
-            { key: 'facebook', name: 'Facebook', url: settings?.facebook, Icon: FacebookIcon, bgClass: 'fb-bg', count: socialCounts?.facebook || settings?.facebook_followers || settings?.facebook_count || '248K', actionBn: 'পছন্দ', actionEn: 'Like' },
-            { key: 'youtube', name: 'YouTube', url: settings?.youtube, Icon: YoutubeIcon, bgClass: 'yt-bg', count: socialCounts?.youtube || settings?.youtube_subscribers || settings?.youtube_count || '105K', actionBn: 'সাবস্ক্রাইব', actionEn: 'Subscribe' },
-            { key: 'instagram', name: 'Instagram', url: settings?.instagram, Icon: InstagramIcon, bgClass: 'insta-bg', count: socialCounts?.instagram || settings?.instagram_followers || settings?.instagram_count || '54K', actionBn: 'অনুসরণ', actionEn: 'Follow' },
-            { key: 'tiktok', name: 'TikTok', url: settings?.tiktok, Icon: TikTokIcon, bgClass: 'tiktok-bg', count: socialCounts?.tiktok || settings?.tiktok_followers || settings?.tiktok_count || '89K', actionBn: 'অনুসরণ', actionEn: 'Follow' },
-            { key: 'telegram', name: 'Telegram', url: settings?.telegram, Icon: TelegramIcon, bgClass: 'tg-bg', count: socialCounts?.telegram || settings?.telegram_members || '32K', actionBn: 'যুক্ত হন', actionEn: 'Join' },
-            { key: 'linkedin', name: 'LinkedIn', url: settings?.linkedin, Icon: LinkedInIcon, bgClass: 'linkedin-bg', count: socialCounts?.linkedin || settings?.linkedin_followers || '18K', actionBn: 'কানেক্ট', actionEn: 'Connect' },
-            { key: 'twitter', name: 'X', url: settings?.twitter, Icon: XIcon, bgClass: 'x-bg', count: socialCounts?.twitter || settings?.twitter_followers || '69K', actionBn: 'অনুসরণ', actionEn: 'Follow' }
+            { key: 'facebook', name: 'Facebook', url: settings?.facebook, Icon: FacebookIcon, bgClass: 'fb-bg', count: socialCounts?.facebook ?? '--', actionBn: 'পছন্দ', actionEn: 'Like' },
+            { key: 'youtube', name: 'YouTube', url: settings?.youtube, Icon: YoutubeIcon, bgClass: 'yt-bg', count: socialCounts?.youtube ?? '--', actionBn: 'সাবস্ক্রাইব', actionEn: 'Subscribe' },
+            { key: 'instagram', name: 'Instagram', url: settings?.instagram, Icon: InstagramIcon, bgClass: 'insta-bg', count: socialCounts?.instagram ?? '--', actionBn: 'অনুসরণ', actionEn: 'Follow' },
+            { key: 'twitter', name: 'X', url: settings?.twitter || 'https://x.com/jonogonnews', Icon: XIcon, bgClass: 'x-bg', count: socialCounts?.twitter ?? '--', actionBn: 'অনুসরণ', actionEn: 'Follow' }
           ]
             .filter((item) => Boolean(item.url))
             .slice(0, 4)

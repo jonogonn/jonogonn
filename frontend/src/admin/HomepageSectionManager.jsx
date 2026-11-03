@@ -19,6 +19,7 @@ import {
   Plane,
   MapPin,
   PlaySquare,
+  Flame,
   Mic,
   FolderTree,
   Mail,
@@ -51,6 +52,7 @@ const getSectionIconComponent = (sec) => {
   if (sec.id === 'remittanceFighter') return Plane;
   if (sec.id === 'districtNewsSection') return MapPin;
   if (sec.id === 'videoNewsSection') return PlaySquare;
+  if (sec.id === 'topNewsSection') return Flame;
   if (sec.id === 'podcastSection') return Mic;
   if (sec.masterGroupId === 'international-world') return Globe;
   if (sec.masterGroupId === 'business-economy') return TrendingUp;

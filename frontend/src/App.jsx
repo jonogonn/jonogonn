@@ -11,6 +11,7 @@ import DistrictNewsSection from './components/News/DistrictNewsSection';
 import BangladeshSection from './components/News/BangladeshSection';
 import RemittanceFighter from './components/News/RemittanceFighter';
 import VideoNewsSection from './components/News/VideoNewsSection';
+import TopNewsSection from './components/News/TopNewsSection';
 import CategoryGrids from './components/News/CategoryGrids';
 import SubGroupSections from './components/News/SubGroupSections';
 import ArticleDetailPage from './components/News/ArticleDetailPage';
@@ -33,6 +34,7 @@ import TermsPage from './pages/TermsPage';
 import CategoryPage from './pages/CategoryPage';
 import FounderPage from './pages/FounderPage';
 import TeamPage from './pages/TeamPage';
+import SearchPage from './pages/SearchPage';
 import { defaultHomepageSections } from './data/initialData';
 import { updateSEO } from './services/seoService';
 
@@ -109,6 +111,9 @@ export default function App() {
     if (activePage === 'team') {
       return <TeamPage />;
     }
+    if (activePage === 'search') {
+      return <SearchPage />;
+    }
     if (activePage === 'article' || currentArticle) {
       return <ArticleDetailPage />;
     }
@@ -117,11 +122,32 @@ export default function App() {
     }
 
     // Dynamic Modular Editorial Homepage driven by homepageSections order
-    const effectiveSections = (
+    let effectiveSections = (
       homepageSections && homepageSections.length >= 7
         ? homepageSections
         : defaultHomepageSections
     ).filter((sec) => sec.isVisible !== false);
+
+    // Ensure topNewsSection is placed right after videoNewsSection
+    if (!effectiveSections.some((s) => s.id === 'topNewsSection')) {
+      const vIdx = effectiveSections.findIndex((s) => s.id === 'videoNewsSection');
+      const topNewsMeta = {
+        id: 'topNewsSection',
+        nameBn: 'টপ ১০ নিউজ',
+        nameEn: 'Top 10 News',
+        isVisible: true,
+        type: 'main'
+      };
+      if (vIdx >= 0) {
+        effectiveSections = [
+          ...effectiveSections.slice(0, vIdx + 1),
+          topNewsMeta,
+          ...effectiveSections.slice(vIdx + 1)
+        ];
+      } else {
+        effectiveSections = [...effectiveSections, topNewsMeta];
+      }
+    }
 
     const groupedElements = [];
     let currentSubgroupBatch = [];
@@ -160,6 +186,8 @@ export default function App() {
                 return <DistrictNewsSection key={key} />;
               case 'videoNewsSection':
                 return <VideoNewsSection key={key} />;
+              case 'topNewsSection':
+                return <TopNewsSection key={key} />;
               case 'podcastSection':
                 return <PodcastSection key={key} />;
               default:

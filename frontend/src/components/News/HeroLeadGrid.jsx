@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNews } from '../../context/NewsContext';
-import { Clock, BookOpen, ChevronLeft, ChevronRight, Flame } from 'lucide-react';
+import { Clock, BookOpen, ChevronLeft, ChevronRight, Flame, Eye } from 'lucide-react';
 import AdSenseSlot from '../Ads/AdSenseSlot';
 import { HeroLeadSkeleton } from '../UI/NewsSkeletonLoader';
+import { formatViewsBn } from '../../utils/viewHelper';
 
 const FALLBACK_NEWS_IMG = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=80';
 
@@ -93,13 +94,15 @@ export default function HeroLeadGrid() {
   const newlyPostedFiltered = activeArticleList.filter(
     (a) => (a.id || a.postId || a.db_id) !== currentSlideId
   );
-  const newlyPostedNews = newlyPostedFiltered.length > 0 ? newlyPostedFiltered : activeArticleList;
+  const newlyPostedNews = (newlyPostedFiltered.length > 0 ? newlyPostedFiltered : activeArticleList).slice(0, 12);
+  const newlyPostedDuration = Math.max(36, Math.round((newlyPostedNews.length * 105) / 26));
 
   // 3. Most Read Stories - Sorted by views descending, excludes current lead story
   const mostReadFiltered = [...activeArticleList]
     .filter((a) => (a.id || a.postId || a.db_id) !== currentSlideId)
     .sort((a, b) => (b.views || 0) - (a.views || 0));
-  const mostReadList = mostReadFiltered.length > 0 ? mostReadFiltered : activeArticleList;
+  const mostReadList = (mostReadFiltered.length > 0 ? mostReadFiltered : activeArticleList).slice(0, 12);
+  const mostReadDuration = Math.max(32, Math.round((mostReadList.length * 82) / 26));
 
   // 3-Column dynamic ordering
   const defaultColOrder = ['leadSlider', 'newlyPosted', 'mostRead'];
@@ -189,6 +192,11 @@ export default function HeroLeadGrid() {
                 <BookOpen size={13} color="var(--primary-red)" />
                 <span>{isBn ? currentSlide.readTimeBn || '৪ মিনিট পড়তে' : currentSlide.readTimeEn || '4 min read'}</span>
               </span>
+              <span className="hero-meta-divider">|</span>
+              <span className="hero-meta-item">
+                <Eye size={13} color="var(--primary-red)" />
+                <span>{formatViewsBn(currentSlide.views, isBn)}</span>
+              </span>
             </div>
 
             {/* Slider Dots / Indicators */}
@@ -231,7 +239,7 @@ export default function HeroLeadGrid() {
       </div>
 
       <div className="sub-list-vertical-scroll" title={isBn ? 'স্ক্রোল বা মাউস রাখুন' : 'Scroll or hover'}>
-        <div className="sub-list-vertical-track">
+        <div className="sub-list-vertical-track" style={{ animationDuration: `${newlyPostedDuration}s` }}>
           {newlyPostedNews.map((item) => (
             <article
               key={`sub1-${item.id}`}
@@ -255,9 +263,15 @@ export default function HeroLeadGrid() {
                 <h2 className="sub-lead-title">
                   {isBn ? item.titleBn || item.titleEn : item.titleEn || item.titleBn}
                 </h2>
-                <span className="sub-lead-date">
-                  {isBn ? item.dateBn || item.dateEn : item.dateEn || item.dateBn}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                  <span className="sub-lead-date">
+                    {isBn ? item.dateBn || item.dateEn : item.dateEn || item.dateBn}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '0.78rem', color: 'var(--text-light)' }}>
+                    <Eye size={11} color="var(--primary-red)" />
+                    <span>{formatViewsBn(item.views, isBn)}</span>
+                  </span>
+                </div>
               </div>
             </article>
           ))}
@@ -286,9 +300,15 @@ export default function HeroLeadGrid() {
                 <h2 className="sub-lead-title">
                   {isBn ? item.titleBn || item.titleEn : item.titleEn || item.titleBn}
                 </h2>
-                <span className="sub-lead-date">
-                  {isBn ? item.dateBn || item.dateEn : item.dateEn || item.dateBn}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                  <span className="sub-lead-date">
+                    {isBn ? item.dateBn || item.dateEn : item.dateEn || item.dateBn}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '0.78rem', color: 'var(--text-light)' }}>
+                    <Eye size={11} color="var(--primary-red)" />
+                    <span>{formatViewsBn(item.views, isBn)}</span>
+                  </span>
+                </div>
               </div>
             </article>
           ))}
@@ -310,7 +330,7 @@ export default function HeroLeadGrid() {
         </div>
 
         <div className="most-read-vertical-scroll" title={isBn ? 'স্ক্রোল বা মাউস রাখুন' : 'Scroll or hover'}>
-          <div className="most-read-vertical-track">
+          <div className="most-read-vertical-track" style={{ animationDuration: `${mostReadDuration}s` }}>
             {mostReadList.map((art) => (
               <div
                 key={`mr1-${art.id}`}
@@ -331,11 +351,17 @@ export default function HeroLeadGrid() {
                   <p className="ranking-title">
                     {isBn ? art.titleBn || art.titleEn : art.titleEn || art.titleBn}
                   </p>
-                  <div className="ranking-meta-row">
-                    <span className="ranking-cat-tag">
-                      {isBn ? art.categoryBn || art.category || 'সংবাদ' : art.categoryEn || art.category || 'News'}
+                  <div className="ranking-meta-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span className="ranking-cat-tag">
+                        {isBn ? art.categoryBn || art.category || 'সংবাদ' : art.categoryEn || art.category || 'News'}
+                      </span>
+                      <span className="ranking-date">{isBn ? art.dateBn || art.dateEn : art.dateEn || art.dateBn}</span>
+                    </div>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                      <Eye size={11} color="var(--primary-red)" />
+                      <span>{formatViewsBn(art.views, isBn)}</span>
                     </span>
-                    <span className="ranking-date">{isBn ? art.dateBn || art.dateEn : art.dateEn || art.dateBn}</span>
                   </div>
                 </div>
               </div>
@@ -362,11 +388,17 @@ export default function HeroLeadGrid() {
                   <p className="ranking-title">
                     {isBn ? art.titleBn || art.titleEn : art.titleEn || art.titleBn}
                   </p>
-                  <div className="ranking-meta-row">
-                    <span className="ranking-cat-tag">
-                      {isBn ? art.categoryBn || art.category || 'সংবাদ' : art.categoryEn || art.category || 'News'}
+                  <div className="ranking-meta-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span className="ranking-cat-tag">
+                        {isBn ? art.categoryBn || art.category || 'সংবাদ' : art.categoryEn || art.category || 'News'}
+                      </span>
+                      <span className="ranking-date">{isBn ? art.dateBn || art.dateEn : art.dateEn || art.dateBn}</span>
+                    </div>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                      <Eye size={11} color="var(--primary-red)" />
+                      <span>{formatViewsBn(art.views, isBn)}</span>
                     </span>
-                    <span className="ranking-date">{isBn ? art.dateBn || art.dateEn : art.dateEn || art.dateBn}</span>
                   </div>
                 </div>
               </div>

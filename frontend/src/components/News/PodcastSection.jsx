@@ -16,8 +16,10 @@ import {
   Radio,
   Rocket,
   HeartHandshake,
-  Layers
+  Layers,
+  Eye
 } from 'lucide-react';
+import { formatViewsBn } from '../../utils/viewHelper';
 
 const FALLBACK_POD_THUMB = 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=600&q=80';
 
@@ -107,6 +109,9 @@ export default function PodcastSection() {
       displayPodcasts = [...filteredPodcasts];
     }
   }
+
+  // Synchronized scrolling velocity matching Breaking News crawl (~45 px/s)
+  const podcastDuration = Math.round(((displayPodcasts.length || 12) * 296) / 45);
 
   const handleManualScroll = (direction) => {
     if (scrollContainerRef.current) {
@@ -233,7 +238,7 @@ export default function PodcastSection() {
           ref={scrollContainerRef}
           title={isBn ? 'পডকাস্ট দেখতে ক্লিক করুন' : 'Click to watch podcast'}
         >
-          <div className="horizontal-scroll-track scroll-right-to-left">
+          <div className="horizontal-scroll-track scroll-right-to-left" style={{ animationDuration: `${podcastDuration}s` }}>
             {/* First Set */}
             {displayPodcasts.map((pod, idx) => (
               <div
@@ -280,9 +285,15 @@ export default function PodcastSection() {
                 </div>
 
                 <div className="podcast-body">
-                  <div className="podcast-host-tag">
-                    <User size={12} style={{ marginRight: 4 }} />
-                    <span>{isBn ? pod.hostBn || 'জনগণ পডকাস্ট' : pod.hostEn || 'Jonogon Podcast'}</span>
+                  <div className="podcast-host-tag" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <User size={12} style={{ marginRight: 4 }} />
+                      <span>{isBn ? pod.hostBn || 'জনগণ পডকাস্ট' : pod.hostEn || 'Jonogon Podcast'}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                      <Eye size={11} color="var(--primary-red)" />
+                      <span>{formatViewsBn(pod.views || pod.listens, isBn)}</span>
+                    </div>
                   </div>
                   <h3 className="podcast-title">
                     {isBn ? pod.titleBn : pod.titleEn}
@@ -342,9 +353,15 @@ export default function PodcastSection() {
                 </div>
 
                 <div className="podcast-body">
-                  <div className="podcast-host-tag">
-                    <User size={12} style={{ marginRight: 4 }} />
-                    <span>{isBn ? pod.hostBn || 'জনগণ পডকাস্ট' : pod.hostEn || 'Jonogon Podcast'}</span>
+                  <div className="podcast-host-tag" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <User size={12} style={{ marginRight: 4 }} />
+                      <span>{isBn ? pod.hostBn || 'জনগণ পডকাস্ট' : pod.hostEn || 'Jonogon Podcast'}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                      <Eye size={11} color="var(--primary-red)" />
+                      <span>{formatViewsBn(pod.views || pod.listens, isBn)}</span>
+                    </div>
                   </div>
                   <h3 className="podcast-title">
                     {isBn ? pod.titleBn : pod.titleEn}

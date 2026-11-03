@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNews } from '../../context/NewsContext';
-import { ArrowRight, Clock } from 'lucide-react';
+import { ArrowRight, Clock, Eye } from 'lucide-react';
+import { formatViewsBn } from '../../utils/viewHelper';
 
 export default function CategoryGrids() {
   const { language, articles, openArticle, setActiveCategory } = useNews();
@@ -113,9 +114,15 @@ export default function CategoryGrids() {
                 <h4 className="cat-block-title" style={{ fontFamily: 'var(--font-editorial)', fontStyle: 'italic', fontSize: '1.05rem' }}>
                   "{isBn ? article.titleBn : article.titleEn}"
                 </h4>
-                <div style={{ marginTop: 'auto', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Clock size={12} color="var(--primary-red)" />
-                  <span>{isBn ? article.dateBn : article.dateEn}</span>
+                <div style={{ marginTop: 'auto', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Clock size={12} color="var(--primary-red)" />
+                    <span>{isBn ? article.dateBn : article.dateEn}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Eye size={12} color="var(--primary-red)" />
+                    <span>{formatViewsBn(article.views, isBn)}</span>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -134,9 +141,15 @@ export default function CategoryGrids() {
                 <h4 className="cat-block-title">
                   {isBn ? article.titleBn : article.titleEn}
                 </h4>
-                <div style={{ marginTop: 'auto', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Clock size={12} color="var(--primary-red)" />
-                  <span>{isBn ? article.dateBn : article.dateEn}</span>
+                <div style={{ marginTop: 'auto', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Clock size={12} color="var(--primary-red)" />
+                    <span>{isBn ? article.dateBn : article.dateEn}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Eye size={12} color="var(--primary-red)" />
+                    <span>{formatViewsBn(article.views, isBn)}</span>
+                  </div>
                 </div>
               </div>
             )}
