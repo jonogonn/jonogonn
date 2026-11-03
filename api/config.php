@@ -1,6 +1,6 @@
 <?php
 /**
- * Janogon News - Global Production Configuration
+ * Janogon News (জনগণ.নিউজ) - Global Production Configuration
  * Configured with live cPanel MariaDB and Backblaze B2 credentials.
  */
 
@@ -23,10 +23,13 @@ define('DB_BACKUP_USER', getenv('DB_BACKUP_USER') ?: 'jonogonn_admin_backup');
 define('DB_BACKUP_PASS', getenv('DB_BACKUP_PASSWORD') ?: (getenv('DB_BACKUP_PASS') ?: 'Jg#Db!2026@X7pL9'));
 
 // -------------------------------------------------------------
-// SECURE HTTPS REPLICA SYNC (Zero Port 3306 / Zero Leakage)
+// SECURE BI-DIRECTIONAL HTTPS SYNC (Zero Port 3306 / Zero Leakage)
 // -------------------------------------------------------------
-define('REPLICA_SYNC_ENDPOINT', getenv('REPLICA_SYNC_ENDPOINT') ?: 'https://backup.jonogon.news/api/webhook_sync.php');
 define('REPLICA_SYNC_SECRET', getenv('REPLICA_SYNC_SECRET') ?: 'JgSec_89f41b26d06b4240da5140e159a2026');
+
+// Both origin targets defined directly:
+define('HOSTING_1_IP', '188.40.132.89');
+define('HOSTING_2_IP', '198.23.142.82');
 
 // -------------------------------------------------------------
 // 3. BACKBLAZE B2 CLOUD STORAGE (Media Assets: jonogon.news)
@@ -46,18 +49,14 @@ define('B2_BACKUP_BUCKET_ID', getenv('STORAGE_BACKUP_BUCKET_ID') ?: '0f41b26d06b
 define('B2_BACKUP_BUCKET_FALLBACK', 'jonogon.news.backup');
 
 // -------------------------------------------------------------
-// 3. CDN & IMAGE BASE URL
+// 5. CDN & IMAGE BASE URL
 // -------------------------------------------------------------
-// CDN for ultra-fast WebP image delivery
 define('CDN_BASE_URL', getenv('CDN_BASE_URL') ?: 'https://cdn.jonogon.news');
 
-// All images stored directly in Backblaze B2 (Zero local uploads)
-
 // -------------------------------------------------------------
-// 4. RESEND TRANSACTIONAL EMAIL CONFIGURATION
+// 6. RESEND TRANSACTIONAL EMAIL CONFIGURATION
 // -------------------------------------------------------------
 $resendLocalKeyFile = __DIR__ . '/.resend_key';
 $resendLocalKey = file_exists($resendLocalKeyFile) ? trim((string)@file_get_contents($resendLocalKeyFile)) : '';
 define('RESEND_API_KEY', getenv('RESEND_API_KEY') ?: $resendLocalKey);
 define('RESEND_FROM_EMAIL', getenv('RESEND_FROM_EMAIL') ?: 'Jonogon News <noreply@jonogon.news>');
-

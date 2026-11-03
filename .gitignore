@@ -60,3 +60,8 @@ desktop.ini
 .social_cache.json
 api/.social_cache.json
 frontend/public/api/.social_cache.json
+
+
+# Cloudflare Worker Scripts (Security & Failover Secrets)
+cloudflare-worker-failover.js
+*worker*.js

@@ -310,6 +310,17 @@ if ($method === 'POST') {
                     $stmt->execute([$k, $jsonVal]);
                 }
             }
+
+            // Bi-Directional Real-Time Relay to Peer Server
+            try {
+                if (file_exists(__DIR__ . '/sync_relay.php')) {
+                    require_once __DIR__ . '/sync_relay.php';
+                    if (function_exists('sendSyncWebhookToReplica')) {
+                        sendSyncWebhookToReplica('save_settings_batch', is_array($data) ? $data : []);
+                    }
+                }
+            } catch (Exception $relayEx) {}
+
             echo json_encode(['success' => true, 'message' => 'সাইট সেটিংস MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
             exit;
         }
@@ -343,6 +354,16 @@ if ($method === 'POST') {
                 $secStmt->execute([$secId, $titleBn, $titleBn, $titleEn, $titleEn, $visible, $idx, $layout, $configJson]);
             }
             $pdo->commit();
+
+            // Bi-Directional Real-Time Relay to Peer Server
+            try {
+                if (file_exists(__DIR__ . '/sync_relay.php')) {
+                    require_once __DIR__ . '/sync_relay.php';
+                    if (function_exists('sendSyncWebhookToReplica')) {
+                        sendSyncWebhookToReplica('save_sections', is_array($data) ? $data : []);
+                    }
+                }
+            } catch (Exception $relayEx) {}
 
             echo json_encode(['success' => true, 'message' => 'হোমপেজ লেআউট সেকশনগুলো MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
             exit;
@@ -397,6 +418,16 @@ if ($method === 'POST') {
                     $catStmt->execute([$slug, $name, $nameBn, $nameEn, $grpId, $grpBn, $grpEn, $order, $navVisible]);
                 }
             }
+
+            // Bi-Directional Real-Time Relay to Peer Server
+            try {
+                if (file_exists(__DIR__ . '/sync_relay.php')) {
+                    require_once __DIR__ . '/sync_relay.php';
+                    if (function_exists('sendSyncWebhookToReplica')) {
+                        sendSyncWebhookToReplica('save_categories', is_array($data) ? $data : []);
+                    }
+                }
+            } catch (Exception $relayEx) {}
 
             echo json_encode(['success' => true, 'message' => 'ক্যাটাগরি ও মেনু ডাটা MariaDB-তে সংরক্ষিত হয়েছে।']);
             exit;
@@ -542,6 +573,16 @@ if ($method === 'POST') {
                 }
             }
 
+            // Bi-Directional Real-Time Relay to Peer Server
+            try {
+                if (file_exists(__DIR__ . '/sync_relay.php')) {
+                    require_once __DIR__ . '/sync_relay.php';
+                    if (function_exists('sendSyncWebhookToReplica')) {
+                        sendSyncWebhookToReplica('save_podcasts', is_array($data) ? $data : []);
+                    }
+                }
+            } catch (Exception $relayEx) {}
+
             echo json_encode(['success' => true, 'message' => 'পডকাস্ট ডাটা MariaDB podcasts টেবিলে সফলভাবে সংরক্ষিত হয়েছে।'], JSON_UNESCAPED_UNICODE);
             exit;
         }
@@ -597,6 +638,17 @@ if ($method === 'POST') {
                     ]);
                 }
             }
+
+            // Bi-Directional Real-Time Relay to Peer Server
+            try {
+                if (file_exists(__DIR__ . '/sync_relay.php')) {
+                    require_once __DIR__ . '/sync_relay.php';
+                    if (function_exists('sendSyncWebhookToReplica')) {
+                        sendSyncWebhookToReplica('save_video_news', is_array($data) ? $data : []);
+                    }
+                }
+            } catch (Exception $relayEx) {}
+
             echo json_encode(['success' => true, 'message' => 'ভিডিও সংবাদ MariaDB-তে সংরক্ষণ করা হয়েছে।'], JSON_UNESCAPED_UNICODE);
             exit;
         }
@@ -676,6 +728,16 @@ if ($method === 'POST') {
                     $cleanStmt->execute($syncedIds);
                 }
             }
+
+            // Bi-Directional Real-Time Relay to Peer Server
+            try {
+                if (file_exists(__DIR__ . '/sync_relay.php')) {
+                    require_once __DIR__ . '/sync_relay.php';
+                    if (function_exists('sendSyncWebhookToReplica')) {
+                        sendSyncWebhookToReplica('save_emergency', is_array($data) ? $data : []);
+                    }
+                }
+            } catch (Exception $relayEx) {}
 
             echo json_encode(['success' => true, 'message' => 'জরুরি সেবা ডাটা MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।'], JSON_UNESCAPED_UNICODE);
             exit;
@@ -758,6 +820,17 @@ if ($method === 'POST') {
                     ]);
                 }
             }
+
+            // Bi-Directional Real-Time Relay to Peer Server
+            try {
+                if (file_exists(__DIR__ . '/sync_relay.php')) {
+                    require_once __DIR__ . '/sync_relay.php';
+                    if (function_exists('sendSyncWebhookToReplica')) {
+                        sendSyncWebhookToReplica('save_ads', is_array($data) ? $data : []);
+                    }
+                }
+            } catch (Exception $relayEx) {}
+
             echo json_encode(['success' => true, 'message' => 'বিজ্ঞাপন কনফিগারেশন MariaDB-তে সফলভাবে সংরক্ষিত হয়েছে।']);
             exit;
         }
