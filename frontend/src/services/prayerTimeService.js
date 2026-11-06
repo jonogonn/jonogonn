@@ -1,9 +1,12 @@
 /**
  * Prayer Time & Holiday Utility for Jonogon News
- * Calculates accurate 5 Waqt prayer times, Sahri, Iftar, and Bangladesh Govt Holidays
+ * Synchronized with Muslims Day (Karachi Method, Hanafi Madhab, Asia/Dhaka)
+ * Calculates accurate 5 Waqt prayer times, Sahri, Iftar, Sunrise, and Bangladesh Govt Holidays
  */
 
+import { Coordinates, CalculationMethod, Madhab, PrayerTimes } from 'adhan';
 import { toBengaliNumerals } from './weatherService';
+import { bangladeshDistricts } from '../data/initialData';
 
 export const BANGLADESH_GOVT_HOLIDAYS = [
   { nameBn: 'শহীদ দিবস ও আন্তর্জাতিক মাতৃভাষা দিবস', nameEn: 'International Mother Language Day', month: 2, day: 21, typeBn: 'জাতীয় দিবস', typeEn: 'National Day' },
@@ -61,36 +64,191 @@ export function getNextGovtHoliday() {
   return nextHoliday;
 }
 
+// Map districts to geographic coordinates
+const districtCoordsMap = {};
+if (bangladeshDistricts && Array.isArray(bangladeshDistricts)) {
+  for (const div of bangladeshDistricts) {
+    if (div.districts) {
+      for (const d of div.districts) {
+        districtCoordsMap[d.id] = { lat: d.lat, lng: d.lng };
+      }
+    }
+  }
+}
+
+// In-flight background fetch tracker to prevent duplicate HTTP calls
+const pendingMonthlyFetches = new Set();
+
 /**
- * Approximate prayer times calculation for Bangladesh based on solar position & district
+ * Background fetch to sync exact monthly schedule from Muslims Day API proxy
+ */
+function syncMuslimsDayMonthInBackground(districtId, year, month) {
+  if (typeof window === 'undefined') return;
+
+  const cacheKey = `janogon_prayer_times_${districtId}_${year}_${month}`;
+  if (pendingMonthlyFetches.has(cacheKey)) return;
+
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed && Array.isArray(parsed.days) && parsed.days.length > 0) {
+        return; // Valid monthly cache already present
+      }
+    }
+  } catch (e) {
+    // Continue fetch on cache error
+  }
+
+  pendingMonthlyFetches.add(cacheKey);
+
+  const apiEndpoint = (typeof window !== 'undefined' && window.location.pathname.startsWith('/janogon'))
+    ? `/janogon/api/prayer_times.php?city=${encodeURIComponent(districtId)}&year=${year}&month=${month}`
+    : `/api/prayer_times.php?city=${encodeURIComponent(districtId)}&year=${year}&month=${month}`;
+
+  fetch(apiEndpoint)
+    .then((res) => {
+      if (!res.ok) throw new Error('Proxy network response was not ok');
+      return res.json();
+    })
+    .then((data) => {
+      if (data && Array.isArray(data.days) && data.days.length > 0) {
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(data));
+          window.dispatchEvent(new CustomEvent('prayer-times-synced', { detail: { districtId, year, month } }));
+        } catch (storageErr) {
+          // Ignore localStorage quota errors
+        }
+      }
+    })
+    .catch(() => {
+      // Graceful fallback to astronomical calculation
+    })
+    .finally(() => {
+      pendingMonthlyFetches.delete(cacheKey);
+    });
+}
+
+/**
+ * Format hours and minutes to 12-hour AM/PM format (Bengali & English)
+ */
+function formatTime12(h, m) {
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const hStr = h12 < 10 ? `0${h12}` : `${h12}`;
+  const mStr = m < 10 ? `0${m}` : `${m}`;
+  const timeEn = `${hStr}:${mStr} ${period}`;
+  const timeBn = `${toBengaliNumerals(hStr)}:${toBengaliNumerals(mStr)} ${period}`;
+  return { timeBn, timeEn, rawMinutes: h * 60 + m };
+}
+
+/**
+ * Calculate accurate prayer times matching Muslims Day (Karachi + Hanafi + Asia/Dhaka)
+ * Uses cached Muslims Day API data when available, and astronomical adhan engine as instant offline fallback.
  */
 export function calculatePrayerTimes(districtId = 'dhaka') {
   const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
   const hour = now.getHours();
   const minute = now.getMinutes();
   const currentMinutes = hour * 60 + minute;
 
-  // Base Dhaka Prayer Times in 24h (hours * 60 + mins)
-  // Standard Bangladesh October schedule
-  const baseTimes = {
-    fajr: { h: 4, m: 36, nameBn: 'ফজর', nameEn: 'Fajr', icon: 'moon' },
-    sunrise: { h: 5, m: 50, nameBn: 'সূর্যোদয়', nameEn: 'Sunrise', icon: 'sun' },
-    dhuhr: { h: 11, m: 49, nameBn: 'যোহর', nameEn: 'Dhuhr', icon: 'sun' },
-    asr: { h: 15, m: 12, nameBn: 'আসর', nameEn: 'Asr', icon: 'cloud-sun' },
-    maghrib: { h: 17, m: 46, nameBn: 'মাগরিব', nameEn: 'Maghrib', icon: 'moon' },
-    isha: { h: 19, m: 1, nameBn: 'ইশা', nameEn: 'Isha', icon: 'moon' },
-    sahri: { h: 4, m: 32, nameBn: 'সেহরি শেষ', nameEn: 'Sahri Ends', icon: 'moon' },
-    iftar: { h: 17, m: 47, nameBn: 'ইফতার', nameEn: 'Iftar', icon: 'sun' }
-  };
+  // Background sync for Muslims Day API
+  syncMuslimsDayMonthInBackground(districtId, year, month);
 
-  const formatTime12 = (h, m, isBn = true) => {
-    const period = h >= 12 ? (isBn ? 'PM' : 'PM') : (isBn ? 'AM' : 'AM');
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    const hStr = h12 < 10 ? `0${h12}` : `${h12}`;
-    const mStr = m < 10 ? `0${m}` : `${m}`;
-    const timeEn = `${hStr}:${mStr} ${period}`;
-    const timeBn = `${toBengaliNumerals(hStr)}:${toBengaliNumerals(mStr)} ${period}`;
-    return { timeBn, timeEn, rawMinutes: h * 60 + m };
+  // Retrieve coordinates (Default: Dhaka 23.8103, 90.4125)
+  const coordsInfo = districtCoordsMap[districtId] || { lat: 23.8103, lng: 90.4125 };
+  const coordinates = new Coordinates(coordsInfo.lat, coordsInfo.lng);
+
+  // Configure Karachi Calculation Method & Hanafi Madhab
+  const params = CalculationMethod.Karachi();
+  params.madhab = Madhab.Hanafi;
+  // Calibration adjustments to strictly mirror Muslims Day astronomical tables
+  params.adjustments.fajr = -1;
+  params.adjustments.dhuhr = 3;
+  params.adjustments.asr = 1;
+
+  const adhanTimes = new PrayerTimes(coordinates, now, params);
+
+  // Default times computed via adhan
+  let fajrH = adhanTimes.fajr.getHours();
+  let fajrM = adhanTimes.fajr.getMinutes();
+
+  let dhuhrH = adhanTimes.dhuhr.getHours();
+  let dhuhrM = adhanTimes.dhuhr.getMinutes();
+
+  let asrH = adhanTimes.asr.getHours();
+  let asrM = adhanTimes.asr.getMinutes();
+
+  let maghribH = adhanTimes.maghrib.getHours();
+  let maghribM = adhanTimes.maghrib.getMinutes();
+
+  let ishaH = adhanTimes.isha.getHours();
+  let ishaM = adhanTimes.isha.getMinutes();
+
+  let sunriseH = adhanTimes.sunrise.getHours();
+  let sunriseM = adhanTimes.sunrise.getMinutes();
+
+  // Check localStorage for Muslims Day exact day schedule
+  if (typeof window !== 'undefined') {
+    try {
+      const cacheKey = `janogon_prayer_times_${districtId}_${year}_${month}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && Array.isArray(parsed.days)) {
+          const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const todaySchedule = parsed.days.find((d) => d.date === dateStr);
+          if (todaySchedule) {
+            if (todaySchedule.fajr) {
+              const [h, m] = todaySchedule.fajr.split(':').map(Number);
+              fajrH = h; fajrM = m;
+            }
+            if (todaySchedule.dhuhr) {
+              const [h, m] = todaySchedule.dhuhr.split(':').map(Number);
+              dhuhrH = h; dhuhrM = m;
+            }
+            if (todaySchedule.asr) {
+              const [h, m] = todaySchedule.asr.split(':').map(Number);
+              asrH = h; asrM = m;
+            }
+            if (todaySchedule.maghrib) {
+              const [h, m] = todaySchedule.maghrib.split(':').map(Number);
+              maghribH = h; maghribM = m;
+            }
+            if (todaySchedule.isha) {
+              const [h, m] = todaySchedule.isha.split(':').map(Number);
+              ishaH = h; ishaM = m;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Fallback already assigned
+    }
+  }
+
+  // Sahri ends 5 minutes prior to Fajr start
+  const fajrTotalMin = fajrH * 60 + fajrM;
+  const sahriTotalMin = (fajrTotalMin - 5 + 1440) % 1440;
+  const sahriH = Math.floor(sahriTotalMin / 60);
+  const sahriM = sahriTotalMin % 60;
+
+  // Iftar time is exactly Maghrib start
+  const iftarH = maghribH;
+  const iftarM = maghribM;
+
+  const baseTimes = {
+    fajr: { h: fajrH, m: fajrM, nameBn: 'ফজর', nameEn: 'Fajr', icon: 'moon' },
+    sunrise: { h: sunriseH, m: sunriseM, nameBn: 'সূর্যোদয়', nameEn: 'Sunrise', icon: 'sun' },
+    dhuhr: { h: dhuhrH, m: dhuhrM, nameBn: 'যোহর', nameEn: 'Dhuhr', icon: 'sun' },
+    asr: { h: asrH, m: asrM, nameBn: 'আসর', nameEn: 'Asr', icon: 'cloud-sun' },
+    maghrib: { h: maghribH, m: maghribM, nameBn: 'মাগরিব', nameEn: 'Maghrib', icon: 'moon' },
+    isha: { h: ishaH, m: ishaM, nameBn: 'ইশা', nameEn: 'Isha', icon: 'moon' },
+    sahri: { h: sahriH, m: sahriM, nameBn: 'সেহরি শেষ', nameEn: 'Sahri Ends', icon: 'moon' },
+    iftar: { h: iftarH, m: iftarM, nameBn: 'ইফতার', nameEn: 'Iftar', icon: 'sun' }
   };
 
   const list = [
@@ -101,23 +259,19 @@ export function calculatePrayerTimes(districtId = 'dhaka') {
     { id: 'isha', ...baseTimes.isha, ...formatTime12(baseTimes.isha.h, baseTimes.isha.m) }
   ];
 
-  // Find Next Prayer Waqt
-  let nextWaqt = list[0]; // default tomorrow's Fajr
-  let isTomorrow = false;
-
+  // Determine current/next active prayer waqt
+  let nextWaqt = list[0]; // defaults to next day's Fajr
   for (const p of list) {
     if (p.rawMinutes > currentMinutes) {
       nextWaqt = p;
-      isTomorrow = false;
       break;
     }
   }
 
-  // Calculate minutes remaining
+  // Calculate countdown minutes remaining
   let diffMinutes = nextWaqt.rawMinutes - currentMinutes;
   if (diffMinutes < 0) {
-    diffMinutes += 24 * 60; // next day fajr
-    isTomorrow = true;
+    diffMinutes += 24 * 60; // Next day Fajr cycle
   }
 
   const hoursRemaining = Math.floor(diffMinutes / 60);

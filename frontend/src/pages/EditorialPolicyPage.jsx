@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNews } from '../context/NewsContext';
 import { updateSEO } from '../services/seoService';
+import SEOHead from '../components/SEO/SEOHead';
 import {
   FileText,
   ShieldCheck,
@@ -33,6 +34,14 @@ export default function EditorialPolicyPage() {
 
   return (
     <div className="standalone-page-container" style={{ padding: '24px 0 60px 0' }}>
+      <SEOHead
+        title={isBn ? 'সম্পাদকীয় ও নৈতিকতা নীতি — সত্যতা যাচাই ও সাংবাদিকতার মানদণ্ড' : 'Editorial Policy & Code of Ethics — Journalism Standards'}
+        description={isBn
+          ? 'জনগণ.নিউজ (Jonogon News)-এর সম্পাদকীয় নীতি, ফ্যাক্ট-চেকিং প্রটোকল, সূত্র সুরক্ষা, সংশোধন নীতি ও পেশাদার সাংবাদিকতার আচরণবিধি।'
+          : 'Editorial guidelines, verification procedures, corrections policy, and journalistic ethics at Jonogon News.'}
+        url="https://jonogon.news/editorial-policy"
+        type="website"
+      />
       <div className="container">
         {/* Breadcrumb */}
         <nav className="page-breadcrumb" aria-label="Breadcrumb">

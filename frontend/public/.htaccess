@@ -13,15 +13,19 @@
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteRule ^(?:janogon/)?uploads/(.+)$ /api/uploads_proxy.php?file=$1 [QSA,L]
 
-  # 3. Allow direct access to real existing files and folders (e.g. assets, existing images)
+  # 3. Dynamic XML Sitemap Handlers (Google News 48h & Full Archive)
+  RewriteRule ^(?:.*/)?sitemap-news\.xml$ /sitemap.php?type=news [QSA,L]
+  RewriteRule ^(?:.*/)?sitemap\.xml$ /sitemap.php?type=main [QSA,L]
+
+  # 4. Allow direct access to real existing files and folders (e.g. assets, existing images, robots.txt)
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # 4. Dynamic Social Previews & Fast Hydration for News articles (Facebook, WhatsApp, Messenger, etc.)
+  # 5. Dynamic Social Previews & Fast Hydration for News articles (Facebook, WhatsApp, Messenger, etc.)
   RewriteRule ^(?:.*/)?(news|article|p)/([^/]+)/?$ /share.php?slug=$2 [QSA,L]
 
-  # 5. Route all other requests to index.html for React SPA (if index.html exists)
+  # 6. Route all other requests to index.html for React SPA (if index.html exists)
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule ^ index.html [L]

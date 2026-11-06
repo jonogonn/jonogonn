@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNews } from '../context/NewsContext';
 import { updateSEO } from '../services/seoService';
+import SEOHead from '../components/SEO/SEOHead';
 import {
   Megaphone,
   DollarSign,
@@ -69,6 +70,14 @@ export default function AdvertisementPage() {
 
   return (
     <div className="standalone-page-container" style={{ padding: '24px 0 60px 0' }}>
+      <SEOHead
+        title={isBn ? 'বিজ্ঞাপন ও দরপত্র — রেট কার্ড ও স্লট পরিচিতি' : 'Advertisement & Tenders — Ad Rates & Media Kit'}
+        description={isBn
+          ? 'জনগণ.নিউজ (Jonogon News)-এ বিজ্ঞাপন প্রচার ও দরপত্র প্রকাশের নিয়মাবলী, স্লট সাইজ, মূল্যতালিকা ও বাণিজ্যিক যোগাযোগ।'
+          : 'Advertise on Jonogon News — banner placements, sponsored articles, tenders, and competitive digital ad rates.'}
+        url="https://jonogon.news/advertisement"
+        type="website"
+      />
       <div className="container">
         {/* Breadcrumb Navigation */}
         <nav className="page-breadcrumb" aria-label="Breadcrumb">

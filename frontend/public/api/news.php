@@ -503,6 +503,14 @@ if ($method === 'DELETE' || ($method === 'POST' && in_array($deleteAction, ['del
             }
         } catch (Exception $b2Ex) {}
 
+        // Invalidate cached sitemaps so search engines receive instant updates
+        try {
+            $sNews = dirname(__DIR__) . '/sitemap-news.xml';
+            $sMain = dirname(__DIR__) . '/sitemap.xml';
+            if (file_exists($sNews)) @unlink($sNews);
+            if (file_exists($sMain)) @unlink($sMain);
+        } catch (Throwable $sitemapEx) {}
+
         echo json_encode([
             'success' => true,
             'message' => 'পোস্টটি MariaDB থেকে মুছে ফেলা হয়েছে।'
@@ -746,7 +754,13 @@ if ($method === 'POST') {
             }
         } catch (Exception $relayEx) {}
 
-
+        // Invalidate cached sitemaps so search engines receive instant updates
+        try {
+            $sNews = dirname(__DIR__) . '/sitemap-news.xml';
+            $sMain = dirname(__DIR__) . '/sitemap.xml';
+            if (file_exists($sNews)) @unlink($sNews);
+            if (file_exists($sMain)) @unlink($sMain);
+        } catch (Throwable $sitemapEx) {}
 
         echo json_encode([
             'success' => true,

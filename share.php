@@ -33,7 +33,7 @@ if (!empty($identifier)) {
         header('Content-Type: text/html; charset=utf-8');
 
         if (!empty($pdo)) {
-            $stmt = $pdo->prepare("SELECT `id`, `post_id`, `slug`, `title_bn`, `title_en`, `kicker`, `subtitle`, `excerpt_bn`, `excerpt_en`, `category_id`, `category_bn`, `featured_image`, `author`, `published_at`, `created_at`, `views`, `status` FROM `news_posts` WHERE (`id` = ? OR `post_id` = ? OR `slug` = ?) LIMIT 1");
+            $stmt = $pdo->prepare("SELECT `id`, `post_id`, `slug`, `title_bn`, `title_en`, `kicker`, `subtitle`, `excerpt_bn`, `excerpt_en`, `category_id`, `category_bn`, `featured_image`, `author`, `published_at`, `created_at`, `updated_at`, `views`, `status` FROM `news_posts` WHERE (`id` = ? OR `post_id` = ? OR `slug` = ?) LIMIT 1");
             $stmt->execute([$identifier, $identifier, $identifier]);
             $found = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($found && ($found['status'] === 'approved' || $found['status'] === 'published' || empty($found['status']))) {
@@ -97,15 +97,76 @@ if (!empty($rawImg)) {
 }
 $imageUrlAttr = htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8');
 
+// Standard Production Canonical Origin (Guarantees https://jonogon.news across all environments)
+$productionOrigin = 'https://jonogon.news';
+
 // Short Canonical URL (e.g. https://jonogon.news/news/28)
 $canonicalId = $article['id'] ?: ($article['post_id'] ?: $identifier);
-$canonicalUrl = rtrim($origin, '/') . '/news/' . $canonicalId;
+$canonicalUrl = $productionOrigin . '/news/' . $canonicalId;
 $canonicalUrlAttr = htmlspecialchars($canonicalUrl, ENT_QUOTES, 'UTF-8');
 
-$siteName = 'জনগণ.নিউজ | Jonogon News';
-$publishedTime = !empty($article['published_at']) ? date('c', strtotime($article['published_at'])) : date('c');
+$siteName = 'জনগণ.নিউজ';
+$publishedTime = !empty($article['published_at']) ? date('c', strtotime($article['published_at'])) : (!empty($article['created_at']) ? date('c', strtotime($article['created_at'])) : date('c'));
+$modifiedTime = !empty($article['updated_at']) ? date('c', strtotime($article['updated_at'])) : $publishedTime;
+$authorName = !empty($article['author']) ? trim($article['author']) : 'জনগণ নিউজ ডেস্ক';
+$authorNameAttr = htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8');
+$articleSection = !empty($article['category_bn']) ? trim($article['category_bn']) : 'জাতীয়';
+$articleSectionAttr = htmlspecialchars($articleSection, ENT_QUOTES, 'UTF-8');
 
-// 6. Build High-Priority Open Graph & Twitter Meta Block
+// Ensure image is at least 1200px wide
+if (strpos($imageUrl, 'unsplash.com') !== false) {
+    if (strpos($imageUrl, 'w=') !== false) {
+        $imageUrl = preg_replace('/w=\d+/', 'w=1200', $imageUrl);
+    } else {
+        $imageUrl .= (strpos($imageUrl, '?') !== false ? '&' : '?') . 'w=1200&h=675&fit=crop&q=85';
+    }
+    $imageUrlAttr = htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8');
+}
+
+// 6. Build Schema.org NewsArticle Structured Data (Google News & Search)
+$schemaData = [
+    '@context' => 'https://schema.org',
+    '@type' => 'NewsArticle',
+    'mainEntityOfPage' => [
+        '@type' => 'WebPage',
+        '@id' => $canonicalUrl
+    ],
+    'headline' => $cleanTitle,
+    'description' => $cleanDesc,
+    'image' => [
+        '@type' => 'ImageObject',
+        'url' => $imageUrl,
+        'width' => 1200,
+        'height' => 675
+    ],
+    'datePublished' => $publishedTime,
+    'dateModified' => $modifiedTime,
+    'author' => [
+        [
+            '@type' => 'Person',
+            'name' => $authorName,
+            'url' => $productionOrigin . '/team'
+        ]
+    ],
+    'publisher' => [
+        '@type' => 'NewsMediaOrganization',
+        'name' => 'জনগণ.নিউজ',
+        'alternateName' => 'Jonogon News',
+        'url' => $productionOrigin,
+        'logo' => [
+            '@type' => 'ImageObject',
+            'url' => $productionOrigin . '/logo.png',
+            'width' => 600,
+            'height' => 60
+        ]
+    ],
+    'articleSection' => $articleSection,
+    'inLanguage' => 'bn-BD'
+];
+
+$schemaJson = json_encode($schemaData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+
+// 7. Build High-Priority Open Graph & Twitter Meta Block
 $metaTags = "
     <!-- Dynamic Open Graph Meta Tags (Facebook, Messenger, WhatsApp) -->
     <title>{$cleanTitleAttr} | {$siteName}</title>
@@ -120,11 +181,14 @@ $metaTags = "
     <meta property=\"og:image\" content=\"{$imageUrlAttr}\" />
     <meta property=\"og:image:secure_url\" content=\"{$imageUrlAttr}\" />
     <meta property=\"og:image:width\" content=\"1200\" />
-    <meta property=\"og:image:height\" content=\"630\" />
+    <meta property=\"og:image:height\" content=\"675\" />
     <meta property=\"og:image:alt\" content=\"{$cleanTitleAttr}\" />
     <meta property=\"og:site_name\" content=\"{$siteName}\" />
     <meta property=\"og:locale\" content=\"bn_BD\" />
     <meta property=\"article:published_time\" content=\"{$publishedTime}\" />
+    <meta property=\"article:modified_time\" content=\"{$modifiedTime}\" />
+    <meta property=\"article:author\" content=\"{$authorNameAttr}\" />
+    <meta property=\"article:section\" content=\"{$articleSectionAttr}\" />
 
     <!-- Twitter Card Meta Tags -->
     <meta name=\"twitter:card\" content=\"summary_large_image\" />
@@ -132,6 +196,11 @@ $metaTags = "
     <meta name=\"twitter:title\" content=\"{$cleanTitleAttr}\" />
     <meta name=\"twitter:description\" content=\"{$cleanDescAttr}\" />
     <meta name=\"twitter:image\" content=\"{$imageUrlAttr}\" />
+
+    <!-- Schema.org NewsArticle Structured Data (Google News, Search & Rich Results) -->
+    <script type=\"application/ld+json\" id=\"newsarticle-structured-data\">
+{$schemaJson}
+    </script>
 
     <!-- Preloaded Initial Article for 0ms Instant Client Render -->
     <script>

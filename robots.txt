@@ -1,0 +1,77 @@
+# ==============================================================================
+# Robots.txt for Jonogon News (jonogon.news)
+# Production Crawl & Indexation Directives for Search Engines
+# ==============================================================================
+
+User-agent: *
+Allow: /
+Allow: /assets/
+Allow: /uploads/
+Allow: /news/
+Allow: /category/
+Allow: /search
+Allow: /about
+Allow: /contact
+Allow: /editorial-policy
+Allow: /privacy-policy
+Allow: /terms
+Allow: /advertisement
+Allow: /founder
+Allow: /team
+
+# Disallow administrative dashboard and backend modules
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /backend/
+
+# Disallow authentication, password recovery, and token parameters
+Disallow: /*?*type=signup*
+Disallow: /*?*type=recovery*
+Disallow: /*?*code=*
+Disallow: /*?*access_token=*
+
+# Disallow raw database, backup, configuration, and log files
+Disallow: /*.json$
+Disallow: /*.sql$
+Disallow: /*.env$
+Disallow: /*.log$
+Disallow: /*.md$
+
+# Specific directives for Googlebot
+User-agent: Googlebot
+Allow: /
+Allow: /assets/
+Allow: /uploads/
+Allow: /news/
+Allow: /category/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /backend/
+
+# Specific directives for Googlebot-News
+User-agent: Googlebot-News
+Allow: /
+Allow: /news/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /backend/
+
+# Specific directives for Bingbot
+User-agent: Bingbot
+Allow: /
+Allow: /assets/
+Allow: /uploads/
+Allow: /news/
+Allow: /category/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /backend/
+
+# Canonical Host and Sitemap declaration
+Host: https://jonogon.news
+Sitemap: https://jonogon.news/sitemap.xml
+Sitemap: https://jonogon.news/sitemap-news.xml

@@ -3,6 +3,7 @@ import { useNews } from '../context/NewsContext';
 import { updateSEO } from '../services/seoService';
 import { bangladeshDistricts } from '../data/initialData';
 import AdSenseSlot from '../components/Ads/AdSenseSlot';
+import SEOHead from '../components/SEO/SEOHead';
 
 // Search Scope Definition with FontAwesome vector icons (strictly NO emojis)
 const SCOPE_OPTIONS = [
@@ -482,8 +483,21 @@ export default function SearchPage() {
 
   const activeScopeObj = SCOPE_OPTIONS.find((o) => o.id === searchScope) || SCOPE_OPTIONS[0];
 
+  const searchTitle = keyword.trim()
+    ? (isBn ? `"${keyword}" — সংবাদ অনুসন্ধান | জনগণ.নিউজ` : `Search: "${keyword}" — Jonogon News`)
+    : (isBn ? 'সংবাদ অনুসন্ধান ও বিস্তারিত ফিল্টার | জনগণ.নিউজ' : 'Advanced News Search & Filter | Jonogon News');
+  const searchDesc = isBn
+    ? 'জনগণ.নিউজ-এর সকল বিভাগের সংবাদ তাৎক্ষণিক অনুসন্ধান ও নির্দিষ্ট ফিল্টারিং করুন।'
+    : 'Search and filter verified news across all categories on Jonogon News.';
+
   return (
     <div className="search-page-wrapper" style={{ padding: '24px 0 60px 0', minHeight: '80vh' }}>
+      <SEOHead
+        title={searchTitle}
+        description={searchDesc}
+        url="https://jonogon.news/search"
+        type="website"
+      />
       <div className="container">
         {/* 1. Breadcrumb Navigation */}
         <nav className="page-breadcrumb" aria-label="Breadcrumb" style={{ marginBottom: 16 }}>

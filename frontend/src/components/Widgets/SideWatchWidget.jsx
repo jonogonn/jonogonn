@@ -282,7 +282,7 @@ export default function SideWatchWidget() {
               <div className="next-prayer-banner">
                 <div className="next-prayer-banner-info">
                   <span className="banner-tag">
-                    {isBn ? 'পরবর্তী ওয়াক্ত' : 'Next Prayer'}
+                    {isBn ? 'পরবর্তী ওয়াক্ত শুরু' : 'Next Prayer'}
                   </span>
                   <h4 className="banner-waqt-name">
                     {isBn ? prayerData.nextWaqt.nameBn : prayerData.nextWaqt.nameEn}
@@ -300,7 +300,7 @@ export default function SideWatchWidget() {
               {/* 5 Waqt Prayer Times Grid */}
               <div className="prayer-times-section">
                 <h4 className="flyout-section-heading">
-                  {isBn ? 'আজকের ৫ ওয়াক্ত নামাজের সময়' : 'Today’s 5 Waqt Prayer Times'}
+                  {isBn ? 'আজকের সালাতের সময়সূচী' : 'Today’s Prayer Times'}
                 </h4>
                 <div className="prayer-times-grid">
                   {prayerData.prayers.map((p) => {

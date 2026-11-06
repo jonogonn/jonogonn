@@ -14,7 +14,6 @@ import VideoNewsSection from './components/News/VideoNewsSection';
 import TopNewsSection from './components/News/TopNewsSection';
 import CategoryGrids from './components/News/CategoryGrids';
 import SubGroupSections from './components/News/SubGroupSections';
-import ArticleDetailPage from './components/News/ArticleDetailPage';
 import AdSenseSlot from './components/Ads/AdSenseSlot';
 import SlidingAdBanners from './components/Ads/SlidingAdBanners';
 import NewsletterRibbon from './components/Newsletter/NewsletterRibbon';
@@ -24,19 +23,39 @@ import PolicyModal from './components/Modals/PolicyModal';
 import WebsiteLoadPopup from './components/Modals/WebsiteLoadPopup';
 import ScrollToTop from './components/UI/ScrollToTop';
 import SideWatchWidget from './components/Widgets/SideWatchWidget';
-import AdminDashboard from './admin/AdminDashboard';
-import AboutPage from './pages/AboutPage';
-import AdvertisementPage from './pages/AdvertisementPage';
-import ContactPage from './pages/ContactPage';
-import EditorialPolicyPage from './pages/EditorialPolicyPage';
-import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
-import TermsPage from './pages/TermsPage';
-import CategoryPage from './pages/CategoryPage';
-import FounderPage from './pages/FounderPage';
-import TeamPage from './pages/TeamPage';
-import SearchPage from './pages/SearchPage';
 import { defaultHomepageSections } from './data/initialData';
 import { updateSEO } from './services/seoService';
+import SEOHead from './components/SEO/SEOHead';
+
+// Lazy loaded routes & modules (code splitting for light initial visitor payload)
+const AdminDashboard = React.lazy(() => import('./admin/AdminDashboard'));
+const ArticleDetailPage = React.lazy(() => import('./components/News/ArticleDetailPage'));
+const CategoryPage = React.lazy(() => import('./pages/CategoryPage'));
+const SearchPage = React.lazy(() => import('./pages/SearchPage'));
+const AboutPage = React.lazy(() => import('./pages/AboutPage'));
+const AdvertisementPage = React.lazy(() => import('./pages/AdvertisementPage'));
+const ContactPage = React.lazy(() => import('./pages/ContactPage'));
+const EditorialPolicyPage = React.lazy(() => import('./pages/EditorialPolicyPage'));
+const PrivacyPolicyPage = React.lazy(() => import('./pages/PrivacyPolicyPage'));
+const TermsPage = React.lazy(() => import('./pages/TermsPage'));
+const FounderPage = React.lazy(() => import('./pages/FounderPage'));
+const TeamPage = React.lazy(() => import('./pages/TeamPage'));
+
+// Sleek loading fallback for lazy loaded routes
+const PageLoadingFallback = () => (
+  <div style={{ minHeight: '55vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 0' }}>
+    <div
+      style={{
+        width: 36,
+        height: 36,
+        border: '3px solid rgba(220, 38, 38, 0.15)',
+        borderTopColor: '#c8102e',
+        borderRadius: '50%',
+        animation: 'spin 0.7s linear infinite'
+      }}
+    />
+  </div>
+);
 
 export default function App() {
   const {
@@ -82,7 +101,11 @@ export default function App() {
       window.location.search.includes('code='));
 
   if (isAdminOpen || activePage === 'admin' || isDirectAdminUrl) {
-    return <AdminDashboard />;
+    return (
+      <React.Suspense fallback={<PageLoadingFallback />}>
+        <AdminDashboard />
+      </React.Suspense>
+    );
   }
 
   // Determine which view to render based on active route
@@ -236,6 +259,23 @@ export default function App() {
 
   return (
     <>
+      {activePage === 'home' && (
+        <SEOHead
+          title={
+            isBn
+              ? `${settings.siteNameBn || 'জনগণ.নিউজ'} — ${settings.sloganBn || 'জনতার কণ্ঠস্বর'}`
+              : `Jonogon News — ${settings.sloganEn || 'Voice of the People'}`
+          }
+          description={
+            isBn
+              ? 'জনগণের পক্ষে সত্য ও বস্তুনিষ্ঠ সংবাদের বিশ্বস্ত ঠিকানা। দেশ-বিদেশের ব্রেকিং নিউজ, রাজনীতি, বাণিজ্য, খেলা ও বিনোদনের তাজা খবর।'
+              : 'Your trusted digital source for verified, objective, and timely journalism standing for the people of Bangladesh.'
+          }
+          url="https://jonogon.news/"
+          type="website"
+        />
+      )}
+
       {/* Top Sliding Ad Banner (Slides down when site opens) */}
       <SlidingAdBanners />
 
@@ -254,7 +294,9 @@ export default function App() {
         <BreakingTicker />
 
         {/* Dynamic Page Router */}
-        {renderMainContent()}
+        <React.Suspense fallback={<PageLoadingFallback />}>
+          {renderMainContent()}
+        </React.Suspense>
 
         {/* Newsletter Subscription Ribbon */}
         <NewsletterRibbon />

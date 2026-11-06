@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNews } from '../context/NewsContext';
 import { updateSEO } from '../services/seoService';
+import SEOHead from '../components/SEO/SEOHead';
 import {
   Shield,
   Lock,
@@ -32,6 +33,14 @@ export default function PrivacyPolicyPage() {
 
   return (
     <div className="standalone-page-container" style={{ padding: '24px 0 60px 0' }}>
+      <SEOHead
+        title={isBn ? 'গোপনীয়তা নীতি — পাঠক ডেটা ও তথ্য সুরক্ষা' : 'Privacy Policy — User Data & Digital Security'}
+        description={isBn
+          ? 'জনগণ.নিউজ (Jonogon News)-এর গোপনীয়তা নীতি, কুকিজ ব্যবহার, Google AdSense পার্টনার পলিসি ও পাঠক তথ্যের শতভাগ নিরাপত্তা নির্দেশিকা।'
+          : 'Privacy policy at Jonogon News — comprehensive data security, cookies, advertising disclosures, and reader rights.'}
+        url="https://jonogon.news/privacy"
+        type="website"
+      />
       <div className="container">
         {/* Breadcrumb */}
         <nav className="page-breadcrumb" aria-label="Breadcrumb">

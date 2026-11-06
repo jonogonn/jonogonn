@@ -3,6 +3,7 @@ import { useNews } from '../context/NewsContext';
 import { supabase } from '../supabase';
 import { updateSEO } from '../services/seoService';
 import { fetchModuleFromMariaDb } from '../utils/mariaDbSync';
+import SEOHead from '../components/SEO/SEOHead';
 import {
   Users,
   ChevronRight,
@@ -256,6 +257,20 @@ export default function TeamPage() {
 
   return (
     <div className="standalone-page-container" style={{ padding: '24px 0 70px 0', minHeight: '80vh' }}>
+      <SEOHead
+        title={
+          isBn
+            ? 'আমাদের সম্পাদকীয় ও রিপোর্টিং টিম — সাংবাদিক পরিচিতি'
+            : 'Editorial & Reporting Team — Jonogon News Journalists'
+        }
+        description={
+          isBn
+            ? 'জনগণ.নিউজ-এর বস্তুনিষ্ঠ ও সত্যনিষ্ঠ সংবাদ পরিবেশনে নিয়োজিত সম্পাদক, প্রতিবেদক ও সাংবাদিক মণ্ডলী।'
+            : 'Meet the dedicated journalists, editors and reporters of Jonogon News upholding independent news.'
+        }
+        url="https://jonogon.news/team"
+        type="profile"
+      />
       <div className="container">
         {/* Breadcrumb Navigation */}
         <nav className="page-breadcrumb" aria-label="Breadcrumb">

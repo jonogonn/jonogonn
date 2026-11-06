@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { useNews } from '../context/NewsContext';
 import { updateSEO } from '../services/seoService';
+import SEOHead from '../components/SEO/SEOHead';
 import {
   Clock,
   ChevronRight,
@@ -142,8 +143,29 @@ export default function CategoryPage() {
     });
   }, [activeCategory, activeCategoryObj, isBn]);
 
+  const catName = isBn ? activeCategoryObj?.nameBn || activeCategory : activeCategoryObj?.nameEn || activeCategory;
+  const catSlug = activeCategoryObj?.slug || activeCategory;
+  const pageTitle = `${catName} সংবাদ ও সর্বশেষ খবর`;
+  const pageDesc = isBn
+    ? `${catName} সম্পর্কিত দেশ-বিদেশের ব্রেকিং নিউজ, বিশেষ প্রতিবেদন ও সর্বশেষ খবর পড়ুন জনগণ.নিউজ-এ।`
+    : `Read latest ${catName} news, updates, and in-depth reports on Jonogon News.`;
+  const pageUrl = `https://jonogon.news/category/${catSlug}`;
+
   return (
     <div className="category-page-container" style={{ padding: '20px 0 50px 0' }}>
+      <SEOHead
+        title={pageTitle}
+        description={pageDesc}
+        url={pageUrl}
+        type="website"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'CollectionPage',
+          name: `${catName} সংবাদ`,
+          description: `Latest news and updates about ${catName}`,
+          url: pageUrl
+        }}
+      />
       <div className="container">
         {/* 1. Breadcrumbs */}
         <nav className="page-breadcrumb" aria-label="Breadcrumb">

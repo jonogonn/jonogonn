@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNews } from '../context/NewsContext';
 import { updateSEO } from '../services/seoService';
+import SEOHead from '../components/SEO/SEOHead';
 import {
   PhoneCall,
   Mail,
@@ -60,6 +61,14 @@ export default function ContactPage() {
 
   return (
     <div className="standalone-page-container" style={{ padding: '24px 0 60px 0' }}>
+      <SEOHead
+        title={isBn ? 'যোগাযোগ — সম্পাদকীয় ডেস্ক ও বার্তা বিভাগ' : 'Contact Us — Newsroom & Editorial Desk'}
+        description={isBn
+          ? 'জনগণ.নিউজ (Jonogon News)-এর সম্পাদকীয় দপ্তর, বিজ্ঞাপন বিভাগ ও বার্তা কক্ষে যোগাযোগের ঠিকানা ও ফোন নম্বর।'
+          : 'Get in touch with Jonogon News editorial desk, advertising team, and newsroom reporters.'}
+        url="https://jonogon.news/contact"
+        type="website"
+      />
       <div className="container">
         {/* Breadcrumb Navigation */}
         <nav className="page-breadcrumb" aria-label="Breadcrumb">

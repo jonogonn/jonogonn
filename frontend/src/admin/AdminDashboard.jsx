@@ -57,28 +57,47 @@ import {
   Inbox
 } from 'lucide-react';
 import { uploadImageToStorage } from '../utils/imageUploader';
-import MainMenuManager from './MainMenuManager';
-import HomepageSectionManager from './HomepageSectionManager';
-import GlobalSettingsManager from './GlobalSettingsManager';
-import CreatePostManager from './CreatePostManager';
-import EditPostManager from './EditPostManager';
-import ApprovePostManager from './ApprovePostManager';
-import PublishPostManager from './PublishPostManager';
-import SetupAccessManager from './SetupAccessManager';
-import MediaGalleryManager from './MediaGalleryManager';
-import DatabaseBackupManager from './DatabaseBackupManager';
-import UserProfileManager from './UserProfileManager';
-import NewsCardMakerManager from './NewsCardMakerManager';
 import AdminNotificationDropdown from './AdminNotificationDropdown';
 import AdminLoginScreen from './AdminLoginScreen';
-import AdsManager from './AdsManager';
-import VideoNewsManager from './VideoNewsManager';
-import TopNewsManager from './TopNewsManager';
-import ComplaintsManager from './ComplaintsManager';
-import CommentsManager from './CommentsManager';
 import ConfirmModal from '../components/Modals/ConfirmModal';
 import { getPodcastThumbnail } from '../components/News/PodcastSection';
 import { syncModuleToMariaDb } from '../utils/mariaDbSync';
+
+// Lazy loaded heavy admin modules (Code splitting for Media Gallery, News Card Maker, and CMS managers)
+const MainMenuManager = React.lazy(() => import('./MainMenuManager'));
+const HomepageSectionManager = React.lazy(() => import('./HomepageSectionManager'));
+const GlobalSettingsManager = React.lazy(() => import('./GlobalSettingsManager'));
+const CreatePostManager = React.lazy(() => import('./CreatePostManager'));
+const EditPostManager = React.lazy(() => import('./EditPostManager'));
+const ApprovePostManager = React.lazy(() => import('./ApprovePostManager'));
+const PublishPostManager = React.lazy(() => import('./PublishPostManager'));
+const SetupAccessManager = React.lazy(() => import('./SetupAccessManager'));
+const MediaGalleryManager = React.lazy(() => import('./MediaGalleryManager'));
+const DatabaseBackupManager = React.lazy(() => import('./DatabaseBackupManager'));
+const UserProfileManager = React.lazy(() => import('./UserProfileManager'));
+const NewsCardMakerManager = React.lazy(() => import('./NewsCardMakerManager'));
+const AdsManager = React.lazy(() => import('./AdsManager'));
+const VideoNewsManager = React.lazy(() => import('./VideoNewsManager'));
+const TopNewsManager = React.lazy(() => import('./TopNewsManager'));
+const ComplaintsManager = React.lazy(() => import('./ComplaintsManager'));
+const CommentsManager = React.lazy(() => import('./CommentsManager'));
+
+// Sleek tab fallback indicator
+const AdminTabLoadingFallback = () => (
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 320, gap: 14 }}>
+    <div
+      style={{
+        width: 32,
+        height: 32,
+        border: '3px solid rgba(220, 38, 38, 0.15)',
+        borderTopColor: 'var(--primary-red, #dc2626)',
+        borderRadius: '50%',
+        animation: 'spin 0.7s linear infinite'
+      }}
+    />
+    <span style={{ fontSize: '0.82rem', color: 'var(--admin-text-muted, #64748b)' }}>Loading module...</span>
+  </div>
+);
 
 // Clean bracketed numbers from emergency service name e.g. "জাতীয় জরুরি সেবা (৯৯৯)" -> "জাতীয় জরুরি সেবা"
 const cleanServiceName = (name) => {
@@ -1503,6 +1522,7 @@ export default function AdminDashboard() {
 
         {/* --- TAB CONTENT BODY --- */}
         <div className="admin-content-body" style={{ padding: '24px 28px', flex: 1 }}>
+          <React.Suspense fallback={<AdminTabLoadingFallback />}>
           {/* TAB 1: OVERVIEW (Matching Screenshot UI) */}
           {activeTab === 'overview' && (
             <div className="admin-overview-container">
@@ -3039,6 +3059,7 @@ export default function AdminDashboard() {
           {activeTab === 'setup-access' && (
             <SetupAccessManager triggerSaveToast={triggerSaveToast} />
           )}
+          </React.Suspense>
         </div>
       </main>
 

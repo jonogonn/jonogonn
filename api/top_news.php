@@ -468,4 +468,3 @@ if ($method === 'POST') {
         exit;
     }
 }
-

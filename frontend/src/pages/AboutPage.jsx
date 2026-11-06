@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNews } from '../context/NewsContext';
 import { updateSEO } from '../services/seoService';
+import SEOHead from '../components/SEO/SEOHead';
 import {
   Users,
   Award,
@@ -33,6 +34,14 @@ export default function AboutPage() {
 
   return (
     <div className="standalone-page-container" style={{ padding: '24px 0 60px 0' }}>
+      <SEOHead
+        title={isBn ? 'আমাদের সম্পর্কে — প্রতিষ্ঠান পরিচিতি ও লক্ষ্য' : 'About Us — Mission & Editorial Board'}
+        description={isBn
+          ? 'জনগণ.নিউজ (Jonogon News) — বস্তুনিষ্ঠ সাংবাদিকতা ও জনতার কণ্ঠস্বর। আমাদের ইতিহাস, উদ্দেশ্য ও সম্পাদকীয় নীতিমালা।'
+          : 'About Jonogon News — truthful journalism standing with the people of Bangladesh and beyond.'}
+        url="https://jonogon.news/about"
+        type="website"
+      />
       <div className="container">
         {/* Breadcrumb Navigation */}
         <nav className="page-breadcrumb" aria-label="Breadcrumb">

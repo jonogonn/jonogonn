@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNews } from '../context/NewsContext';
 import { updateSEO } from '../services/seoService';
+import SEOHead from '../components/SEO/SEOHead';
 import {
   FileText,
   AlertCircle,
@@ -31,6 +32,14 @@ export default function TermsPage() {
 
   return (
     <div className="standalone-page-container" style={{ padding: '24px 0 60px 0' }}>
+      <SEOHead
+        title={isBn ? 'ব্যবহারের শর্তাবলী ও আইনি নীতিমালা — কপিরাইট ও দায়মুক্তি' : 'Terms & Conditions — Copyright & Legal Disclaimers'}
+        description={isBn
+          ? 'জনগণ.নিউজ (Jonogon News) ব্যবহারের নিয়মাবলী, বাংলাদেশ কপিরাইট আইন, স্ক্র্যাপিং নিষেধাজ্ঞা, কমেন্ট নীতিমালা ও আইনি নির্দেশিকা।'
+          : 'Terms of service and legal conditions governing the access, copyright compliance, and usage of Jonogon News portal.'}
+        url="https://jonogon.news/terms"
+        type="website"
+      />
       <div className="container">
         {/* Breadcrumb */}
         <nav className="page-breadcrumb" aria-label="Breadcrumb">

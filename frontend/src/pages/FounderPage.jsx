@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNews } from '../context/NewsContext';
 import { updateSEO } from '../services/seoService';
+import SEOHead from '../components/SEO/SEOHead';
 import {
   User,
   Award,
@@ -104,6 +105,20 @@ export default function FounderPage() {
 
   return (
     <div className="standalone-page-container" style={{ padding: '24px 0 60px 0' }}>
+      <SEOHead
+        title={
+          isBn
+            ? 'মোঃ বিপ্লব হোসেন — স্বত্বাধিকারী ও সম্পাদক, জনগণ.নিউজ'
+            : 'Md. Biplob Hossain — Owner & Editor, Jonogon News'
+        }
+        description={
+          isBn
+            ? 'জনগণ.নিউজ-এর স্বত্বাধিকারী ও সম্পাদক এবং Brand By Biplob-এর প্রতিষ্ঠাতা ও সিইও মোঃ বিপ্লব হোসেনের পরিচিতি, পেশাগত দর্শন ও ডিজিটাল উদ্ভাবন।'
+            : 'Official profile of Md. Biplob Hossain, Owner & Editor of Jonogon News and Founder & CEO of Brand By Biplob.'
+        }
+        url="https://jonogon.news/founder"
+        type="website"
+      />
       <div className="container">
         {/* Breadcrumb Navigation */}
         <nav className="page-breadcrumb" aria-label="Breadcrumb">
