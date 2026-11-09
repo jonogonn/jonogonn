@@ -21,6 +21,7 @@ import ComplaintBoxSection from './components/News/ComplaintBoxSection';
 import Footer from './components/Footer/Footer';
 import PolicyModal from './components/Modals/PolicyModal';
 import WebsiteLoadPopup from './components/Modals/WebsiteLoadPopup';
+import PushSubscribeModal from './components/Modals/PushSubscribeModal';
 import ScrollToTop from './components/UI/ScrollToTop';
 import SideWatchWidget from './components/Widgets/SideWatchWidget';
 import { defaultHomepageSections } from './data/initialData';
@@ -313,6 +314,9 @@ export default function App() {
 
       {/* Website On-Load Dynamic Popup Modal */}
       <WebsiteLoadPopup />
+
+      {/* Push Notification Auto-Prompt Modal with Backdrop Blur */}
+      <PushSubscribeModal />
 
       {/* Floating Bottom to Top Button */}
       <ScrollToTop />
