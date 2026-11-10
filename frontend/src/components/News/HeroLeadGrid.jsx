@@ -129,6 +129,8 @@ export default function HeroLeadGrid() {
               alt=""
               className="hero-main-image hero-unique-slide-anim"
               loading="eager"
+              fetchPriority="high"
+              decoding="async"
               onError={safeImgError}
             />
 
@@ -179,56 +181,56 @@ export default function HeroLeadGrid() {
                   {isBn ? currentSlide.excerptBn || currentSlide.excerptEn : currentSlide.excerptEn || currentSlide.excerptBn}
                 </p>
               )}
-          </div>
-
-          <div className="hero-main-bottom-row">
-            <div className="hero-main-meta">
-              <span className="hero-meta-item">
-                <Clock size={13} color="var(--primary-red)" />
-                <span>{isBn ? currentSlide.dateBn || currentSlide.dateEn : currentSlide.dateEn || currentSlide.dateBn}</span>
-              </span>
-              <span className="hero-meta-divider">|</span>
-              <span className="hero-meta-item">
-                <BookOpen size={13} color="var(--primary-red)" />
-                <span>{isBn ? currentSlide.readTimeBn || '৪ মিনিট পড়তে' : currentSlide.readTimeEn || '4 min read'}</span>
-              </span>
-              <span className="hero-meta-divider">|</span>
-              <span className="hero-meta-item">
-                <Eye size={13} color="var(--primary-red)" />
-                <span>{formatViewsBn(currentSlide.views, isBn)}</span>
-              </span>
             </div>
 
-            {/* Slider Dots / Indicators */}
-            {sliderItems.length > 1 && (
-              <div className="hero-slider-dots" onClick={(e) => e.stopPropagation()}>
-                {sliderItems.map((item, idx) => (
-                  <button
-                    key={item.id || idx}
-                    className={`slider-dot ${idx === slideIndex ? 'active' : ''}`}
-                    onClick={() => {
-                      setSlideIndex(idx);
-                      setSlideProgress(0);
-                    }}
-                    aria-label={`Go to slide ${idx + 1}`}
-                  />
-                ))}
+            <div className="hero-main-bottom-row">
+              <div className="hero-main-meta">
+                <span className="hero-meta-item">
+                  <Clock size={13} color="var(--primary-red)" />
+                  <span>{isBn ? currentSlide.dateBn || currentSlide.dateEn : currentSlide.dateEn || currentSlide.dateBn}</span>
+                </span>
+                <span className="hero-meta-divider">|</span>
+                <span className="hero-meta-item">
+                  <BookOpen size={13} color="var(--primary-red)" />
+                  <span>{isBn ? currentSlide.readTimeBn || '৪ মিনিট পড়তে' : currentSlide.readTimeEn || '4 min read'}</span>
+                </span>
+                <span className="hero-meta-divider">|</span>
+                <span className="hero-meta-item">
+                  <Eye size={13} color="var(--primary-red)" />
+                  <span>{formatViewsBn(currentSlide.views, isBn)}</span>
+                </span>
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* Real-time Slide Countdown Progress Line */}
-        <div className="hero-slide-progress-track">
-          <div
-            className="hero-slide-progress-bar"
-            style={{ width: `${slideProgress}%` }}
-          />
-        </div>
-      </article>
-    </div>
-  );
-};
+              {/* Slider Dots / Indicators */}
+              {sliderItems.length > 1 && (
+                <div className="hero-slider-dots" onClick={(e) => e.stopPropagation()}>
+                  {sliderItems.map((item, idx) => (
+                    <button
+                      key={item.id || idx}
+                      className={`slider-dot ${idx === slideIndex ? 'active' : ''}`}
+                      onClick={() => {
+                        setSlideIndex(idx);
+                        setSlideProgress(0);
+                      }}
+                      aria-label={`Go to slide ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Real-time Slide Countdown Progress Line */}
+          <div className="hero-slide-progress-track">
+            <div
+              className="hero-slide-progress-bar"
+              style={{ width: `${slideProgress}%` }}
+            />
+          </div>
+        </article>
+      </div>
+    );
+  };
 
   const renderNewlyPosted = () => (
     <div key="newlyPosted" className="hero-sub-list-container">
